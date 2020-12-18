@@ -1,9 +1,11 @@
-#include "../include/logger.h"
+#include "../include/capture.h"
 #include <cstdio>
 #include <string> // for strings
+#include <thread>
 
 int main(int argc, char **argv) {
-  homemadecam::logger::info("试试看！");
-  homemadecam::logger::info("我再试试看！");
+  homemadecam::capture_begin("./video/", homemadecam::codec::H264, 3 * 60);
+  std::this_thread::sleep_for(std::chrono::seconds(15));
+  homemadecam::capture_end();
   return 0;
 }
