@@ -1,0 +1,6 @@
+{
+    "resolution": "1280*720",
+    "file-size": "400M",
+    "save-location": "./video",
+    "codec": "h265"
+}
