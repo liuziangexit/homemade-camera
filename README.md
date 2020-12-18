@@ -4,8 +4,7 @@
 
 ```
 {
-    "resolution": "1280*720",     //分辨率。 宽x高
-    "file-size": "400M",          //每个视频文件的大小。xxx[K/M/G]
+    "duration": "300",              //单个视频文件持续时间（秒）
     "save-location": "./video",   //存放视频文件的目录
     "codec": "h265"               //视频编码。可选h265或h264
 }

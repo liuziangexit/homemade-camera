@@ -13,7 +13,7 @@
                 "isDefault": true
             },
             "options": {
-                "cwd": "${workspaceFolder}/tools"
+                "cwd": "${workspaceFolder}"
             }
         }
     ]
