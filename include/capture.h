@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <time.h>
 
 namespace homemadecam {
 enum codec { H264, H265 };
@@ -22,7 +23,7 @@ int fourcc(codec c) {
 
 // 0-未开始,1-开始,2-要求结束
 std::atomic<uint32_t> flag(0);
-void capture_begin(const std::string &save_directory, codec codec,
+void capture_begin(const std::string &save_directory, codec c,
                    uint32_t duration) {
   {
     uint32_t expect = 0;
@@ -66,24 +67,31 @@ void capture_begin(const std::string &save_directory, codec codec,
     cv::Size res(capture.get(cv::CAP_PROP_FRAME_WIDTH),
                  capture.get(cv::CAP_PROP_FRAME_HEIGHT));
     cv::VideoWriter writer;
-    if (!writer.open(filename, fourcc(codec::H265), 30, res, true)) {
+    if (!writer.open(filename, fourcc(c), fps, res, true)) {
       logger::error("VideoWriter open failed");
       return 2;
     }
 
     // TODO 仔细想下这个sync行不行
+    const uint32_t frame_ms = 1000 / fps;
     while (true) {
       if (flag == 3) {
         break;
       }
+      uint64_t tbegin = time(0);
       cv::Mat frame;
       if (!capture.read(frame)) {
         logger::error("VideoCapture read failed");
         return 3;
       }
       writer.write(frame);
-      //要不要？
-      // std::this_thread::sleep_for(std::chrono::milliseconds(1000 / fps));
+      uint64_t tend = time(0);
+      if (tend - tbegin > frame_ms) {
+        logger::warn("low frame rate");
+      } else {
+        std::cout << "cost " << tend - tbegin << "ms\n";
+        // std::this_thread::sleep_for(std::chrono::milliseconds());
+      }
     }
 
     return 0;
