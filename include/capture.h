@@ -33,7 +33,7 @@ void capture_begin(const std::string &save_directory, codec c,
 
   // TODO
   // 这个线程里的函数还需要改，包括这个begin函数的返回值是要怎么回事，都要想想
-  std::thread t([save_directory] {
+  std::thread t([save_directory, c] {
     guard reset_flag([]() {
       if (flag.exchange(0) == 0)
         throw std::runtime_error("capture flag is been tamper");
