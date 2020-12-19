@@ -6,6 +6,7 @@
 #include <string.h>
 #include <string>
 #include <time.h>
+#include <utility>
 
 namespace homemadecam {
 class logger {
@@ -31,16 +32,17 @@ class logger {
         << localt->tm_mday << ' ' << localt->tm_hour << ':' << localt->tm_min
         << ':' << localt->tm_sec << ' ';
 
-    logger_impl(fmt, std::forward(args)...);
+    logger_impl(fmt, std::forward<ARGS>(args)...);
 
     // TODO: 可选文件或console
     std::cout << fmt.str();
+    std::cout.flush();
   }
 
   template <typename T, typename... ARGS>
   static void logger_impl(std::ostringstream &fmt, T &&cur, ARGS &&... rest) {
     fmt << cur;
-    logger_impl(fmt, std::forward(rest)...);
+    logger_impl(fmt, std::forward<ARGS>(rest)...);
   }
 
   template <typename T>
@@ -48,18 +50,20 @@ class logger {
     fmt << cur;
   }
 
+  static void logger_impl() {}
+
 public:
   template <typename... ARGS> static void info(ARGS &&... args) {
-    logger_impl(1, std::forward(args)...);
+    logger_impl(1, std::forward<ARGS>(args)...);
   }
   template <typename... ARGS> static void warn(ARGS &&... args) {
-    logger_impl(2, std::forward(args)...);
+    logger_impl(2, std::forward<ARGS>(args)...);
   }
   template <typename... ARGS> static void error(ARGS &&... args) {
-    logger_impl(3, std::forward(args)...);
+    logger_impl(3, std::forward<ARGS>(args)...);
   }
   template <typename... ARGS> static void fatal(ARGS &&... args) {
-    logger_impl(4, std::forward(args)...);
+    logger_impl(4, std::forward<ARGS>(args)...);
   }
 };
 } // namespace homemadecam
