@@ -9,7 +9,8 @@
 
 namespace homemadecam {
 class logger {
-  static void logger_impl(uint32_t level, const std::string &content) {
+  template <typename... ARGS>
+  static void logger_impl(uint32_t level, ARGS &&... args) {
     // TODO 预分配空间
     std::ostringstream fmt;
     if (level == 1) {
@@ -25,19 +26,41 @@ class logger {
     }
     time_t tm;
     time(&tm);
+    auto localt = localtime(&tm);
+    fmt << localt->tm_year + 1900 << '/' << localt->tm_mon + 1 << '/'
+        << localt->tm_mday << ' ' << localt->tm_hour << ':' << localt->tm_min
+        << ':' << localt->tm_sec << ' ';
 
-    char *tmp = asctime(localtime(&tm));
-    tmp[strlen(tmp) - 1] = '\0';
-    fmt << tmp << ' ' << content << "\r\n";
+    logger_impl(fmt, std::forward(args)...);
+
     // TODO: 可选文件或console
     std::cout << fmt.str();
   }
 
+  template <typename T, typename... ARGS>
+  static void logger_impl(std::ostringstream &fmt, T &&cur, ARGS &&... rest) {
+    fmt << cur;
+    logger_impl(fmt, std::forward(rest)...);
+  }
+
+  template <typename T>
+  static void logger_impl(std::ostringstream &fmt, T &&cur) {
+    fmt << cur;
+  }
+
 public:
-  static void info(const std::string &content) { logger_impl(1, content); }
-  static void warn(const std::string &content) { logger_impl(2, content); }
-  static void error(const std::string &content) { logger_impl(3, content); }
-  static void fatal(const std::string &content) { logger_impl(4, content); }
+  template <typename... ARGS> static void info(ARGS &&... args) {
+    logger_impl(1, std::forward(args)...);
+  }
+  template <typename... ARGS> static void warn(ARGS &&... args) {
+    logger_impl(2, std::forward(args)...);
+  }
+  template <typename... ARGS> static void error(ARGS &&... args) {
+    logger_impl(3, std::forward(args)...);
+  }
+  template <typename... ARGS> static void fatal(ARGS &&... args) {
+    logger_impl(4, std::forward(args)...);
+  }
 };
 } // namespace homemadecam
 

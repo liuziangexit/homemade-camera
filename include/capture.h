@@ -6,6 +6,7 @@
 #include <future>
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -49,6 +50,7 @@ private:
     });
 
     auto filename = make_filename(save_directory);
+    std::cout << filename << "\n";
 
     while (true) {
       std::cout << "spin!\n";
@@ -71,27 +73,16 @@ private:
       throw new std::invalid_argument("看下注释好吗");
     const std::string *dir = &save_directory;
     //整一个文件名
-    std::string filename;
-    {
-      time_t tm;
-      time(&tm);
-      auto localt = localtime(&tm);
-      filename = *dir;
-      filename += localt->tm_year + 1900;
-      filename += ' ';
-      filename += localt->tm_mon + 1;
-      filename += ' ';
-      filename += localt->tm_mday;
-      filename += ' ';
-      filename += localt->tm_hour;
-      filename += ' ';
-      filename += localt->tm_min;
-      filename += ' ';
-      filename += localt->tm_sec;
-      // TODO 这个后缀看看怎么搞
-      filename += ".avi";
-    }
-    return filename;
+    time_t tm;
+    time(&tm);
+    auto localt = localtime(&tm);
+    std::ostringstream fmt(*dir);
+    fmt << localt->tm_year + 1900 << '/' << localt->tm_mon + 1 << '/'
+        << localt->tm_mday << ' ' << localt->tm_hour << ':' << localt->tm_min
+        << ':' << localt->tm_sec;
+    // TODO 这个后缀看看怎么搞
+    fmt << ".avi";
+    return fmt.str();
   }
 };
 
