@@ -35,7 +35,7 @@ class logger {
     logger_impl(fmt, std::forward<ARGS>(args)...);
 
     // TODO: 可选文件或console
-    std::cout << fmt.str();
+    std::cout << fmt.str() << "\r\n";
     std::cout.flush();
   }
 

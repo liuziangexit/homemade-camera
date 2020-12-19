@@ -120,21 +120,20 @@ private:
       }
 
       auto tbegin = checkpoint(3);
-      std::atomic_thread_fence(std::memory_order_seq_cst);
-
       cv::Mat frame;
       if (!capture.read(frame)) {
         logger::error("VideoCapture read failed");
         return 3;
       }
+      auto tread = checkpoint(3);
       writer.write(frame);
-
-      std::atomic_thread_fence(std::memory_order_seq_cst);
-      auto tend = checkpoint(3);
-      if (tend - tbegin > frame_time) {
-        logger::warn("low frame rate");
+      auto tencode = checkpoint(3);
+      if (tencode - tbegin > frame_time) {
+        logger::warn("low frame rate, expect ", frame_time, "ms, actual ",
+                     tencode - tbegin, "ms(capture:", tread - tbegin,
+                     "ms, encode:", tencode - tread, "ms)");
       } else {
-        logger::info("cost ", tend - tbegin, "ms\n");
+        logger::info("cost ", tencode - tbegin, "ms");
         // std::this_thread::sleep_for(std::chrono::milliseconds());
       }
     }
