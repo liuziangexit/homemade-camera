@@ -4,9 +4,11 @@
 #include <thread>
 
 int main(int argc, char **argv) {
-  homemadecam::capture_begin("./video/", homemadecam::codec::H264, 3 * 60);
+  static std::atomic<uint32_t> flag(0);
+  homemadecam::capture::begin("./video/", homemadecam::capture::codec::H264,
+                              3 * 60);
   getchar();
-  //std::this_thread::sleep_for(std::chrono::seconds(15));
-  homemadecam::capture_end();
+  // std::this_thread::sleep_for(std::chrono::seconds(15));
+  homemadecam::capture::end();
   return 0;
 }
