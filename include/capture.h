@@ -2,6 +2,7 @@
 #define __HOMEMADECAM_CAPTURE_H__
 #include "guard.h"
 #include "logger.h"
+#include "time_util.h"
 #include <atomic>
 #include <future>
 #include <opencv2/core.hpp>
@@ -9,6 +10,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <sys/time.h>
 #include <thread>
 #include <time.h>
 #include <utility>
@@ -111,20 +113,25 @@ private:
       return 2;
     }
 
-    const uint32_t frame_ms = 1000 / fps;
+    const uint64_t frame_time = 1000 / fps;
     while (true) {
       if (flag == 2) {
         break;
       }
-      uint64_t tbegin = time(0);
+
+      auto tbegin = checkpoint(3);
+      std::atomic_thread_fence(std::memory_order_seq_cst);
+
       cv::Mat frame;
       if (!capture.read(frame)) {
         logger::error("VideoCapture read failed");
         return 3;
       }
       writer.write(frame);
-      uint64_t tend = time(0);
-      if (tend - tbegin > frame_ms) {
+
+      std::atomic_thread_fence(std::memory_order_seq_cst);
+      auto tend = checkpoint(3);
+      if (tend - tbegin > frame_time) {
         logger::warn("low frame rate");
       } else {
         logger::info("cost ", tend - tbegin, "ms\n");
