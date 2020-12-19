@@ -1,4 +1,4 @@
-#include "../include/capture.h"
+#include "capture.h"
 #include <stdio.h>
 #include <string> // for strings
 #include <thread>

@@ -1,7 +1,8 @@
 {
     "env": {
         "myDefaultIncludePath": [
-            "${workspaceFolder}",
+            "${workspaceFolder}/include",
+            "${workspaceFolder}/3rd-party",
             "/usr/local/include/opencv4"
         ],
         "myCompilerPath": "clang++"
