@@ -76,8 +76,8 @@ private:
     auto localt = localtime(&tm);
     std::ostringstream fmt(*dir, std::ios_base::app);
     fmt << localt->tm_year + 1900 << '-' << localt->tm_mon + 1 << '-'
-        << localt->tm_mday << ' ' << localt->tm_hour << ':' << localt->tm_min
-        << ':' << localt->tm_sec;
+        << localt->tm_mday << ' at ' << localt->tm_hour << '.' << localt->tm_min
+        << '.' << localt->tm_sec;
     fmt << '.' << file_format;
     return fmt.str();
   }
