@@ -59,9 +59,7 @@ private:
         throw std::runtime_error("capture flag is been tamper");
     });
 
-    auto filename = make_filename(save_directory, codec_file_format(c));
-
-    result = do_capture(camera_id, filename, c, duration);
+    result = do_capture(camera_id, save_directory, c, duration);
   }
 
   static std::string make_filename(std::string save_directory,
@@ -83,24 +81,32 @@ private:
     return fmt.str();
   }
 
-  static int do_capture(int camera_id, const std::string &filename, codec c,
+  static int do_capture(int camera_id, const std::string &path, codec c,
                         uint32_t duration) {
-    auto task_begin = checkpoint(3);
+    if (duration < 1)
+      return 4; //短于1秒的话文件名可能重复
     cv::VideoCapture capture;
     if (!capture.open(camera_id, cv::CAP_ANY)) {
       logger::error("VideoCapture open failed");
       return 1;
     }
+    
     double fps = (int)capture.get(cv::CAP_PROP_FPS);
     cv::Size res(capture.get(cv::CAP_PROP_FRAME_WIDTH),
                  capture.get(cv::CAP_PROP_FRAME_HEIGHT));
+    const uint64_t frame_time = 1000 / fps;
+
     cv::VideoWriter writer;
+
+  OPEN_WRITER:
+    auto task_begin = checkpoint(3);
+    auto filename = make_filename(path, codec_file_format(c));
     if (!writer.open(filename, codec_fourcc(c), fps, res, true)) {
-      logger::error("VideoWriter open failed");
+      logger::error("VideoWriter open ", filename, " failed");
       return 2;
     }
+    logger::info("video file change to ", filename);
 
-    const uint64_t frame_time = 1000 / fps;
     while (true) {
       if (flag == 2) {
         break;
@@ -123,9 +129,12 @@ private:
       } else {
         logger::info("cost ", frame_encode - frame_begin, "ms");
       }
+
+      //到了预定的时间，换文件
+      if (frame_encode - task_begin >= duration * 1000) {
+        goto OPEN_WRITER;
+      }
     }
-    capture.~VideoCapture();
-    writer.~VideoWriter();
     return 0;
   }
 };

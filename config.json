@@ -1,6 +1,6 @@
 {
   "codec": "H264",
-  "duration": 300,
+  "duration": 5,
   "save-location": "video",
   "camera-id": 1
 }
