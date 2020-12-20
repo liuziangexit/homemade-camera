@@ -90,7 +90,7 @@ private:
       logger::error("VideoCapture open failed");
       return 1;
     }
-    
+
     double fps = (int)capture.get(cv::CAP_PROP_FPS);
     cv::Size res(capture.get(cv::CAP_PROP_FRAME_WIDTH),
                  capture.get(cv::CAP_PROP_FRAME_HEIGHT));
