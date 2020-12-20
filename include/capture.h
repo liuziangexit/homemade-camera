@@ -1,5 +1,6 @@
 #ifndef __HOMEMADECAM_CAPTURE_H__
 #define __HOMEMADECAM_CAPTURE_H__
+#include "codec.h"
 #include "guard.h"
 #include "logger.h"
 #include "time_util.h"
@@ -19,7 +20,6 @@ namespace homemadecam {
 
 class capture {
 public:
-  enum codec { H264, H265 };
   static void begin(const std::string &save_directory, codec c,
                     uint32_t duration) {
     {
@@ -56,7 +56,7 @@ private:
         throw std::runtime_error("capture flag is been tamper");
     });
 
-    auto filename = make_filename(save_directory, file_format(c));
+    auto filename = make_filename(save_directory, codec_file_format(c));
 
     result = do_capture(filename, c, duration);
   }
@@ -82,22 +82,6 @@ private:
     return fmt.str();
   }
 
-  static std::string file_format(codec c) {
-    if (c == H264)
-      return "mov";
-    if (c == H265)
-      return "mov";
-    throw std::invalid_argument("");
-  }
-
-  static int fourcc(codec c) {
-    if (c == H264)
-      return cv::VideoWriter::fourcc('a', 'v', 'c', '1');
-    if (c == H265)
-      return cv::VideoWriter::fourcc('h', 'v', 'c', '1');
-    throw std::invalid_argument("");
-  }
-
   static int do_capture(std::string filename, codec c, uint32_t duration) {
     cv::VideoCapture capture;
     if (!capture.open(0, cv::CAP_ANY)) {
@@ -108,7 +92,7 @@ private:
     cv::Size res(capture.get(cv::CAP_PROP_FRAME_WIDTH),
                  capture.get(cv::CAP_PROP_FRAME_HEIGHT));
     cv::VideoWriter writer;
-    if (!writer.open(filename, fourcc(c), fps, res, true)) {
+    if (!writer.open(filename, codec_fourcc(c), fps, res, true)) {
       logger::error("VideoWriter open failed");
       return 2;
     }
