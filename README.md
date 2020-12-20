@@ -4,8 +4,9 @@
 
 ```
 {
-    "duration": "300",              //单个视频文件持续时间（秒）
-    "save-location": "./video",   //存放视频文件的目录
-    "codec": "h265"               //视频编码。可选h265或h264
+  "codec": "H264",            //编码方式
+  "duration": 300,            //单个文件持续秒数
+  "save-location": "video",   //保存位置
+  "camera-id": 1              //opencv camera id
 }
 ```
