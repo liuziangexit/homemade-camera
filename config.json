@@ -1,5 +1,5 @@
 {
     "codec": "H264",
     "duration": 300,
-    "save-location": "./video"
+    "save-location": "./video/"
 }

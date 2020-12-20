@@ -1,5 +1,6 @@
 #ifndef __HOMEMADECAM_CAPTURE_H__
 #define __HOMEMADECAM_CAPTURE_H__
+
 #include "codec.h"
 #include "guard.h"
 #include "logger.h"
@@ -62,7 +63,7 @@ private:
   }
 
   static std::string make_filename(const std::string &save_directory,
-                                   const std::string file_format) {
+                                   const std::string &file_format) {
     // TODO 处理save_dir参数的边界条件，头尾带不带空格，最后有没有slash
     //现在假设是有slash的
     //如果引用原本就是ok，那就指向引用，如果不ok，处理一份正确的出来，然后dir指向那个拷贝
@@ -82,7 +83,9 @@ private:
     return fmt.str();
   }
 
-  static int do_capture(std::string filename, codec c, uint32_t duration) {
+  static int do_capture(const std::string &filename, codec c,
+                        uint32_t duration) {
+    auto task_begin = checkpoint(3);
     cv::VideoCapture capture;
     if (!capture.open(0, cv::CAP_ANY)) {
       logger::error("VideoCapture open failed");
@@ -103,22 +106,22 @@ private:
         break;
       }
 
-      auto tbegin = checkpoint(3);
+      auto frame_begin = checkpoint(3);
       cv::Mat frame;
       if (!capture.read(frame)) {
         logger::error("VideoCapture read failed");
         return 3;
       }
-      auto tread = checkpoint(3);
+      auto frame_read = checkpoint(3);
       writer.write(frame);
-      auto tencode = checkpoint(3);
-      if (tencode - tbegin > frame_time) {
+      auto frame_encode = checkpoint(3);
+      if (frame_encode - frame_begin > frame_time) {
         logger::warn("low frame rate, expect ", frame_time, "ms, actual ",
-                     tencode - tbegin, "ms(capture:", tread - tbegin,
-                     "ms, encode:", tencode - tread, "ms)");
+                     frame_encode - frame_begin,
+                     "ms(capture:", frame_read - frame_begin,
+                     "ms, encode:", frame_encode - frame_read, "ms)");
       } else {
-        logger::info("cost ", tencode - tbegin, "ms");
-        // std::this_thread::sleep_for(std::chrono::milliseconds());
+        logger::info("cost ", frame_encode - frame_begin, "ms");
       }
     }
     capture.~VideoCapture();
