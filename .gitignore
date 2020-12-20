@@ -33,3 +33,5 @@
 bin
 .vscode/settings.json
 video
+cmake-build-debug
+.idea/.gitignore
