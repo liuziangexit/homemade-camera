@@ -4,6 +4,7 @@
 #include "codec.h"
 #include "guard.h"
 #include "logger.h"
+#include "string_util.h"
 #include "time_util.h"
 #include <atomic>
 #include <future>
@@ -21,7 +22,7 @@ namespace homemadecam {
 
 class capture {
 public:
-  static void begin(const std::string &save_directory, codec c,
+  static void begin(int camera_id, const std::string &save_directory, codec c,
                     uint32_t duration) {
     {
       uint32_t expect = 0;
@@ -29,7 +30,8 @@ public:
         throw std::logic_error("capture already running");
     }
 
-    std::thread(&capture::task, save_directory, c, duration).detach();
+    std::thread(&capture::task, camera_id, save_directory, c, duration)
+        .detach();
   }
 
   static volatile int result;
@@ -49,7 +51,7 @@ private:
   // 0-未开始,1-开始,2-要求结束,3-正在结束
   static std::atomic<uint32_t> flag;
 
-  static void task(const std::string &save_directory, codec c,
+  static void task(int camera_id, const std::string &save_directory, codec c,
                    uint32_t duration) {
     guard reset_flag([]() {
       auto prev_state = flag.exchange(3);
@@ -59,35 +61,33 @@ private:
 
     auto filename = make_filename(save_directory, codec_file_format(c));
 
-    result = do_capture(filename, c, duration);
+    result = do_capture(camera_id, filename, c, duration);
   }
 
-  static std::string make_filename(const std::string &save_directory,
+  static std::string make_filename(std::string save_directory,
                                    const std::string &file_format) {
-    // TODO 处理save_dir参数的边界条件，头尾带不带空格，最后有没有slash
-    //现在假设是有slash的
-    //如果引用原本就是ok，那就指向引用，如果不ok，处理一份正确的出来，然后dir指向那个拷贝
-    if (save_directory[save_directory.size() - 1] == ' ' ||
-        save_directory[save_directory.size() - 1] != '/')
-      throw new std::invalid_argument("看下注释好吗");
-    const std::string *dir = &save_directory;
+    trim(save_directory);
+    if (!save_directory.empty() && *save_directory.rbegin() != '/' &&
+        *save_directory.rbegin() != '\\')
+      save_directory.append("/");
+
     //整一个文件名
     time_t tm;
     time(&tm);
     auto localt = localtime(&tm);
-    std::ostringstream fmt(*dir, std::ios_base::app);
+    std::ostringstream fmt(save_directory, std::ios_base::app);
     fmt << localt->tm_year + 1900 << '-' << localt->tm_mon + 1 << '-'
-        << localt->tm_mday << ' at ' << localt->tm_hour << '.' << localt->tm_min
+        << localt->tm_mday << " at " << localt->tm_hour << '.' << localt->tm_min
         << '.' << localt->tm_sec;
     fmt << '.' << file_format;
     return fmt.str();
   }
 
-  static int do_capture(const std::string &filename, codec c,
+  static int do_capture(int camera_id, const std::string &filename, codec c,
                         uint32_t duration) {
     auto task_begin = checkpoint(3);
     cv::VideoCapture capture;
-    if (!capture.open(0, cv::CAP_ANY)) {
+    if (!capture.open(camera_id, cv::CAP_ANY)) {
       logger::error("VideoCapture open failed");
       return 1;
     }

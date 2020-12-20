@@ -16,6 +16,7 @@ public:
   uint32_t duration;
   std::string save_location;
   codec codec;
+  int camera_id;
 
   config(const std::string &filename) {
     if (!read(filename))
@@ -47,7 +48,8 @@ public:
       this->duration = js["duration"].get<uint32_t>();
       this->save_location = js["save-location"].get<std::string>();
       this->codec = codec_parse(js["codec"].get<std::string>());
-    } catch (std::exception ex) {
+      this->camera_id = js["camera-id"].get<int>();
+    } catch (const std::exception &ex) {
       logger::error(ex.what());
       return false;
     }
@@ -59,14 +61,15 @@ public:
                                                  if (fp)
                                                    fclose(fp);
                                                });
-    if (!fp.get())
+    if (!fp)
       return false;
 
     using namespace nlohmann;
     json js = {
         {"duration", this->duration},
         {"save-location", this->save_location},
-        {"codec", codec_to_string(this->codec)} //
+        {"codec", codec_to_string(this->codec)},
+        {"camera-id", this->camera_id} //
     };
 
     std::string raw = js.dump(4);

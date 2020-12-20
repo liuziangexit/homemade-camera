@@ -3,8 +3,8 @@ project(homecam)
 ENABLE_LANGUAGE(CXX)
 
 #options
-set(OPTIMIZATION TRUE CACHE BOOL "Enable optimization")
-set(DEBUG FALSE CACHE BOOL "Build with debug information")
+set(OPTIMIZATION FALSE CACHE BOOL "Enable optimization")
+set(DEBUG TRUE CACHE BOOL "Build with debug information")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 #set optimization flags
