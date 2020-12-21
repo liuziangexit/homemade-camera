@@ -9,6 +9,7 @@
 #include <atomic>
 #include <future>
 #include <opencv2/core.hpp>
+#include <opencv2/freetype.hpp>
 #include <opencv2/videoio.hpp>
 #include <sstream>
 #include <stdexcept>

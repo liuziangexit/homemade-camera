@@ -15,7 +15,7 @@ class config {
 public:
   uint32_t duration;
   std::string save_location;
-  codec codec;
+  enum codec codec;
   int camera_id;
 
   config(const std::string &filename) {
@@ -38,7 +38,7 @@ public:
     rewind(fp.get());
     std::string raw((std::size_t)size, 0);
     auto actual_read = fread(const_cast<char *>(raw.data()), 1, size, fp.get());
-    if (size != actual_read)
+    if ((uint64_t)size != (uint64_t)actual_read)
       return false;
     using namespace nlohmann;
     json js;
