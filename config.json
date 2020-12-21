@@ -1,6 +1,8 @@
 {
   "codec": "H264",
-  "duration": 5,
+  "duration": 60,
   "save-location": "video",
-  "camera-id": 1
+  "camera-id": 1,
+  "text-pos": 3,
+  "font-height": 30
 }

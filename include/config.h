@@ -17,6 +17,8 @@ public:
   std::string save_location;
   enum codec codec;
   int camera_id;
+  int text_pos; // 0-右上 1-左上 2-左下 3-右下z
+  int font_height;
 
   config(const std::string &filename) {
     if (!read(filename))
@@ -49,6 +51,8 @@ public:
       this->save_location = js["save-location"].get<std::string>();
       this->codec = codec_parse(js["codec"].get<std::string>());
       this->camera_id = js["camera-id"].get<int>();
+      this->text_pos = js["text-pos"].get<int>();
+      this->font_height = js["font-height"].get<int>();
     } catch (const std::exception &ex) {
       logger::error(ex.what());
       return false;
@@ -69,7 +73,9 @@ public:
         {"duration", this->duration},
         {"save-location", this->save_location},
         {"codec", codec_to_string(this->codec)},
-        {"camera-id", this->camera_id} //
+        {"camera-id", this->camera_id},
+        {"text-pos", this->text_pos},
+        {"font-height", this->font_height} //
     };
 
     std::string raw = js.dump(4);
