@@ -114,18 +114,24 @@ private:
 
       auto frame_begin = checkpoint(3);
       cv::Mat frame;
-      if (!capture.read(frame)) {
-        logger::error("VideoCapture read failed");
+      if (!capture.grab()) {
+        logger::error("VideoCapture grab failed");
         return 3;
       }
-      auto frame_read = checkpoint(3);
+      auto frame_grab = checkpoint(3);
+      if (!capture.retrieve(frame)) {
+        logger::error("VideoCapture retrieve failed");
+        return 3;
+      }
+      auto frame_retrieve = checkpoint(3);
       writer.write(frame);
       auto frame_encode = checkpoint(3);
       if (frame_encode - frame_begin > frame_time) {
         logger::warn("low frame rate, expect ", frame_time, "ms, actual ",
                      frame_encode - frame_begin,
-                     "ms(capture:", frame_read - frame_begin,
-                     "ms, encode:", frame_encode - frame_read, "ms)");
+                     "ms(grab:", frame_grab - frame_begin,
+                     "ms, retrieve:", frame_retrieve - frame_grab,
+                     "ms, write:", frame_encode - frame_retrieve, "ms)");
       } else {
         logger::info("cost ", frame_encode - frame_begin, "ms");
       }
