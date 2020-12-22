@@ -39,16 +39,20 @@ class asio_session
     : public std::enable_shared_from_this<asio_session<UNDERLYING_STREAM>> {
   websocket::stream<UNDERLYING_STREAM> ws_;
   beast::flat_buffer buffer_;
+  const beast::tcp_stream::endpoint_type remote;
 
 public:
   // ssl
   asio_session(tcp::socket &&socket, ssl::context &ssl_ctx)
-      : ws_(std::move(socket), ssl_ctx) {
+      : ws_(std::move(socket), ssl_ctx),
+        remote(beast::get_lowest_layer(ws_).socket().remote_endpoint()) {
     static_assert(SSL);
   }
 
   // tcp
-  asio_session(tcp::socket &&socket) : ws_(std::move(socket)) {
+  asio_session(tcp::socket &&socket)
+      : ws_(std::move(socket)),
+        remote(beast::get_lowest_layer(ws_).socket().remote_endpoint()) {
     static_assert(!SSL);
   }
 
@@ -69,22 +73,28 @@ public:
     // TODO load from configmanager
     beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
 
-    // Perform the SSL handshake
     if constexpr (SSL) {
+      // Perform the SSL handshake
       ws_.next_layer().async_handshake(
           ssl::stream_base::server,
           beast::bind_front_handler(&asio_session::on_handshake,
                                     this->shared_from_this()));
     } else {
+      // WS handshake
       this->on_handshake(beast::error_code());
     }
   }
 
   // Websocket handshake
   void on_handshake(beast::error_code ec) {
-    if (ec) {
-      homemadecam::logger::error("handshake error: ", ec.message());
-      return;
+    if constexpr (SSL) {
+      if (ec) {
+        homemadecam::logger::error(this->remote,
+                                   " SSL handshake error: ", ec.message());
+        return;
+      } else {
+        homemadecam::logger::info(this->remote, " SSL handshake OK");
+      }
     }
 
     // Turn off the timeout on the tcp_stream, because
@@ -108,9 +118,11 @@ public:
 
   void on_accept(beast::error_code ec) {
     if (ec) {
-      homemadecam::logger::error("session on_accept error: ", ec.message());
+      homemadecam::logger::error(this->remote,
+                                 "Websocket handshake failed: ", ec.message());
       return;
     }
+    homemadecam::logger::info(this->remote, " Websocket handshake OK");
 
     // Read a message
     do_read();
@@ -128,13 +140,16 @@ public:
 
     // This indicates that the session was closed
     if (ec == websocket::error::closed) {
-      homemadecam::logger::info("session closed");
+      homemadecam::logger::info(this->remote, " Websocket closed");
       return;
     }
 
     if (ec) {
-      homemadecam::logger::info("session read failed: ", ec.message());
+      homemadecam::logger::error(this->remote,
+                                 " Websocket read failed: ", ec.message());
       return;
+    } else {
+      homemadecam::logger::info(this->remote, " Websocket read OK");
     }
 
     // Echo the message
@@ -148,8 +163,11 @@ public:
     // boost::ignore_unused(bytes_transferred);
 
     if (ec) {
-      homemadecam::logger::info("session write failed: ", ec.message());
+      homemadecam::logger::info(this->remote,
+                                " session write failed: ", ec.message());
       return;
+    } else {
+      homemadecam::logger::info(this->remote, " Websocket write OK");
     }
 
     // Clear the buffer

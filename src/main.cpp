@@ -12,6 +12,10 @@ int main(int argc, char **argv) {
   signal(SIGINT, signal_handler);
   cv::setNumThreads(0);
   homemadecam::web web("config.json");
-  web.run();
+  try {
+    web.run();
+  } catch (const std::exception &ex) {
+    std::cout << ex.what();
+  }
   return 0;
 }

@@ -13,7 +13,7 @@
 #include <stdexcept>
 #include <string>
 
-//FIXME 改成用template bool决定支不支持ssl
+// FIXME 改成用template bool决定支不支持ssl
 
 namespace beast = boost::beast;         // from <boost/beast.hpp>
 namespace http = beast::http;           // from <boost/beast/http.hpp>
@@ -64,6 +64,7 @@ public:
     if (ec) {
       throw std::runtime_error("acceptor_.listen");
     }
+    homemadecam::logger::error("asio accept begin");
     do_accept();
   }
 
@@ -79,6 +80,7 @@ private:
     if (ec) {
       homemadecam::logger::error("asio accept fail: ", ec.message());
     } else {
+      homemadecam::logger::info(socket.remote_endpoint(), " TCP handshake OK");
       // Create the session and run it
       if (this->ssl_ctx_) {
         std::make_shared<asio_session<beast::ssl_stream<beast::tcp_stream>>>(
