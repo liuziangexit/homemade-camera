@@ -4,8 +4,8 @@
 
 int main(int argc, char **argv) {
   homemadecam::config config("config.json");
-  homemadecam::capture::begin(config);
+  homemadecam::capture capture(config);
   getchar();
-  homemadecam::capture::end();
+  capture.end();
   return 0;
 }

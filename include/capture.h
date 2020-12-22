@@ -22,24 +22,26 @@
 #include <time.h>
 #include <utility>
 
+// FIXME 结束等待时候不要spin
+
 namespace homemadecam {
 
 class capture {
 public:
-  static void begin(const config &config) {
+  capture(const config &config) {
     {
       uint32_t expect = 0;
       if (!flag.compare_exchange_strong(expect, 1))
         throw std::logic_error("capture already running");
     }
 
-    std::thread(&capture::task, config).detach();
+    std::thread(&capture::task, this, config).detach();
   }
 
-  static volatile int result;
+  volatile int result;
 
-  static int end() {
-    if (flag != 3) {
+  int end() {
+    if (flag == 1) {
       flag = 2;
       while (flag != 3)
         ;
@@ -49,12 +51,14 @@ public:
     return r;
   }
 
+  ~capture() { end(); }
+
 private:
   // 0-未开始,1-开始,2-要求结束,3-正在结束
-  static std::atomic<uint32_t> flag;
+  std::atomic<uint32_t> flag;
 
-  static void task(config config) {
-    guard reset_flag([]() {
+  void task(config config) {
+    guard reset_flag([this]() {
       auto prev_state = flag.exchange(3);
       if (prev_state == 0 || prev_state == 3)
         throw std::runtime_error("capture flag is been tamper");
@@ -63,8 +67,8 @@ private:
     result = do_capture(config);
   }
 
-  static std::string make_filename(std::string save_directory,
-                                   const std::string &file_format) {
+  std::string make_filename(std::string save_directory,
+                            const std::string &file_format) {
     trim(save_directory);
     if (!save_directory.empty() && *save_directory.rbegin() != '/' &&
         *save_directory.rbegin() != '\\')
@@ -82,7 +86,7 @@ private:
     return fmt.str();
   }
 
-  static int do_capture(config &config) {
+  int do_capture(config &config) {
     if (config.duration < 1)
       return 4; //短于1秒的话文件名可能重复
     cv::VideoCapture capture;
@@ -168,8 +172,8 @@ private:
     return 0;
   }
 
-  static void render_text(int pos, const std::string &text, int font_height,
-                          cv::freetype::FreeType2 *freetype, cv::Mat &img) {
+  void render_text(int pos, const std::string &text, int font_height,
+                   cv::freetype::FreeType2 *freetype, cv::Mat &img) {
     int channel = img.channels();
     int depth = img.depth();
     if (channel != 3 || depth != CV_8U)
@@ -248,9 +252,6 @@ private:
         font_height, color, thickness, 8, false);
   }
 };
-
-std::atomic<uint32_t> capture::flag(0);
-volatile int capture::result = 0;
 
 } // namespace homemadecam
 

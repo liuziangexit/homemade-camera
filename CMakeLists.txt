@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.1)
 project(homecam)
 ENABLE_LANGUAGE(CXX)
+set(CMAKE_CXX_STANDARD 17)
 
 #options
 set(OPTIMIZATION FALSE CACHE BOOL "Enable optimization")
 set(DEBUG TRUE CACHE BOOL "Build with debug information")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 #set optimization flags
 if (OPTIMIZATION)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
