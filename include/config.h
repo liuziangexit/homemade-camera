@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
-#include <stdio.h>
 #include <string>
 
 namespace homemadecam {
@@ -20,6 +19,7 @@ public:
   int text_pos; // 0-右上 1-左上 2-左下 3-右下z
   int font_height;
   int web_port;
+  int tcp_timeout;
 
   config(const std::string &filename) {
     if (!read(filename))
@@ -32,7 +32,7 @@ public:
                                                  if (fp)
                                                    fclose(fp);
                                                });
-    if (!fp.get())
+    if (!fp)
       return false;
     fseek(fp.get(), 0L, SEEK_END);
     auto size = ftell(fp.get());
@@ -55,6 +55,7 @@ public:
       this->text_pos = js["text-pos"].get<int>();
       this->font_height = js["font-height"].get<int>();
       this->web_port = js["web-port"].get<int>();
+      this->tcp_timeout = js["tcp-timeout"].get<int>();
     } catch (const std::exception &ex) {
       logger::error(ex.what());
       return false;
@@ -78,7 +79,8 @@ public:
         {"camera-id", this->camera_id},
         {"text-pos", this->text_pos},
         {"font-height", this->font_height},
-        {"web-port", this->web_port} //
+        {"web-port", this->web_port},
+        {"tcp-timeout", this->tcp_timeout} //
     };
 
     std::string raw = js.dump(4);
