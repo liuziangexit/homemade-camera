@@ -1,3 +1,4 @@
+#include "capture.h"
 #include "logger.h"
 #include <signal.h>
 #include <web_service.h>
@@ -9,6 +10,7 @@ void signal_handler(int signum) {
 
 int main(int argc, char **argv) {
   signal(SIGINT, signal_handler);
+  cv::setNumThreads(0);
   homemadecam::web web("config.json");
   web.run();
   return 0;
