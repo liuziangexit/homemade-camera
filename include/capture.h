@@ -167,7 +167,7 @@ private:
       }
 
       //到了预定的时间，换文件
-      if (frame_encode - task_begin >= config.duration * 1000) {
+      if (frame_write - task_begin >= config.duration * 1000) {
         goto OPEN_WRITER;
       }
     }
