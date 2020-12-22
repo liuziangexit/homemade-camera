@@ -4,9 +4,12 @@ OK-include目录的问题
 OK-帧速同步
 OK-渲染文字
 ok-http服务器
+-info和error的错误使用
+-beast同时支持http
 -web界面
 -web直播
 -web下载录像
+-支持https
 -对象识别
 -事件
 -web查看事件
