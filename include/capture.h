@@ -253,7 +253,7 @@ private:
         font_height, color, thickness, 8, false);
   }
 
-  config config;
+  typename homemadecam::config config;
 };
 
 } // namespace homemadecam
