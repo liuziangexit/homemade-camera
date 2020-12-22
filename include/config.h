@@ -19,6 +19,7 @@ public:
   int camera_id;
   int text_pos; // 0-右上 1-左上 2-左下 3-右下z
   int font_height;
+  int web_port;
 
   config(const std::string &filename) {
     if (!read(filename))
@@ -53,6 +54,7 @@ public:
       this->camera_id = js["camera-id"].get<int>();
       this->text_pos = js["text-pos"].get<int>();
       this->font_height = js["font-height"].get<int>();
+      this->web_port = js["web-port"].get<int>();
     } catch (const std::exception &ex) {
       logger::error(ex.what());
       return false;
@@ -75,7 +77,8 @@ public:
         {"codec", codec_to_string(this->codec)},
         {"camera-id", this->camera_id},
         {"text-pos", this->text_pos},
-        {"font-height", this->font_height} //
+        {"font-height", this->font_height},
+        {"web-port", this->web_port} //
     };
 
     std::string raw = js.dump(4);

@@ -38,7 +38,7 @@ public:
     std::thread(&capture::task, this, config).detach();
   }
 
-  volatile int result;
+  volatile int result = 0;
 
   int end() {
     if (flag == 1) {
@@ -55,7 +55,7 @@ public:
 
 private:
   // 0-未开始,1-开始,2-要求结束,3-正在结束
-  std::atomic<uint32_t> flag;
+  std::atomic<uint32_t> flag = 0;
 
   void task(config config) {
     guard reset_flag([this]() {
