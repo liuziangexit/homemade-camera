@@ -30,7 +30,7 @@ class capture {
 public:
   capture(const config &_config) : config(_config) {}
 
-  void start() {
+  void run() {
     {
       uint32_t expect = 0;
       if (!flag.compare_exchange_strong(expect, 1))

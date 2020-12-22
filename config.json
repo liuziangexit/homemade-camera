@@ -5,5 +5,6 @@
   "camera-id": 1,
   "text-pos": 3,
   "font-height": 30,
-  "web-port": 8080
+  "web-port": 8080,
+  "tcp-timeout": 10
 }
