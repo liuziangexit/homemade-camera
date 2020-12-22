@@ -35,3 +35,4 @@ bin
 *.mov
 cmake-build-debug
 .idea/.gitignore
+cmake-build-release
