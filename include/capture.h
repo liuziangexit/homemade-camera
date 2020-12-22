@@ -28,19 +28,20 @@ namespace homemadecam {
 
 class capture {
 public:
-  capture(const config &config) {
+  capture(const config &_config) : config(_config) {}
+
+  void start() {
     {
       uint32_t expect = 0;
       if (!flag.compare_exchange_strong(expect, 1))
         throw std::logic_error("capture already running");
     }
-
     std::thread(&capture::task, this, config).detach();
   }
 
   volatile int result = 0;
 
-  int end() {
+  int stop() {
     if (flag == 1) {
       flag = 2;
       while (flag != 3)
@@ -51,7 +52,7 @@ public:
     return r;
   }
 
-  ~capture() { end(); }
+  ~capture() { stop(); }
 
 private:
   // 0-未开始,1-开始,2-要求结束,3-正在结束
@@ -251,6 +252,8 @@ private:
         img, text, text_render_pos + cv::Point(0, -text_render_size.height / 2),
         font_height, color, thickness, 8, false);
   }
+
+  config config;
 };
 
 } // namespace homemadecam
