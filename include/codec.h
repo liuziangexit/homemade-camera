@@ -8,9 +8,11 @@
 
 namespace homemadecam {
 
-enum codec { H264, H265 };
+enum codec { RAW, H264, H265 };
 
 static std::string codec_file_format(codec c) {
+  if (c == RAW)
+    return "mov";
   if (c == H264)
     return "mov";
   if (c == H265)
@@ -19,6 +21,8 @@ static std::string codec_file_format(codec c) {
 }
 
 static int codec_fourcc(codec c) {
+  if (c == RAW)
+    return cv::VideoWriter::fourcc('r', 'a', 'w', ' ');
   if (c == H264)
     return cv::VideoWriter::fourcc('a', 'v', 'c', '1');
   if (c == H265)
@@ -27,6 +31,8 @@ static int codec_fourcc(codec c) {
 }
 
 static std::string codec_to_string(codec c) {
+  if (RAW == c)
+    return "RAW";
   if (H264 == c)
     return "H264";
   if (H265 == c)
