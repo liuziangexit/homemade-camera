@@ -152,21 +152,22 @@ private:
         render_text(config.text_pos, fmt.str(), config.font_height, freetype,
                     frame);
       }
-
+      auto frame_drawtext = checkpoint(3);
       writer.write(frame);
-      auto frame_encode = checkpoint(3);
-      if (frame_encode - frame_begin > frame_time) {
+      auto frame_write = checkpoint(3);
+      if (frame_write - frame_begin > frame_time) {
         logger::warn("low frame rate, expect ", frame_time, "ms, actual ",
-                     frame_encode - frame_begin,
+                     frame_write - frame_begin,
                      "ms(grab:", frame_grab - frame_begin,
                      "ms, retrieve:", frame_retrieve - frame_grab,
-                     "ms, write:", frame_encode - frame_retrieve, "ms)");
+                     "ms, drawtext:", frame_drawtext - frame_retrieve,
+                     "ms, write:", frame_write - frame_drawtext, "ms)");
       } else {
-        logger::info("cost ", frame_encode - frame_begin, "ms");
+        logger::info("cost ", frame_write - frame_begin, "ms");
       }
 
       //到了预定的时间，换文件
-      if (frame_encode - task_begin >= config.duration * 1000) {
+      if (frame_write - task_begin >= config.duration * 1000) {
         goto OPEN_WRITER;
       }
     }
