@@ -115,11 +115,11 @@ private:
     auto task_begin = checkpoint(3);
     auto filename =
         make_filename(config.save_location, codec_file_format(config.codec));
-    if (!writer.open(filename, codec_fourcc(config.codec), fps, frame_size,
-                     std::vector<int>{cv::VIDEOWRITER_PROP_NSTRIPES, 1})) {
+    if (!writer.open(filename, codec_fourcc(config.codec), fps, frame_size)) {
       logger::error("VideoWriter open ", filename, " failed");
       return 2;
     }
+    writer.set(cv::VIDEOWRITER_PROP_NSTRIPES, 1);
     logger::info("VIDEOWRITER_PROP_NSTRIPES: ",
                  writer.get(cv::VIDEOWRITER_PROP_NSTRIPES));
     logger::info("video file change to ", filename);
