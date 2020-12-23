@@ -45,6 +45,8 @@ static codec codec_parse(std::string s) {
     // TODO verify it is ASCII
     return std::tolower(c);
   });
+  if (s == "raw")
+    return RAW;
   if (s == "h264")
     return H264;
   if (s == "h265")
