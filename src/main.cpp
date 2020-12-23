@@ -1,6 +1,7 @@
 #include "capture.h"
 #include "logger.h"
 #include <signal.h>
+#include <thread>
 
 homemadecam::capture *capture;
 
@@ -17,5 +18,7 @@ int main(int argc, char **argv) {
   cv::setNumThreads(0);
   capture = new homemadecam::capture(homemadecam::config("config.json"));
   capture->run();
+  std::this_thread::sleep_for(std::chrono::seconds(80));
+  delete capture;
   return 0;
 }
