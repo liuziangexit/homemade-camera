@@ -5,6 +5,7 @@ OK-帧速同步
 OK-渲染文字
 ok-http服务器
 OK-info和error的错误使用
+-树莓派上帧率的问题
 -beast同时支持http
 -web界面
 -web直播

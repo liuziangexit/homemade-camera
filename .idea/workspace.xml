@@ -14,7 +14,6 @@
   <component name="ChangeListManager">
     <list default="true" id="21271e3d-5f88-4df0-a1fc-dd8c3ac770b2" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/include/asio_listener.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/asio_listener.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/roadmap.txt" beforeDir="false" afterPath="$PROJECT_DIR$/roadmap.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -47,11 +46,6 @@
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
-    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-      </method>
-    </configuration>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
@@ -65,7 +59,8 @@
       <workItem from="1608650952764" duration="547000" />
       <workItem from="1608651529945" duration="2185000" />
       <workItem from="1608653779007" duration="596000" />
-      <workItem from="1608706802385" duration="659000" />
+      <workItem from="1608706802385" duration="1011000" />
+      <workItem from="1608710093903" duration="19000" />
     </task>
     <servers />
   </component>
