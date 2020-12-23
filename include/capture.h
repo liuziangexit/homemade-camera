@@ -21,6 +21,7 @@
 #include <thread>
 #include <time.h>
 #include <utility>
+#include <vector>
 
 // FIXME 结束等待时候不要spin
 
@@ -115,7 +116,7 @@ private:
     auto filename =
         make_filename(config.save_location, codec_file_format(config.codec));
     if (!writer.open(filename, codec_fourcc(config.codec), fps, frame_size,
-                     true)) {
+                     std::vector<int>{cv::VIDEOWRITER_PROP_NSTRIPES, 1})) {
       logger::error("VideoWriter open ", filename, " failed");
       return 2;
     }
