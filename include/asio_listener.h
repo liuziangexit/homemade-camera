@@ -64,7 +64,6 @@ public:
     if (ec) {
       throw std::runtime_error("acceptor_.listen");
     }
-    homemadecam::logger::error("asio accept begin");
     do_accept();
   }
 
