@@ -133,7 +133,7 @@ private:
       cv::Mat frame;
       if (!capture.grab()) {
         logger::error("VideoCapture grab failed");
-        return 3;
+        continue;
       }
       auto frame_grab = checkpoint(3);
       if (!capture.retrieve(frame)) {
