@@ -120,6 +120,8 @@ private:
       logger::error("VideoWriter open ", filename, " failed");
       return 2;
     }
+    logger::info("VIDEOWRITER_PROP_NSTRIPES: ",
+                 writer.get(cv::VIDEOWRITER_PROP_NSTRIPES));
     logger::info("video file change to ", filename);
 
     while (true) {
