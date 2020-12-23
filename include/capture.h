@@ -120,7 +120,8 @@ private:
       return 2;
     }
     logger::info("video file change to ", filename);
-    logger::info("fps: ", fps, " resolution: ", frame_size);
+    logger::info("backend: ", writer.getBackendName(), " fps: ", fps,
+                 " resolution: ", frame_size);
 
     while (true) {
       if (flag == 2) {
