@@ -1,4 +1,4 @@
 mkdir -p bin
-cmake -DOPTIMIZATION=ON -DDEBUG=ON -S . -B bin
+cmake -DCMAKE_BUILD_TYPE=RELEASE -S . -B bin
 cd bin
 make VERBOSE=1

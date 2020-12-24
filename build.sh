@@ -1,4 +1,4 @@
 mkdir -p bin
-cmake -DOPTIMIZATION=OFF -DDEBUG=ON -S . -B bin
+cmake -DCMAKE_BUILD_TYPE=DEBUG -S . -B bin
 cd bin
 make VERBOSE=1
