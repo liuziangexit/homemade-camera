@@ -1,5 +1,6 @@
 #ifndef __HOMECAM_ASIO_LISTENER_H_
 #define __HOMECAM_ASIO_LISTENER_H_
+#include "asio_http_session.h"
 #include "asio_ws_session.h"
 #include "boost/beast.hpp"
 #include "config.h"
@@ -81,11 +82,13 @@ private:
       homemadecam::logger::info(socket.remote_endpoint(), " TCP handshake OK");
       // Create the session and run it
       if (this->ssl_ctx_) {
-        std::make_shared<asio_ws_session<beast::ssl_stream<beast::tcp_stream>>>(
+        std::make_shared<
+            asio_http_session<beast::ssl_stream<beast::tcp_stream>>>(
             std::move(socket), *ssl_ctx_)
             ->run();
       } else {
-        std::make_shared<asio_ws_session<beast::tcp_stream>>(std::move(socket))
+        std::make_shared<asio_http_session<beast::tcp_stream>>(
+            std::move(socket))
             ->run();
       }
     }
