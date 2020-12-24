@@ -36,6 +36,9 @@ public:
       : ioc_(ioc), ssl_ctx_(ssl_ctx), acceptor_(net::make_strand(ioc)),
         endpoint_(endpoint) {}
 
+  ~asio_listener(){
+    homemadecam::logger::info("asio_listener destruct"); }
+
   // Start accepting incoming connections
   void run() {
     beast::error_code ec;
@@ -65,6 +68,12 @@ public:
     }
     homemadecam::logger::info("listening at ", this->endpoint_);
     do_accept();
+  }
+
+  void stop() {
+    homemadecam::logger::info("listener quitting...");
+    acceptor_.cancel();
+    acceptor_.close();
   }
 
 private:

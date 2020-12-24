@@ -1,8 +1,8 @@
 #ifndef __HOMECAM_WEB_SERVICE_H_
 #define __HOMECAM_WEB_SERVICE_H_
+#include "asio_http_session.h"
 #include "asio_listener.h"
 #include "asio_ws_session.h"
-#include "asio_http_session.h"
 #include "boost/beast.hpp"
 #include "config.h"
 #include <memory>
@@ -27,10 +27,17 @@ public:
         *ioc, tcp::endpoint{address, port}, (ssl::context *)NULL);
   }
 
+  ~web() {
+    stop();
+    delete ioc;
+  }
+
   void run() {
     listener->run();
-    ioc->run();
+    std::thread([this] { ioc->run(); }).detach();
   }
+
+  void stop() { listener->stop(); }
 
 private:
   config conf;

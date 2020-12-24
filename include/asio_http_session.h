@@ -56,6 +56,10 @@ public:
     static_assert(!SSL);
   }
 
+  ~asio_http_session() {
+    homemadecam::logger::info("asio_http_session destruct");
+  }
+
   // Get on the correct executor
   void run() {
     // We need to be executing within a strand to perform async operations
