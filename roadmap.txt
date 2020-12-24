@@ -6,6 +6,7 @@ OK-渲染文字
 ok-http服务器
 OK-info和error的错误使用
 -树莓派上帧率的问题
+OK-低帧率的时候在视频里加warning字样
 -beast同时支持http
 -web界面
 -web直播
@@ -14,3 +15,4 @@ OK-info和error的错误使用
 -对象识别
 -事件
 -web查看事件
+-看一下为渲染字的时候高度要调整（capture里的fixme）

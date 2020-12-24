@@ -115,14 +115,15 @@ private:
     auto task_begin = checkpoint(3);
     auto filename =
         make_filename(config.save_location, codec_file_format(config.codec));
-    if (!writer.open(filename, codec_fourcc(config.codec), fps, frame_size,
-                     std::vector<int>{cv::VIDEOWRITER_PROP_NSTRIPES, 1})) {
+    if (!writer.open(filename, codec_fourcc(config.codec), fps, frame_size)) {
       logger::error("VideoWriter open ", filename, " failed");
       return 2;
     }
-    logger::info("VIDEOWRITER_PROP_NSTRIPES: ",
-                 writer.get(cv::VIDEOWRITER_PROP_NSTRIPES));
     logger::info("video file change to ", filename);
+    logger::info("backend:", writer.getBackendName(), " fps:", fps,
+                 " resolution:", frame_size);
+
+    uint32_t frame_cost = 0;
 
     while (true) {
       if (flag == 2) {
@@ -133,7 +134,7 @@ private:
       cv::Mat frame;
       if (!capture.grab()) {
         logger::error("VideoCapture grab failed");
-        return 3;
+        continue;
       }
       auto frame_grab = checkpoint(3);
       if (!capture.retrieve(frame)) {
@@ -142,19 +143,27 @@ private:
       }
       auto frame_retrieve = checkpoint(3);
 
-      //在指定位置渲染时间
       {
+        //在指定位置渲染时间
         time_t tm;
         time(&tm);
         auto localt = localtime(&tm);
-        std::ostringstream fmt;
+        std::ostringstream fmt(std::ios::app);
         fmt << localt->tm_year + 1900 << '/' << localt->tm_mon + 1 << '/'
             << localt->tm_mday << " " << localt->tm_hour << ':'
             << localt->tm_min << ':' << localt->tm_sec;
 
         render_text(config.text_pos, fmt.str(), config.font_height, freetype,
                     frame);
+        //低帧率时渲染警告
+        if (frame_cost > frame_time) {
+          fmt.str("LOW FPS: ");
+          fmt << 1000 / frame_cost;
+          render_text((config.text_pos + 1) % 4, fmt.str(), config.font_height,
+                      freetype, frame);
+        }
       }
+
       auto frame_drawtext = checkpoint(3);
       writer.write(frame);
       auto frame_write = checkpoint(3);
@@ -168,6 +177,7 @@ private:
       } else {
         logger::info("cost ", frame_write - frame_begin, "ms");
       }
+      frame_cost = frame_write - frame_begin;
 
       //到了预定的时间，换文件
       if (frame_write - task_begin >= config.duration * 1000) {
@@ -251,10 +261,12 @@ private:
       }
     }
 
+    // FIXME 这肯定是我们的一个bug，opencv不可能有错啊！
     //为啥要-height/2？我不懂啊
-    freetype->putText(
-        img, text, text_render_pos + cv::Point(0, -text_render_size.height / 2),
-        font_height, color, thickness, 8, false);
+    if (pos > 1)
+      text_render_pos += cv::Point(0, -text_render_size.height / 2);
+    freetype->putText(img, text, text_render_pos, font_height, color, thickness,
+                      8, false);
   }
 
   typename homemadecam::config config;
