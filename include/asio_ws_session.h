@@ -35,22 +35,22 @@ template <
         std::enable_if<std::is_same_v<UNDERLYING_STREAM, beast::tcp_stream> ||
                        std::is_same_v<UNDERLYING_STREAM,
                                       beast::ssl_stream<beast::tcp_stream>>>>
-class asio_session
-    : public std::enable_shared_from_this<asio_session<UNDERLYING_STREAM>> {
+class asio_ws_session
+    : public std::enable_shared_from_this<asio_ws_session<UNDERLYING_STREAM>> {
   websocket::stream<UNDERLYING_STREAM> ws_;
   beast::flat_buffer buffer_;
   const beast::tcp_stream::endpoint_type remote;
 
 public:
   // ssl
-  asio_session(tcp::socket &&socket, ssl::context &ssl_ctx)
+  asio_ws_session(tcp::socket &&socket, ssl::context &ssl_ctx)
       : ws_(std::move(socket), ssl_ctx),
         remote(beast::get_lowest_layer(ws_).socket().remote_endpoint()) {
     static_assert(SSL);
   }
 
   // tcp
-  asio_session(tcp::socket &&socket)
+  asio_ws_session(tcp::socket &&socket)
       : ws_(std::move(socket)),
         remote(beast::get_lowest_layer(ws_).socket().remote_endpoint()) {
     static_assert(!SSL);
@@ -63,7 +63,7 @@ public:
     // for single-threaded contexts, this example code is written to be
     // thread-safe by default.
     net::dispatch(ws_.get_executor(),
-                  beast::bind_front_handler(&asio_session::on_run,
+                  beast::bind_front_handler(&asio_ws_session::on_run,
                                             this->shared_from_this()));
   }
 
@@ -77,7 +77,7 @@ public:
       // Perform the SSL handshake
       ws_.next_layer().async_handshake(
           ssl::stream_base::server,
-          beast::bind_front_handler(&asio_session::on_handshake,
+          beast::bind_front_handler(&asio_ws_session::on_handshake,
                                     this->shared_from_this()));
     } else {
       // WS handshake
@@ -112,7 +112,7 @@ public:
         }));
 
     // Accept the websocket handshake
-    ws_.async_accept(beast::bind_front_handler(&asio_session::on_accept,
+    ws_.async_accept(beast::bind_front_handler(&asio_ws_session::on_accept,
                                                this->shared_from_this()));
   }
 
@@ -131,7 +131,7 @@ public:
   void do_read() {
     // Read a message into our buffer
     ws_.async_read(buffer_,
-                   beast::bind_front_handler(&asio_session::on_read,
+                   beast::bind_front_handler(&asio_ws_session::on_read,
                                              this->shared_from_this()));
   }
 
@@ -155,7 +155,7 @@ public:
     // Echo the message
     ws_.text(ws_.got_text());
     ws_.async_write(buffer_.data(),
-                    beast::bind_front_handler(&asio_session::on_write,
+                    beast::bind_front_handler(&asio_ws_session::on_write,
                                               this->shared_from_this()));
   }
 
