@@ -16,7 +16,7 @@ public:
   std::string save_location;
   enum codec codec;
   int camera_id;
-  int text_pos; // 0-右上 1-左上 2-左下 3-右下z
+  int text_pos; // 0-右上 1-左上 2-左下 3-右下 4-中间
   int font_height;
   int web_port;
   int tcp_timeout;
