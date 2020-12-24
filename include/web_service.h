@@ -2,6 +2,7 @@
 #define __HOMECAM_WEB_SERVICE_H_
 #include "asio_listener.h"
 #include "asio_ws_session.h"
+#include "asio_http_session.h"
 #include "boost/beast.hpp"
 #include "config.h"
 #include <memory>

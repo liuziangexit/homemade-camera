@@ -8,6 +8,7 @@ OK-info和error的错误使用
 -树莓派上帧率的问题
 OK-低帧率的时候在视频里加warning字样
 -beast同时支持http
+-一个graceful退出的方式（1.收到退出信号 2.关闭acceptor 3.对于每个session，通知要close    3是重点）
 -web界面
 -web直播
 -web下载录像

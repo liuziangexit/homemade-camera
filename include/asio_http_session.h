@@ -1,5 +1,5 @@
-#ifndef __HOMECAM_ASIO_WS_SESSION_H_
-#define __HOMECAM_ASIO_WS_SESSION_H_
+#ifndef __HOMECAM_ASIO_HTTP_SESSION_H_
+#define __HOMECAM_ASIO_HTTP_SESSION_H_
 #include "boost/beast.hpp"
 #include "config.h"
 #include "logger.h"
@@ -35,24 +35,25 @@ template <
         std::enable_if<std::is_same_v<UNDERLYING_STREAM, beast::tcp_stream> ||
                        std::is_same_v<UNDERLYING_STREAM,
                                       beast::ssl_stream<beast::tcp_stream>>>>
-class asio_ws_session
+class asio_http_session
     : public std::enable_shared_from_this<asio_ws_session<UNDERLYING_STREAM>> {
-  websocket::stream<UNDERLYING_STREAM> ws_;
+  websocket::stream<UNDERLYING_STREAM> stream_;
   beast::flat_buffer buffer_;
   const beast::tcp_stream::endpoint_type remote;
+  http::request<http::string_body> req_;
 
 public:
   // ssl
-  asio_ws_session(tcp::socket &&socket, ssl::context &ssl_ctx)
-      : ws_(std::move(socket), ssl_ctx),
-        remote(beast::get_lowest_layer(ws_).socket().remote_endpoint()) {
+  asio_http_session(tcp::socket &&socket, ssl::context &ssl_ctx)
+      : stream_(std::move(socket), ssl_ctx),
+        remote(beast::get_lowest_layer(stream_).socket().remote_endpoint()) {
     static_assert(SSL);
   }
 
   // tcp
-  asio_ws_session(tcp::socket &&socket)
-      : ws_(std::move(socket)),
-        remote(beast::get_lowest_layer(ws_).socket().remote_endpoint()) {
+  asio_http_session(tcp::socket &&socket)
+      : stream_(std::move(socket)),
+        remote(beast::get_lowest_layer(stream_).socket().remote_endpoint()) {
     static_assert(!SSL);
   }
 
@@ -62,8 +63,8 @@ public:
     // on the I/O objects in this session. Although not strictly necessary
     // for single-threaded contexts, this example code is written to be
     // thread-safe by default.
-    net::dispatch(ws_.get_executor(),
-                  beast::bind_front_handler(&asio_ws_session::on_run,
+    net::dispatch(stream_.get_executor(),
+                  beast::bind_front_handler(&asio_http_session::on_run,
                                             this->shared_from_this()));
   }
 
@@ -71,21 +72,20 @@ public:
   void on_run() {
     // Set TCP timeout.
     // TODO load from configmanager
-    beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(30));
+    beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(30));
 
     if constexpr (SSL) {
       // Perform the SSL handshake
-      ws_.next_layer().async_handshake(
+      stream_.next_layer().async_handshake(
           ssl::stream_base::server,
-          beast::bind_front_handler(&asio_ws_session::on_handshake,
+          beast::bind_front_handler(&asio_http_session::on_handshake,
                                     this->shared_from_this()));
     } else {
-      // WS handshake
       this->on_handshake(beast::error_code());
     }
   }
 
-  // Websocket handshake
+  // previous layer handshake ok
   void on_handshake(beast::error_code ec) {
     if constexpr (SSL) {
       if (ec) {
@@ -97,23 +97,8 @@ public:
       }
     }
 
-    // Turn off the timeout on the tcp_stream, because
-    // the websocket stream has its own timeout system.
-    beast::get_lowest_layer(ws_).expires_never();
-
-    // Set suggested timeout settings for the websocket
-    ws_.set_option(
-        websocket::stream_base::timeout::suggested(beast::role_type::server));
-
-    // Set a decorator to change the Server of the handshake
-    ws_.set_option(
-        websocket::stream_base::decorator([](websocket::response_type &res) {
-          res.set(http::field::server, "homemade-camera");
-        }));
-
-    // Accept the websocket handshake
-    ws_.async_accept(beast::bind_front_handler(&asio_ws_session::on_accept,
-                                               this->shared_from_this()));
+    // post read req
+    this->do_read();
   }
 
   void on_accept(beast::error_code ec) {
@@ -129,34 +114,38 @@ public:
   }
 
   void do_read() {
-    // Read a message into our buffer
-    ws_.async_read(buffer_,
-                   beast::bind_front_handler(&asio_ws_session::on_read,
-                                             this->shared_from_this()));
+    // Make the request empty before reading,
+    // otherwise the operation behavior is undefined.
+    req_ = {};
+    // Clear the buffer
+    buffer_.consume(buffer_.size());
+
+    // Set the timeout.
+    beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(30));
+
+    // Read a request
+    http::async_read(stream_, buffer_, req_,
+                     beast::bind_front_handler(&asio_http_session::on_read,
+                                               this->shared_from_this()));
   }
 
   void on_read(beast::error_code ec, std::size_t bytes_transferred) {
-    // boost::ignore_unused(bytes_transferred);
-
-    // This indicates that the session was closed
-    if (ec == websocket::error::closed) {
-      homemadecam::logger::info(this->remote, " Websocket closed");
+    // This means they closed the connection
+    if (ec == http::error::end_of_stream) {
+      homemadecam::logger::info(this->remote, " http closed");
       return;
     }
 
     if (ec) {
       homemadecam::logger::error(this->remote,
-                                 " Websocket read failed: ", ec.message());
+                                 " http read failed: ", ec.message());
       return;
     } else {
-      homemadecam::logger::info(this->remote, " Websocket read OK");
+      homemadecam::logger::info(this->remote, " http read OK");
     }
 
-    // Echo the message
-    ws_.text(ws_.got_text());
-    ws_.async_write(buffer_.data(),
-                    beast::bind_front_handler(&asio_ws_session::on_write,
-                                              this->shared_from_this()));
+    // TODO ...
+    // handle request
   }
 
   void on_write(beast::error_code ec, std::size_t bytes_transferred) {
@@ -164,14 +153,11 @@ public:
 
     if (ec) {
       homemadecam::logger::info(this->remote,
-                                " Websocket write failed: ", ec.message());
+                                " http write failed: ", ec.message());
       return;
     } else {
-      homemadecam::logger::info(this->remote, " Websocket write OK");
+      homemadecam::logger::info(this->remote, " http write OK");
     }
-
-    // Clear the buffer
-    buffer_.consume(buffer_.size());
 
     // Do another read
     do_read();
