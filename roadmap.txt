@@ -5,11 +5,13 @@ OK-帧速同步
 OK-渲染文字
 ok-http服务器
 OK-info和error的错误使用
--树莓派上帧率的问题
 OK-低帧率的时候在视频里加warning字样
 ok-beast同时支持http
--http转ts
 -一个graceful退出的方式（1.收到退出信号 2.关闭acceptor 3.对于每个session，通知要close    3是重点）
+-http转ts
+-opencv编译ffmpeg=OFF的问题
+-不行就直接用ffmpeg
+-树莓派上帧率的问题
 -web界面
 -web直播
 -web下载录像
