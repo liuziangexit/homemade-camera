@@ -10,6 +10,7 @@
 #include <boost/beast/websocket.hpp>
 #include <boost/beast/websocket/ssl.hpp>
 #include <boost/system/error_code.hpp>
+#include <functional>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -148,8 +149,30 @@ public:
     // handle request
   }
 
-  void on_write(beast::error_code ec, std::size_t bytes_transferred) {
+  template <bool isRequest, class Body, class Fields>
+  void send(http::message<isRequest, Body, Fields> &&msg) {
+    http::message<isRequest, Body, Fields> *response =
+        new http::message<isRequest, Body, Fields>(std::move(msg));
+    std::function<void()> deleter([response] { delete response; });
+
+    try {
+      // Write the response
+      http::async_write(stream_, *response,
+                        beast::bind_front_handler(&asio_http_session::on_write,
+                                                  this->shared_from_this(),
+                                                  std::move(deleter)));
+    } catch (const std::exception &ex) {
+      delete response;
+      throw ex;
+    }
+  }
+
+  void on_write(const std::function<void()> &deleter, beast::error_code ec,
+                std::size_t bytes_transferred) {
     // boost::ignore_unused(bytes_transferred);
+
+    //删除response对象
+    deleter();
 
     if (ec) {
       homemadecam::logger::info(this->remote,
