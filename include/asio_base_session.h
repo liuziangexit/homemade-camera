@@ -52,7 +52,7 @@ public:
     homemadecam::logger::info("asio_base_session destruct");
   }
 
-  /// virtual void run();
+  virtual void run() {}
 };
 
 } // namespace homemadecam

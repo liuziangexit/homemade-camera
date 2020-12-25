@@ -42,7 +42,7 @@ public:
 
   // Get on the correct executor
   // virtual void run() override {
-  void run() {
+  virtual void run() override {
     // We need to be executing within a strand to perform async operations
     // on the I/O objects in this session. Although not strictly necessary
     // for single-threaded contexts, this example code is written to be
