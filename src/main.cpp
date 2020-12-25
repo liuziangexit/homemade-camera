@@ -1,7 +1,6 @@
 #include "capture.h"
 #include "logger.h"
 #include <signal.h>
-//#include <tbb/concurrent_hash_map.h>
 #include <web_service.h>
 
 homemadecam::web *web;
@@ -18,6 +17,5 @@ int main(int argc, char **argv) {
   web = new homemadecam::web("config.json");
   web->run();
   getchar();
-  web->stop();
   raise(SIGINT);
 }

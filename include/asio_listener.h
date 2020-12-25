@@ -11,9 +11,9 @@
 #include <boost/beast/ssl.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/beast/websocket/ssl.hpp>
+#include <functional>
 #include <stdexcept>
 #include <string>
-//#include <tbb/concurrent_hash_map.h>
 
 namespace beast = boost::beast;         // from <boost/beast.hpp>
 namespace http = beast::http;           // from <boost/beast/http.hpp>
@@ -24,32 +24,18 @@ using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
 namespace homemadecam {
 
-struct endpoint_compare {
-  static size_t hash(const tcp::endpoint &e) {
-    uint64_t hash = e.address().to_v4().to_ulong();
-    hash <<= 32;
-    hash |= e.port();
-    return hash;
-  }
-  //! True if strings are equal
-  static bool equal(const tcp::endpoint &x, const tcp::endpoint &y) {
-    return hash(x) == hash(y);
-  }
-};
-
 // Accepts incoming connections and launches the sessions
 class asio_listener : public std::enable_shared_from_this<asio_listener> {
   net::io_context &ioc_;
-  ssl::context *ssl_ctx_;
-  tcp::acceptor acceptor_;
   tcp::endpoint endpoint_;
-  // tbb::concurrent_hash_map<tcp::endpoint, std::shared_ptr<>()> test;
+  std::function<void(tcp::socket &&)> create_session_;
+  tcp::acceptor acceptor_;
 
 public:
   asio_listener(net::io_context &ioc, tcp::endpoint endpoint,
-                ssl::context *ssl_ctx)
-      : ioc_(ioc), ssl_ctx_(ssl_ctx), acceptor_(net::make_strand(ioc)),
-        endpoint_(endpoint) {}
+                const std::function<void(tcp::socket &&)> &create_session)
+      : ioc_(ioc), endpoint_(endpoint), create_session_(create_session),
+        acceptor_(net::make_strand(ioc)) {}
 
   ~asio_listener() { homemadecam::logger::info("asio_listener destruct"); }
 
@@ -108,24 +94,8 @@ private:
       }
     } else {
       homemadecam::logger::info(socket.remote_endpoint(), " TCP handshake OK");
-      // TODO 也许ssl_ctx_可以是constexpr的
       // Create the session and run it
-      if (false) {
-        if (this->ssl_ctx_) {
-          std::make_shared<asio_http_session<true>>(std::move(socket),
-                                                    *ssl_ctx_)
-              ->run();
-        } else {
-          std::make_shared<asio_http_session<false>>(std::move(socket))->run();
-        }
-      } else {
-        if (this->ssl_ctx_) {
-          std::make_shared<asio_ws_session<true>>(std::move(socket), *ssl_ctx_)
-              ->run();
-        } else {
-          std::make_shared<asio_ws_session<false>>(std::move(socket))->run();
-        }
-      }
+      this->create_session_(std::move(socket));
     }
 
     // Accept another connection

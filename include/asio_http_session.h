@@ -37,7 +37,7 @@ public:
             std::forward<ARGS>(args)...) {}
 
   ~asio_http_session() {
-    homemadecam::logger::info("asio_http_session destruct");
+    homemadecam::logger::info(this->remote_, " asio_http_session destruct");
   }
 
   // Get on the correct executor
@@ -78,9 +78,14 @@ public:
       if (ec) {
         homemadecam::logger::error(this->remote_,
                                    " SSL handshake error: ", ec.message());
+        this->close();
         return;
       } else {
         homemadecam::logger::info(this->remote_, " SSL handshake OK");
+      }
+    } else {
+      if (ec) {
+        throw std::runtime_error("should not happen");
       }
     }
 
@@ -110,13 +115,14 @@ public:
   void on_read(beast::error_code ec, std::size_t bytes_transferred) {
     // This means they closed the connection
     if (ec == http::error::end_of_stream) {
-      homemadecam::logger::info(this->remote_, " http closed");
+      this->close();
       return;
     }
 
     if (ec) {
       homemadecam::logger::error(this->remote_,
                                  " http read failed: ", ec.message());
+      this->close();
       return;
     } else {
       homemadecam::logger::info(this->remote_, " http read OK");
@@ -142,10 +148,11 @@ public:
       // Write the response
       http::async_write(
           this->stream_, *response,
-          [this, shared_this = this->shared_from_this(), deleter([response] {
-             delete response;
-           })](beast::error_code ec, std::size_t bytes_transferred) {
-            this->on_write(deleter, ec, bytes_transferred);
+          [this, shared_this = this->shared_from_this(), response,
+           deleter([response] { delete response; })](
+              beast::error_code ec, std::size_t bytes_transferred) {
+            this->on_write(deleter, response->need_eof(), ec,
+                           bytes_transferred);
           });
     } catch (const std::exception &ex) {
       delete response;
@@ -153,8 +160,8 @@ public:
     }
   }
 
-  void on_write(const std::function<void()> &deleter, beast::error_code ec,
-                std::size_t bytes_transferred) {
+  void on_write(const std::function<void()> &deleter, bool should_close,
+                beast::error_code ec, std::size_t bytes_transferred) {
     // boost::ignore_unused(bytes_transferred);
 
     //删除response对象
@@ -163,13 +170,26 @@ public:
     if (ec) {
       homemadecam::logger::info(this->remote_,
                                 " http write failed: ", ec.message());
+      this->close();
       return;
     } else {
       homemadecam::logger::info(this->remote_, " http write OK");
     }
 
+    //也许是因为"Connection: close"或者什么其他原因
+    //总之，需要我们关掉
+    if (should_close) {
+      this->close();
+      return;
+    }
+
     // Do another read
     do_read();
+  }
+
+  virtual void close() override {
+    homemadecam::logger::info(this->remote_, " http closed");
+    asio_base_session<SSL, typename stream<SSL>::type>::close();
   }
 };
 

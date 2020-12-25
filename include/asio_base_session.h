@@ -32,27 +32,52 @@ class asio_base_session
     : public std::enable_shared_from_this<asio_base_session<SSL, STREAM>> {
 protected:
   STREAM stream_;
-
   const beast::tcp_stream::endpoint_type remote_;
+
+private:
+  //我们会在web service里保留每个session的一个引用计数
+  // session自杀的时候，需要把自己在service里的引用消掉
+  std::function<bool()> unregister_;
 
 public:
   // ssl
-  asio_base_session(tcp::socket &&socket, ssl::context &ssl_ctx)
-      : stream_(std::move(socket), ssl_ctx),
-        remote_(beast::get_lowest_layer(stream_).socket().remote_endpoint()) {}
+  asio_base_session(tcp::socket &&socket, ssl::context &ssl_ctx,
+                    const std::function<bool()> &unregister)
+      : stream_(std::move(socket), ssl_ctx), remote_(socket.remote_endpoint()),
+        unregister_(unregister) {}
 
   // tcp
-  explicit asio_base_session(tcp::socket &&socket)
+  explicit asio_base_session(tcp::socket &&socket,
+                             const std::function<bool()> &unregister)
       : stream_(std::move(socket)),
-        remote_(beast::get_lowest_layer(stream_).socket().remote_endpoint()) {}
+        remote_(beast::get_lowest_layer(stream_).socket().remote_endpoint()),
+        unregister_(unregister) {}
 
   asio_base_session(const asio_base_session &) = delete;
 
   virtual ~asio_base_session() {
-    homemadecam::logger::info("asio_base_session destruct");
+//#ifdef DEBUG
+#if 1
+    if (this->unregister_()) {
+      logger::fatal("wocao");
+      abort();
+    }
+#endif
+    homemadecam::logger::info(this->remote_, " asio_base_session destruct");
   }
 
-  virtual void run() {}
+  virtual void run() { throw std::exception(); }
+
+  virtual void close() {
+    homemadecam::logger::info(this->remote_, " asio_base_session close: begin");
+    if (!this->unregister_()) {
+      homemadecam::logger::info(
+          this->remote_,
+          " asio_base_session close: \"this\" has been closed before");
+    }
+    beast::get_lowest_layer(stream_).close();
+    homemadecam::logger::info(this->remote_, " asio_base_session close: ok");
+  }
 };
 
 } // namespace homemadecam

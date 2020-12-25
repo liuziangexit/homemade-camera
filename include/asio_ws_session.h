@@ -11,6 +11,7 @@
 #include <boost/beast/websocket.hpp>
 #include <boost/beast/websocket/ssl.hpp>
 #include <boost/system/error_code.hpp>
+#include <functional>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -39,7 +40,9 @@ public:
                           websocket::stream<typename stream<SSL>::type, true>>(
             std::forward<ARGS>(args)...) {}
 
-  ~asio_ws_session() { homemadecam::logger::info("asio_ws_session destruct"); }
+  ~asio_ws_session() {
+    homemadecam::logger::info(this->remote_, " asio_ws_session destruct");
+  }
 
   // Get on the correct executor
   virtual void run() override {
@@ -78,9 +81,14 @@ public:
       if (ec) {
         homemadecam::logger::error(this->remote_,
                                    " SSL handshake error: ", ec.message());
+        this->close();
         return;
       } else {
         homemadecam::logger::info(this->remote_, " SSL handshake OK");
+      }
+    } else {
+      if (ec) {
+        throw std::runtime_error("should never happen");
       }
     }
 
@@ -109,6 +117,7 @@ public:
     if (ec) {
       homemadecam::logger::error(this->remote_,
                                  "Websocket handshake failed: ", ec.message());
+      this->close();
       return;
     }
     homemadecam::logger::info(this->remote_, " Websocket handshake OK");
@@ -132,12 +141,14 @@ public:
     // This indicates that the session was closed
     if (ec == websocket::error::closed) {
       homemadecam::logger::info(this->remote_, " Websocket closed");
+      this->close();
       return;
     }
 
     if (ec) {
       homemadecam::logger::error(this->remote_,
                                  " Websocket read failed: ", ec.message());
+      this->close();
       return;
     } else {
       homemadecam::logger::info(this->remote_, " Websocket read OK");
@@ -159,6 +170,7 @@ public:
     if (ec) {
       homemadecam::logger::info(this->remote_,
                                 " Websocket write failed: ", ec.message());
+      this->close();
       return;
     } else {
       homemadecam::logger::info(this->remote_, " Websocket write OK");
@@ -169,6 +181,12 @@ public:
 
     // Do another read
     do_read();
+  }
+
+  virtual void close() override {
+    homemadecam::logger::info(this->remote_, " websocket closed");
+    asio_base_session<
+        SSL, websocket::stream<typename stream<SSL>::type, true>>::close();
   }
 };
 
