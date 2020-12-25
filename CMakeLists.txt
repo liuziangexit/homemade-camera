@@ -26,7 +26,7 @@ endif ()
 find_package(OpenSSL REQUIRED)
 
 add_subdirectory(3rd-party/oneTBB)
-find_package(TBB REQUIRED)
+find_package(TBB REQUIRED PATHS 3rd-party/oneTBB)
 
 target_link_libraries(homecam ${OpenCV_LIBS} ${OPENSSL_LIBRARIES} TBB::tbb)
 include_directories(homecam ./include ./3rd-party ${OPENCV_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR} ${TBB_INCLUDE_DIR})

@@ -91,12 +91,9 @@ else()
     set(TBB_ARCH 64)
 endif()
 
-option(TBB_TEST "Enable testing" ON)
-option(TBB_EXAMPLES "Enable examples" OFF)
 option(TBB_STRICT "Treat compiler warnings as errors" ON)
 option(TBB_WINDOWS_DRIVER "Build as Universal Windows Driver (UWD)" OFF)
 option(TBB_NO_APPCONTAINER "Apply /APPCONTAINER:NO (for testing binaries for Windows Store)" OFF)
-option(TBB4PY_BUILD "Enable tbb4py build" OFF)
 option(TBB_CPF "Enable preview features of the library" OFF)
 option(TBB_FIND_PACKAGE "Enable search for external oneTBB using find_package instead of build from sources" OFF)
 
@@ -219,24 +216,6 @@ else()
     # -------------------------------------------------------------------
 endif()
 
-if (TBB_TEST)
-    enable_testing()
-    add_subdirectory(test)
-endif()
-
-if (TBB_EXAMPLES)
-    add_subdirectory(examples)
-endif()
-
-if (TBB_BENCH)
-    if (NOT EXISTS ${CMAKE_CURRENT_LIST_DIR}/benchmark)
-        message(FATAL_ERROR "Benchmarks are not supported yet")
-    endif()
-
-    enable_testing()
-    add_subdirectory(benchmark)
-endif()
-
 if (ANDROID_PLATFORM)
     if (${ANDROID_STL} STREQUAL "c++_shared")
         configure_file(
@@ -249,10 +228,6 @@ if (ANDROID_PLATFORM)
     # only for corresponding custom target, it was implemented by this way.
     add_custom_target(device_environment_cleanup COMMAND ${CMAKE_COMMAND}
                       -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/android/device_environment_cleanup.cmake)
-endif()
-
-if (TBB4PY_BUILD)
-    add_subdirectory(python)
 endif()
 
 # Keep it the last instruction.
