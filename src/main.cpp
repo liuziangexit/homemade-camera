@@ -1,22 +1,21 @@
 #include "capture.h"
 #include "logger.h"
 #include <signal.h>
-#include <thread>
+#include <web_service.h>
 
-homemadecam::capture *capture;
+homemadecam::web *web;
 
 void signal_handler(int signum) {
   homemadecam::logger::info("signal ", signum, " received, quitting...");
-  delete capture;
+  delete web;
   exit(signum);
 }
 
 int main(int argc, char **argv) {
   signal(SIGINT, signal_handler);
-  signal(SIGQUIT, signal_handler);
   cv::setNumThreads(0);
-  capture = new homemadecam::capture(homemadecam::config("config.json"));
-  capture->run();
+  web = new homemadecam::web("config.json");
+  web->run();
   getchar();
-  raise(SIGQUIT);
+  raise(SIGINT);
 }
