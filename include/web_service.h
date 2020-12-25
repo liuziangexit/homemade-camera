@@ -12,6 +12,8 @@
 
 namespace homemadecam {
 
+struct endpoint_compare;
+
 class web {
 public:
   web(const std::string &config_file) : conf(config_file) {

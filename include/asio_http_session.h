@@ -1,8 +1,10 @@
 #ifndef __HOMECAM_ASIO_HTTP_SESSION_H_
 #define __HOMECAM_ASIO_HTTP_SESSION_H_
+#include "asio_base_session.h"
 #include "boost/beast.hpp"
 #include "config.h"
 #include "logger.h"
+#include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
@@ -22,67 +24,49 @@ using tcp = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 
 namespace homemadecam {
 
-// Echoes back all received WebSocket messages
-
-// beast::ssl_stream<beast::tcp_stream>
-// beast::tcp_stream
-template <
-    typename UNDERLYING_STREAM,
-    bool SSL =
-        std::is_same_v<UNDERLYING_STREAM, beast::ssl_stream<beast::tcp_stream>>,
-    class =
-        std::enable_if<std::is_same_v<UNDERLYING_STREAM, beast::tcp_stream> ||
-                       std::is_same_v<UNDERLYING_STREAM,
-                                      beast::ssl_stream<beast::tcp_stream>>>>
-class asio_http_session : public std::enable_shared_from_this<
-                              asio_http_session<UNDERLYING_STREAM>> {
-  UNDERLYING_STREAM stream_;
+template <bool SSL>
+class asio_http_session
+    : public asio_base_session<SSL, typename stream<SSL>::type> {
   beast::flat_buffer buffer_;
-  const beast::tcp_stream::endpoint_type remote;
   http::request<http::string_body> req_;
 
 public:
-  // ssl
-  asio_http_session(tcp::socket &&socket, ssl::context &ssl_ctx)
-      : stream_(std::move(socket), ssl_ctx),
-        remote(beast::get_lowest_layer(stream_).socket().remote_endpoint()) {
-    static_assert(SSL);
-  }
-
-  // tcp
-  asio_http_session(tcp::socket &&socket)
-      : stream_(std::move(socket)),
-        remote(beast::get_lowest_layer(stream_).socket().remote_endpoint()) {
-    static_assert(!SSL);
-  }
+  template <typename... ARGS>
+  asio_http_session(ARGS &&...args)
+      : asio_base_session<SSL, typename stream<SSL>::type>(
+            std::forward<ARGS>(args)...) {}
 
   ~asio_http_session() {
     homemadecam::logger::info("asio_http_session destruct");
   }
 
   // Get on the correct executor
+  // virtual void run() override {
   void run() {
     // We need to be executing within a strand to perform async operations
     // on the I/O objects in this session. Although not strictly necessary
     // for single-threaded contexts, this example code is written to be
     // thread-safe by default.
-    net::dispatch(stream_.get_executor(),
-                  beast::bind_front_handler(&asio_http_session::on_run,
-                                            this->shared_from_this()));
+
+    net::dispatch(
+        this->stream_.get_executor(),
+        [this, shared_this = this->shared_from_this()]() { this->on_run(); });
   }
 
   // Start the asynchronous operation
   void on_run() {
     // Set TCP timeout.
     // TODO load from configmanager
-    beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(30));
+    beast::get_lowest_layer(this->stream_)
+        .expires_after(std::chrono::seconds(30));
 
     if constexpr (SSL) {
       // Perform the SSL handshake
-      stream_.async_handshake(
+      this->stream_.async_handshake(
           ssl::stream_base::server,
-          beast::bind_front_handler(&asio_http_session::on_handshake,
-                                    this->shared_from_this()));
+          [this, shared_this = this->shared_from_this()](beast::error_code ec) {
+            this->on_handshake(ec);
+          });
     } else {
       this->on_handshake(beast::error_code());
     }
@@ -92,28 +76,16 @@ public:
   void on_handshake(beast::error_code ec) {
     if constexpr (SSL) {
       if (ec) {
-        homemadecam::logger::error(this->remote,
+        homemadecam::logger::error(this->remote_,
                                    " SSL handshake error: ", ec.message());
         return;
       } else {
-        homemadecam::logger::info(this->remote, " SSL handshake OK");
+        homemadecam::logger::info(this->remote_, " SSL handshake OK");
       }
     }
 
     // post read req
     this->do_read();
-  }
-
-  void on_accept(beast::error_code ec) {
-    if (ec) {
-      homemadecam::logger::error(this->remote,
-                                 "Websocket handshake failed: ", ec.message());
-      return;
-    }
-    homemadecam::logger::info(this->remote, " Websocket handshake OK");
-
-    // Read a message
-    do_read();
   }
 
   void do_read() {
@@ -124,27 +96,30 @@ public:
     buffer_.consume(buffer_.size());
 
     // Set the timeout.
-    beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(30));
+    beast::get_lowest_layer(this->stream_)
+        .expires_after(std::chrono::seconds(30));
 
     // Read a request
-    http::async_read(stream_, buffer_, req_,
-                     beast::bind_front_handler(&asio_http_session::on_read,
-                                               this->shared_from_this()));
+    http::async_read(this->stream_, buffer_, req_,
+                     [this, shared_this = this->shared_from_this()](
+                         beast::error_code ec, std::size_t bytes_transferred) {
+                       this->on_read(ec, bytes_transferred);
+                     });
   }
 
   void on_read(beast::error_code ec, std::size_t bytes_transferred) {
     // This means they closed the connection
     if (ec == http::error::end_of_stream) {
-      homemadecam::logger::info(this->remote, " http closed");
+      homemadecam::logger::info(this->remote_, " http closed");
       return;
     }
 
     if (ec) {
-      homemadecam::logger::error(this->remote,
+      homemadecam::logger::error(this->remote_,
                                  " http read failed: ", ec.message());
       return;
     } else {
-      homemadecam::logger::info(this->remote, " http read OK");
+      homemadecam::logger::info(this->remote_, " http read OK");
     }
 
     // TODO ...
@@ -162,14 +137,16 @@ public:
   void send(http::message<isRequest, Body, Fields> &&msg) {
     http::message<isRequest, Body, Fields> *response =
         new http::message<isRequest, Body, Fields>(std::move(msg));
-    std::function<void()> deleter([response] { delete response; });
 
     try {
       // Write the response
-      http::async_write(stream_, *response,
-                        beast::bind_front_handler(&asio_http_session::on_write,
-                                                  this->shared_from_this(),
-                                                  std::move(deleter)));
+      http::async_write(
+          this->stream_, *response,
+          [this, shared_this = this->shared_from_this(), deleter([response] {
+             delete response;
+           })](beast::error_code ec, std::size_t bytes_transferred) {
+            this->on_write(deleter, ec, bytes_transferred);
+          });
     } catch (const std::exception &ex) {
       delete response;
       throw ex;
@@ -184,11 +161,11 @@ public:
     deleter();
 
     if (ec) {
-      homemadecam::logger::info(this->remote,
+      homemadecam::logger::info(this->remote_,
                                 " http write failed: ", ec.message());
       return;
     } else {
-      homemadecam::logger::info(this->remote, " http write OK");
+      homemadecam::logger::info(this->remote_, " http write OK");
     }
 
     // Do another read
