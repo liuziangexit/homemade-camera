@@ -18,6 +18,5 @@ int main(int argc, char **argv) {
   web->run();
   getchar();
   web->stop();
-  delete web;
-  // raise(SIGINT);
+  raise(SIGINT);
 }

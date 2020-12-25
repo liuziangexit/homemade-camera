@@ -36,8 +36,7 @@ public:
       : ioc_(ioc), ssl_ctx_(ssl_ctx), acceptor_(net::make_strand(ioc)),
         endpoint_(endpoint) {}
 
-  ~asio_listener(){
-    homemadecam::logger::info("asio_listener destruct"); }
+  ~asio_listener() { homemadecam::logger::info("asio_listener destruct"); }
 
   // Start accepting incoming connections
   void run() {
@@ -71,9 +70,11 @@ public:
   }
 
   void stop() {
-    homemadecam::logger::info("listener quitting...");
-    acceptor_.cancel();
-    acceptor_.close();
+    try {
+      acceptor_.close();
+    } catch (const std::exception &ex) {
+      homemadecam::logger::error("listener quitting: ", ex.what());
+    }
   }
 
 private:
@@ -87,6 +88,9 @@ private:
   void on_accept(beast::error_code ec, tcp::socket socket) {
     if (ec) {
       homemadecam::logger::error("asio accept fail: ", ec.message());
+      if (ec == boost::asio::error::operation_aborted) {
+        return;
+      }
     } else {
       homemadecam::logger::info(socket.remote_endpoint(), " TCP handshake OK");
       // Create the session and run it
