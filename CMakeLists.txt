@@ -25,5 +25,9 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 endif ()
 find_package(OpenSSL REQUIRED)
 
-target_link_libraries(homecam ${OpenCV_LIBS} ${OPENSSL_LIBRARIES})
-include_directories(homecam ./include ./3rd-party ${OPENCV_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR})
+#add_subdirectory(3rd-party/oneTBB)
+#find_package(TBB REQUIRED PATHS 3rd-party/oneTBB)
+find_package(TBB REQUIRED)
+
+target_link_libraries(homecam ${OpenCV_LIBS} ${OPENSSL_LIBRARIES} TBB::tbb)
+include_directories(homecam ./include ./3rd-party ${OPENCV_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR} ${TBB_INCLUDE_DIR})

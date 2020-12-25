@@ -1,6 +1,7 @@
 #ifndef __HOMECAM_ASIO_LISTENER_H_
 #define __HOMECAM_ASIO_LISTENER_H_
-#include "asio_session.h"
+#include "asio_http_session.h"
+#include "asio_ws_session.h"
 #include "boost/beast.hpp"
 #include "config.h"
 #include "logger.h"
@@ -10,10 +11,9 @@
 #include <boost/beast/ssl.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/beast/websocket/ssl.hpp>
+#include <functional>
 #include <stdexcept>
 #include <string>
-
-// FIXME 改成用template bool决定支不支持ssl
 
 namespace beast = boost::beast;         // from <boost/beast.hpp>
 namespace http = beast::http;           // from <boost/beast/http.hpp>
@@ -27,15 +27,17 @@ namespace homemadecam {
 // Accepts incoming connections and launches the sessions
 class asio_listener : public std::enable_shared_from_this<asio_listener> {
   net::io_context &ioc_;
-  ssl::context *ssl_ctx_;
-  tcp::acceptor acceptor_;
   tcp::endpoint endpoint_;
+  std::function<void(tcp::socket &&)> create_session_;
+  tcp::acceptor acceptor_;
 
 public:
-  asio_listener(net::io_context &ioc, ssl::context *ssl_ctx,
-                tcp::endpoint endpoint)
-      : ioc_(ioc), ssl_ctx_(ssl_ctx), acceptor_(net::make_strand(ioc)),
-        endpoint_(endpoint) {}
+  asio_listener(net::io_context &ioc, tcp::endpoint endpoint,
+                const std::function<void(tcp::socket &&)> &create_session)
+      : ioc_(ioc), endpoint_(endpoint), create_session_(create_session),
+        acceptor_(net::make_strand(ioc)) {}
+
+  ~asio_listener() { homemadecam::logger::info("asio_listener destruct"); }
 
   // Start accepting incoming connections
   void run() {
@@ -64,7 +66,16 @@ public:
     if (ec) {
       throw std::runtime_error("acceptor_.listen");
     }
+    homemadecam::logger::info("listening at ", this->endpoint_);
     do_accept();
+  }
+
+  void stop() {
+    try {
+      acceptor_.close();
+    } catch (const std::exception &ex) {
+      homemadecam::logger::error("listener quitting: ", ex.what());
+    }
   }
 
 private:
@@ -78,17 +89,13 @@ private:
   void on_accept(beast::error_code ec, tcp::socket socket) {
     if (ec) {
       homemadecam::logger::error("asio accept fail: ", ec.message());
+      if (ec == boost::asio::error::operation_aborted) {
+        return;
+      }
     } else {
       homemadecam::logger::info(socket.remote_endpoint(), " TCP handshake OK");
       // Create the session and run it
-      if (this->ssl_ctx_) {
-        std::make_shared<asio_session<beast::ssl_stream<beast::tcp_stream>>>(
-            std::move(socket), *ssl_ctx_)
-            ->run();
-      } else {
-        std::make_shared<asio_session<beast::tcp_stream>>(std::move(socket))
-            ->run();
-      }
+      this->create_session_(std::move(socket));
     }
 
     // Accept another connection
