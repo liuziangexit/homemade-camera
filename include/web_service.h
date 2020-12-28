@@ -12,6 +12,7 @@
 #include <stdexcept>
 #include <stdlib.h>
 #include <string>
+#include <thread>
 #include <tbb/concurrent_hash_map.h>
 #include <utility>
 
