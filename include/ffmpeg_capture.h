@@ -3,11 +3,13 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include <libavcodec/avcodec.h>
 #include <libavdevice/avdevice.h>
 #include <libavformat/avformat.h>
 #ifdef __cplusplus
 }
 #endif
+#include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <sstream>
 #include <string>
@@ -23,6 +25,8 @@ struct device_info {
 class ffmpeg_capture {
   AVFormatContext *format_context;
   AVInputFormat *input_format;
+  AVCodecContext *codec_context;
+  AVCodec *codec;
 
 public:
   ffmpeg_capture() { avdevice_register_all(); }
@@ -46,10 +50,37 @@ public:
                             &params)) {
       return -3;
     }
+
+    if (avformat_find_stream_info(format_context, nullptr) < 0)
+      return -1;
+
+    // find the stream index, we'll only be encoding the video for now
+    int video_stream_idx = -1;
+    for (int i = 0; i < format_context->nb_streams; i++) {
+      if (format_context->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+        video_stream_idx = i;
+        break;
+      }
+    }
+    if (video_stream_idx == -1)
+      return -4;
+
+    codec_context = format_context->streams[video_stream_idx]->codec;
+    codec = avcodec_find_decoder(codec_context->codec_id);
+    if (!codec)
+      return -5;
+
+    if (avcodec_open2(codec_context, codec, nullptr) < 0) {
+      return -6;
+    }
+
     return 0;
   }
-  void grab_frame();
+  cv::Mat grab_frame() { return cv::Mat(); }
+
   void close_device() {
+    avcodec_close(codec_context);
+    AVCodec *codec;
     avformat_close_input(&format_context);
     avformat_free_context(format_context);
   }
