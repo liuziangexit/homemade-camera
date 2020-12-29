@@ -6,12 +6,15 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavdevice/avdevice.h>
 #include <libavformat/avformat.h>
+#include <libswscale/swscale.h>
 #ifdef __cplusplus
 }
 #endif
+#include <guard.h>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,6 +30,8 @@ class ffmpeg_capture {
   AVInputFormat *input_format;
   AVCodecContext *codec_context;
   AVCodec *codec;
+  AVFrame *grab_frame = nullptr;
+  AVPacket *packet;
 
 public:
   ffmpeg_capture() { avdevice_register_all(); }
@@ -73,16 +78,49 @@ public:
     if (avcodec_open2(codec_context, codec, nullptr) < 0) {
       return -6;
     }
-
     return 0;
   }
-  cv::Mat grab_frame() { return cv::Mat(); }
+
+  cv::Mat grab() {
+    if (!grab_frame) {
+      grab_frame = av_frame_alloc();
+      if (!grab_frame) {
+        throw std::bad_alloc();
+      }
+    } else {
+      av_frame_unref(grab_frame);
+    }
+    if (!packet) {
+      packet = av_packet_alloc();
+      if (!packet) {
+        throw std::bad_alloc();
+      }
+    } else {
+      av_init_packet(packet);
+    }
+
+    if (av_read_frame(format_context, packet) < 0)
+      throw std::runtime_error("av_read_frame");
+
+    int got_frame = 0;
+    if (avcodec_decode_video2(codec_context, grab_frame, &got_frame, packet) <
+        0) {
+      got_frame = 0;
+    }
+    if (!got_frame) {
+      throw std::runtime_error("avcodec_decode_video2");
+    }
+
+    return avframe_to_cvmat(grab_frame);
+  }
 
   void close_device() {
     avcodec_close(codec_context);
     AVCodec *codec;
     avformat_close_input(&format_context);
     avformat_free_context(format_context);
+    av_frame_free(&grab_frame);
+    av_packet_free(&packet);
   }
 
 private:
@@ -90,6 +128,22 @@ private:
     std::ostringstream fmt;
     fmt << s.width << "x" << s.height;
     return std::string(fmt.str());
+  }
+
+  // AVFrame 转 cv::mat
+  static cv::Mat avframe_to_cvmat(const AVFrame *frame) {
+    int width = frame->width;
+    int height = frame->height;
+    cv::Mat image(height, width, CV_8UC3);
+    int cvLinesizes[1];
+    cvLinesizes[0] = image.step1();
+    SwsContext *conversion = sws_getContext(
+        width, height, (AVPixelFormat)frame->format, width, height,
+        AVPixelFormat::AV_PIX_FMT_BGR24, SWS_FAST_BILINEAR, NULL, NULL, NULL);
+    sws_scale(conversion, frame->data, frame->linesize, 0, height, &image.data,
+              cvLinesizes);
+    sws_freeContext(conversion);
+    return image;
   }
 };
 
