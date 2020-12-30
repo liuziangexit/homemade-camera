@@ -1,10 +1,10 @@
 //#include "capture.h"
 #include "ffmpeg_capture.h"
+#include "ffmpeg_encoder.h"
 #include "logger.h"
+#include <fstream>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <signal.h>
 #include <web_service.h>
 
 homemadecam::web *web;
@@ -18,11 +18,16 @@ void signal_handler(int signum) {
 int main(int argc, char **argv) {
 
   homemadecam::ffmpeg_capture cap;
-  int ret = cap.open_device("avfoundation", "0", cv::Size{1280, 720}, 30);
-  auto frame = cap.grab();
-  cv::imshow("Display window", frame);
+  int ret = cap.open("avfoundation", "0", cv::Size{1280, 720}, 30);
+  auto frame = cap.read();
+  // cv::imshow("Display window", frame);
+
+  std::fstream file("test.mov", std::ios_base::out);
+  homemadecam::ffmpeg_encoder<std::fstream> enc;
+
+  ret = enc.open(homemadecam::H264, cap.codec_context, file);
+
   cv::waitKey(0); // Wait for a keystroke in the window
-  cap.close_device();
   /*
   signal(SIGINT, signal_handler);
   cv::setNumThreads(0);

@@ -11,7 +11,6 @@ extern "C" {
 }
 #endif
 #include <guard.h>
-#include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <sstream>
 #include <stdexcept>
@@ -21,23 +20,28 @@ extern "C" {
 
 namespace homemadecam {
 
-struct device_info {
-  std::vector<cv::Size> resolution;
-};
-
 class ffmpeg_capture {
-  AVFormatContext *format_context;
-  AVInputFormat *input_format;
-  AVCodecContext *codec_context;
-  AVCodec *codec;
+  AVFormatContext *format_context = nullptr;
+  AVInputFormat *input_format = nullptr;
+  AVCodec *codec = nullptr;
   AVFrame *grab_frame = nullptr;
-  AVPacket *packet;
+  AVPacket *packet = nullptr;
 
 public:
-  ffmpeg_capture() { avdevice_register_all(); }
+  AVCodecContext *codec_context = nullptr;
 
-  int open_device(const std::string &api, const std::string &device,
-                  cv::Size resolution, int framerate) {
+  ffmpeg_capture() {
+    avdevice_register_all();
+    av_register_all();
+    avcodec_register_all();
+  }
+
+  ~ffmpeg_capture() { close(); }
+
+  int open(const std::string &api, const std::string &device,
+           cv::Size resolution, int framerate) {
+    close();
+
     format_context = avformat_alloc_context();
     if (!format_context) {
       return -1;
@@ -55,6 +59,8 @@ public:
                             &params)) {
       return -3;
     }
+
+    av_dict_free(&params);
 
     if (avformat_find_stream_info(format_context, nullptr) < 0)
       return -1;
@@ -81,7 +87,8 @@ public:
     return 0;
   }
 
-  cv::Mat grab() {
+  //这个返回的指针指向的对象在下一次grab前或capture对象析构前有效
+  AVFrame *read() {
     if (!grab_frame) {
       grab_frame = av_frame_alloc();
       if (!grab_frame) {
@@ -111,16 +118,26 @@ public:
       throw std::runtime_error("avcodec_decode_video2");
     }
 
-    return avframe_to_cvmat(grab_frame);
+    return grab_frame;
   }
 
-  void close_device() {
-    avcodec_close(codec_context);
-    AVCodec *codec;
-    avformat_close_input(&format_context);
-    avformat_free_context(format_context);
-    av_frame_free(&grab_frame);
-    av_packet_free(&packet);
+  void close() {
+    if (codec_context)
+      avcodec_close(codec_context);
+    codec_context = nullptr;
+    if (format_context) {
+      avformat_close_input(&format_context);
+      avformat_free_context(format_context);
+      format_context = nullptr;
+    }
+    if (grab_frame) {
+      av_frame_free(&grab_frame);
+      grab_frame = nullptr;
+    }
+    if (packet) {
+      av_packet_free(&packet);
+      packet = nullptr;
+    }
   }
 
 private:
@@ -128,22 +145,6 @@ private:
     std::ostringstream fmt;
     fmt << s.width << "x" << s.height;
     return std::string(fmt.str());
-  }
-
-  // AVFrame 转 cv::mat
-  static cv::Mat avframe_to_cvmat(const AVFrame *frame) {
-    int width = frame->width;
-    int height = frame->height;
-    cv::Mat image(height, width, CV_8UC3);
-    int cvLinesizes[1];
-    cvLinesizes[0] = image.step1();
-    SwsContext *conversion = sws_getContext(
-        width, height, (AVPixelFormat)frame->format, width, height,
-        AVPixelFormat::AV_PIX_FMT_BGR24, SWS_FAST_BILINEAR, NULL, NULL, NULL);
-    sws_scale(conversion, frame->data, frame->linesize, 0, height, &image.data,
-              cvLinesizes);
-    sws_freeContext(conversion);
-    return image;
   }
 };
 
