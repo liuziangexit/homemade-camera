@@ -19,15 +19,23 @@ int main(int argc, char **argv) {
 
   homemadecam::ffmpeg_capture cap;
   int ret = cap.open("avfoundation", "0", cv::Size{1280, 720}, 30);
-  auto frame = cap.read();
   // cv::imshow("Display window", frame);
 
-  std::fstream file("test.mov", std::ios_base::out);
-  homemadecam::ffmpeg_encoder<std::fstream> enc;
+  std::ofstream file("test.mov", std::ios_base::out);
+  homemadecam::ffmpeg_encoder<false> enc;
 
   ret = enc.open(homemadecam::H264, cap.codec_context, file);
 
-  cv::waitKey(0); // Wait for a keystroke in the window
+  for (int i = 0; i < 100; i++) {
+    auto frame = cap.read();
+    enc.write(frame);
+  }
+
+  cap.close();
+  enc.close();
+
+  file.close();
+  // cv::waitKey(0); // Wait for a keystroke in the window
   /*
   signal(SIGINT, signal_handler);
   cv::setNumThreads(0);

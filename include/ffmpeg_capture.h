@@ -25,7 +25,6 @@ class ffmpeg_capture {
   AVInputFormat *input_format = nullptr;
   AVCodec *codec = nullptr;
   AVFrame *grab_frame = nullptr;
-  AVPacket *packet = nullptr;
 
 public:
   AVCodecContext *codec_context = nullptr;
@@ -97,20 +96,14 @@ public:
     } else {
       av_frame_unref(grab_frame);
     }
-    if (!packet) {
-      packet = av_packet_alloc();
-      if (!packet) {
-        throw std::bad_alloc();
-      }
-    } else {
-      av_init_packet(packet);
-    }
+    AVPacket packet;
+    av_init_packet(&packet);
 
-    if (av_read_frame(format_context, packet) < 0)
+    if (av_read_frame(format_context, &packet) < 0)
       throw std::runtime_error("av_read_frame");
 
     int got_frame = 0;
-    if (avcodec_decode_video2(codec_context, grab_frame, &got_frame, packet) <
+    if (avcodec_decode_video2(codec_context, grab_frame, &got_frame, &packet) <
         0) {
       got_frame = 0;
     }
@@ -126,17 +119,14 @@ public:
       avcodec_close(codec_context);
     codec_context = nullptr;
     if (format_context) {
-      avformat_close_input(&format_context);
       avformat_free_context(format_context);
       format_context = nullptr;
     }
+    input_format = nullptr;
+    codec = nullptr;
     if (grab_frame) {
       av_frame_free(&grab_frame);
       grab_frame = nullptr;
-    }
-    if (packet) {
-      av_packet_free(&packet);
-      packet = nullptr;
     }
   }
 
