@@ -16,6 +16,11 @@ int main(int argc, char **argv) {
   cv::setNumThreads(0);
   web = new homemadecam::web("config.json");
   web->run();
+
+  homemadecam::config c("config.json");
+  homemadecam::capture cap(c);
+  cap.run();
+
   getchar();
   raise(SIGINT);
 }

@@ -2,7 +2,7 @@
   "codec": "H264",
   "duration": 60,
   "save-location": "video",
-  "camera-id": 1,
+  "camera-id": 0,
   "text-pos": 3,
   "font-height": 30,
   "web-port": 8080,
