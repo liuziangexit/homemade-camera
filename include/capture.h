@@ -89,6 +89,13 @@ private:
     return fmt.str();
   }
 
+  static bool set_resolution(cv::VideoCapture &cap, cv::Size res) {
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, res.width);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, res.height);
+    return cap.get(cv::CAP_PROP_FRAME_WIDTH) == res.width &&
+           cap.get(cv::CAP_PROP_FRAME_HEIGHT) == res.height;
+  }
+
   int do_capture(config &config) {
     if (config.duration < 1)
       return 4; //短于1秒的话文件名可能重复
@@ -96,6 +103,11 @@ private:
     if (!capture.open(config.camera_id, cv::CAP_ANY)) {
       logger::error("VideoCapture open failed");
       return 1;
+    }
+
+    if (!set_resolution(capture, config.resolution)) {
+      logger::error("VideoCapture set resolution failed");
+      return 62;
     }
 
     double fps = (int)capture.get(cv::CAP_PROP_FPS);

@@ -5,6 +5,7 @@
 #include "json/json.hpp"
 #include <cstdint>
 #include <memory>
+#include <opencv2/core/types.hpp>
 #include <stdexcept>
 #include <string>
 
@@ -16,6 +17,7 @@ public:
   std::string save_location;
   enum codec codec;
   int camera_id;
+  cv::Size resolution;
   int text_pos; // 0-右上 1-左上 2-左下 3-右下 4-中间
   int font_height;
   int web_port;
@@ -52,6 +54,19 @@ public:
       this->save_location = js["save-location"].get<std::string>();
       this->codec = codec_parse(js["codec"].get<std::string>());
       this->camera_id = js["camera-id"].get<int>();
+      {
+        std::string r = js["resolution"].get<std::string>();
+        auto pos = r.find('x');
+        if (pos == std::string::npos)
+          return false;
+        try {
+          int width = std::stoi(r.substr(0, pos));
+          int height = std::stoi(r.substr(pos + 1, r.length()));
+          this->resolution = cv::Size{width, height};
+        } catch (const std::exception &) {
+          return false;
+        }
+      }
       this->text_pos = js["text-pos"].get<int>();
       this->font_height = js["font-height"].get<int>();
       this->web_port = js["web-port"].get<int>();
