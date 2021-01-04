@@ -14,6 +14,7 @@
 #include <opencv2/freetype.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -153,13 +154,15 @@ private:
             << localt->tm_mday << " " << localt->tm_hour << ':'
             << localt->tm_min << ':' << localt->tm_sec;
 
-        render_text(config.text_pos, fmt.str(), config.font_height, freetype,
-                    frame);
+        render_text(config.text_pos, fmt.str(), config.font_height,
+                    std::optional<cv::Scalar>(), freetype, frame);
         //低帧率时渲染警告
         if (frame_cost > frame_time) {
           fmt.str("LOW FPS: ");
           fmt << 1000 / frame_cost;
           render_text((config.text_pos + 1) % 4, fmt.str(), config.font_height,
+                      std::make_optional(
+                          cv::Scalar((double)238, (double)120, (double)30)),
                       freetype, frame);
         }
       }
@@ -188,6 +191,7 @@ private:
   }
 
   void render_text(int pos, const std::string &text, int font_height,
+                   std::optional<cv::Scalar> foreground,
                    cv::freetype::FreeType2 *freetype, cv::Mat &img) {
     int channel = img.channels();
     int depth = img.depth();
@@ -218,46 +222,50 @@ private:
       text_render_pos = {(img.cols - text_render_size.width) / 2,
                          (img.rows - text_render_size.height) / 2};
     }
-    //计算该区域内的平均颜色，然后决定渲染的时候使用黑或白
-    const std::size_t xend =
-        std::min(img.cols, text_render_pos.x + text_render_size.width);
-    const std::size_t yend =
-        std::min(img.rows, text_render_pos.y + text_render_size.height);
-    const std::size_t pixel_count =
-        (xend - text_render_pos.x) * (yend - text_render_pos.y);
-    //计算平均颜色
-    cv::Scalar_<uint64_t> color{0, 0, 0};
-    auto color_channel_sum = [&color]() -> uint64_t {
-      return color[0] + color[1] + color[2];
-    };
-    for (std::size_t x = text_render_pos.x; x < xend; x++) {
-      for (std::size_t y = text_render_pos.y; y < yend; y++) {
-        color[2] +=
-            ((uint8_t *)
-                 img.data)[y * img.cols * channel + x * channel + 2]; // R
-        color[1] +=
-            ((uint8_t *)
-                 img.data)[y * img.cols * channel + x * channel + 1]; // G
-        color[0] +=
-            ((uint8_t *)
-                 img.data)[y * img.cols * channel + x * channel + 0]; // B
+    cv::Scalar color{0, 0, 0};
+    if (foreground) {
+      color = *foreground;
+    } else {
+      //计算该区域内的平均颜色，然后决定渲染的时候使用黑或白
+      const std::size_t xend =
+          std::min(img.cols, text_render_pos.x + text_render_size.width);
+      const std::size_t yend =
+          std::min(img.rows, text_render_pos.y + text_render_size.height);
+      const std::size_t pixel_count =
+          (xend - text_render_pos.x) * (yend - text_render_pos.y);
+      //计算平均颜色
+      auto color_channel_sum = [&color]() -> uint64_t {
+        return color[0] + color[1] + color[2];
+      };
+      for (std::size_t x = text_render_pos.x; x < xend; x++) {
+        for (std::size_t y = text_render_pos.y; y < yend; y++) {
+          color[2] +=
+              ((uint8_t *)
+                   img.data)[y * img.cols * channel + x * channel + 2]; // R
+          color[1] +=
+              ((uint8_t *)
+                   img.data)[y * img.cols * channel + x * channel + 1]; // G
+          color[0] +=
+              ((uint8_t *)
+                   img.data)[y * img.cols * channel + x * channel + 0]; // B
+        }
       }
-    }
-    color[0] /= pixel_count;
-    color[1] /= pixel_count;
-    color[2] /= pixel_count;
-    auto avg_sum = (int64_t)color_channel_sum();
-    //反色
-    color[0] = 255 - color[0];
-    color[1] = 255 - color[1];
-    color[2] = 255 - color[2];
-    auto rev_sum = (int64_t)color_channel_sum();
-    //如果平均色和反色相差不够大，就用黑色或白色
-    if (abs(avg_sum - rev_sum) < 255 * 3 / 2) {
-      if (avg_sum >= 255 * 3 / 2) {
-        color = {0, 0, 0};
-      } else {
-        color = {255, 255, 255};
+      color[0] /= pixel_count;
+      color[1] /= pixel_count;
+      color[2] /= pixel_count;
+      auto avg_sum = (int64_t)color_channel_sum();
+      //反色
+      color[0] = 255 - color[0];
+      color[1] = 255 - color[1];
+      color[2] = 255 - color[2];
+      auto rev_sum = (int64_t)color_channel_sum();
+      //如果平均色和反色相差不够大，就用黑色或白色
+      if (abs(avg_sum - rev_sum) < 255 * 3 / 2) {
+        if (avg_sum >= 255 * 3 / 2) {
+          color = {0, 0, 0};
+        } else {
+          color = {255, 255, 255};
+        }
       }
     }
 
