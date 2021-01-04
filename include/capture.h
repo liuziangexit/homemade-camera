@@ -90,15 +90,15 @@ private:
   }
 
   static bool set_resolution(cv::VideoCapture &cap, cv::Size res) {
-    if (!cap.set(cv::CAP_PROP_FRAME_WIDTH, res.width))
-      return false;
-    if (!cap.set(cv::CAP_PROP_FRAME_HEIGHT, res.height))
-      return false;
-    return true;
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, res.width);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, res.height);
+    return cap.get(cv::CAP_PROP_FRAME_WIDTH) == res.width &&
+           cap.get(cv::CAP_PROP_FRAME_HEIGHT) == res.height;
   }
 
   static bool set_fps(cv::VideoCapture &cap, int fps) {
-    return cap.set(cv::CAP_PROP_FPS, fps);
+    cap.set(cv::CAP_PROP_FPS, fps);
+    return cap.get(cv::CAP_PROP_FPS) == fps;
   }
 
   int do_capture(config &config) {
