@@ -38,20 +38,6 @@ static int codec_fourcc(codec c) {
   throw std::invalid_argument("");
 }
 
-static AVCodecID codec_id(codec c) {
-  if (c == MJPEG)
-    return AV_CODEC_ID_MJPEG;
-  if (c == MPEG2)
-    return AV_CODEC_ID_MP2;
-  if (c == RAW)
-    return AV_CODEC_ID_RAWVIDEO;
-  if (c == H264)
-    return AV_CODEC_ID_H264;
-  if (c == H265)
-    return AV_CODEC_ID_H265;
-  throw std::invalid_argument("");
-}
-
 static std::string codec_to_string(codec c) {
   if (MJPEG == c)
     return "MJPEG";
