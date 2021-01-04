@@ -162,7 +162,7 @@ private:
           fmt << 1000 / frame_cost;
           render_text((config.text_pos + 1) % 4, fmt.str(), config.font_height,
                       std::make_optional(
-                          cv::Scalar((double)238, (double)120, (double)30)),
+                          cv::Scalar((double)30, (double)120, (double)238)),
                       freetype, frame);
         }
       }
