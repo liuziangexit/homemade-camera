@@ -15,7 +15,6 @@ void signal_handler(int signum) {
 
 int main(int argc, char **argv) {
   signal(SIGINT, signal_handler);
-  cv::setNumThreads(0);
   web = new homemadecam::web("config.json");
   web->run();
 
