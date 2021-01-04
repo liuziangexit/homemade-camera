@@ -105,7 +105,12 @@ private:
     if (config.duration < 1)
       return 4; //短于1秒的话文件名可能重复
     cv::VideoCapture capture;
-    if (!capture.open(config.camera_id, cv::CAP_ANY)) {
+#ifdef __APPLE__
+#define API cv::CAP_AVFOUNDATION
+#else
+#define API cv::CAP_FFMPEG
+#endif
+    if (!capture.open(config.camera_id, API)) {
       logger::error("VideoCapture open failed");
       return 1;
     }
