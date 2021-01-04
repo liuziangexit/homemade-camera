@@ -4,10 +4,12 @@
 #include <web_service.h>
 
 homemadecam::web *web;
+homemadecam::capture *cap;
 
 void signal_handler(int signum) {
   homemadecam::logger::info("signal ", signum, " received, quitting...");
   delete web;
+  delete cap;
   exit(signum);
 }
 
@@ -18,8 +20,8 @@ int main(int argc, char **argv) {
   web->run();
 
   homemadecam::config c("config.json");
-  homemadecam::capture cap(c);
-  cap.run();
+  cap = new homemadecam::capture(c);
+  cap->run();
 
   getchar();
   raise(SIGINT);
