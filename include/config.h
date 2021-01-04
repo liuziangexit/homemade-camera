@@ -18,6 +18,7 @@ public:
   enum codec codec;
   int camera_id;
   cv::Size resolution;
+  int fps;
   int text_pos; // 0-右上 1-左上 2-左下 3-右下 4-中间
   int font_height;
   int web_port;
@@ -67,6 +68,7 @@ public:
           return false;
         }
       }
+      this->fps = js["fps"].get<int>();
       this->text_pos = js["text-pos"].get<int>();
       this->font_height = js["font-height"].get<int>();
       this->web_port = js["web-port"].get<int>();
@@ -85,6 +87,8 @@ public:
                                                });
     if (!fp)
       return false;
+
+    throw std::runtime_error("not implemented!!");
 
     using namespace nlohmann;
     json js = {

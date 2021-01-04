@@ -4,6 +4,7 @@
   "save-location": "video",
   "camera-id": 0,
   "resolution": "1280x720",
+  "fps": 30,
   "text-pos": 3,
   "font-height": 30,
   "web-port": 8080,

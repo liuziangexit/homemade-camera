@@ -96,6 +96,11 @@ private:
            cap.get(cv::CAP_PROP_FRAME_HEIGHT) == res.height;
   }
 
+  static bool set_fps(cv::VideoCapture &cap, int fps) {
+    cap.set(cv::CAP_PROP_FPS, fps);
+    return cap.get(cv::CAP_PROP_FPS) == fps;
+  }
+
   int do_capture(config &config) {
     if (config.duration < 1)
       return 4; //短于1秒的话文件名可能重复
@@ -107,6 +112,11 @@ private:
 
     if (!set_resolution(capture, config.resolution)) {
       logger::error("VideoCapture set resolution failed");
+      return 62;
+    }
+
+    if (!set_fps(capture, config.fps)) {
+      logger::error("VideoCapture set fps failed");
       return 62;
     }
 
