@@ -144,15 +144,15 @@ public:
     http::message<isRequest, Body, Fields> *response =
         new http::message<isRequest, Body, Fields>(std::move(msg));
 
-auto deleter=[response]{delete response;};
-auto shared_this=this->shared_from_this();
+    auto deleter = [response] { delete response; };
+    auto shared_this = this->shared_from_this();
 
     try {
       // Write the response
       http::async_write(
           this->stream_, *response,
-          [this, shared_this, response, deleter](
-              beast::error_code ec, std::size_t bytes_transferred) {
+          [this, shared_this, response,
+           deleter](beast::error_code ec, std::size_t bytes_transferred) {
             this->on_write(deleter, response->need_eof(), ec,
                            bytes_transferred);
           });
