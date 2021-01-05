@@ -107,23 +107,26 @@ private:
     cv::VideoCapture capture;
 #ifdef __APPLE__
 #define API cv::CAP_AVFOUNDATION
+#elif __linux__
+#define API cv::CAP_V4L
 #else
-#define API cv::CAP_FFMPEG
+#define API cv::CAP_ANY
 #endif
     if (!capture.open(config.camera_id, API)) {
       logger::error("VideoCapture open failed");
       return 1;
     }
+    /*
+        if (!set_resolution(capture, config.resolution)) {
+          logger::error("VideoCapture set resolution failed");
+          return 62;
+        }
 
-    if (!set_resolution(capture, config.resolution)) {
-      logger::error("VideoCapture set resolution failed");
-      return 62;
-    }
-
-    if (!set_fps(capture, config.fps)) {
-      logger::error("VideoCapture set fps failed");
-      return 62;
-    }
+        if (!set_fps(capture, config.fps)) {
+          logger::error("VideoCapture set fps failed");
+          return 62;
+        }
+    */
 
     double fps = (int)capture.get(cv::CAP_PROP_FPS);
     cv::Size frame_size(capture.get(cv::CAP_PROP_FRAME_WIDTH),
@@ -148,7 +151,8 @@ private:
       return 2;
     }
     logger::info("video file change to ", filename);
-    logger::info("backend:", writer.getBackendName(), " fps:", fps,
+    logger::info("capture backend:", capture.getBackendName(),
+                 "writer backend:", writer.getBackendName(), " fps:", fps,
                  " resolution:", frame_size);
 
     uint32_t frame_cost = 0;

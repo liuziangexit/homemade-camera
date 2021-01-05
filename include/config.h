@@ -13,12 +13,14 @@ namespace homemadecam {
 
 class config {
 public:
+  //这俩暂时没用到，现在直接改opencv里的默认值
+  cv::Size resolution;
+  int fps;
+
   uint32_t duration;
   std::string save_location;
   enum codec codec;
   int camera_id;
-  cv::Size resolution;
-  int fps;
   int text_pos; // 0-右上 1-左上 2-左下 3-右下 4-中间
   int font_height;
   int web_port;
