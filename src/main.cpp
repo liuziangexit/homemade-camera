@@ -1,8 +1,8 @@
 #include "capture.h"
 #include "logger.h"
+#include <opencv2/core/utils/logger.hpp>
 #include <signal.h>
 #include <web_service.h>
-#include <opencv2/core/utils/logger.hpp>
 
 homemadecam::web *web;
 homemadecam::capture *cap;
@@ -15,7 +15,7 @@ void signal_handler(int signum) {
 }
 
 int main(int argc, char **argv) {
-  cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_VERBOSE);
+  // cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_VERBOSE);
 
   signal(SIGINT, signal_handler);
   web = new homemadecam::web("config.json");
