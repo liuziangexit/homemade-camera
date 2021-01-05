@@ -139,7 +139,7 @@ private:
       logger::error("VideoCapture set input pixel format failed");
       return 64;
     }
-#else
+#endif
 
     double fps = (int)capture.get(cv::CAP_PROP_FPS);
     cv::Size frame_size(capture.get(cv::CAP_PROP_FRAME_WIDTH),
