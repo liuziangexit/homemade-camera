@@ -114,9 +114,14 @@ private:
 #define API cv::CAP_AVFOUNDATION
 #elif __linux__
 #define API cv::CAP_V4L
+    if (!set_input_pixelformat(capture, config.palette)) {
+      logger::error("VideoCapture set input pixel format failed");
+      return 64;
+    }
 #else
 #define API cv::CAP_ANY
 #endif
+
     if (!capture.open(config.camera_id, API)) {
       logger::error("VideoCapture open failed");
       return 1;
@@ -132,13 +137,6 @@ private:
       logger::error("VideoCapture set resolution failed");
       return 63;
     }
-
-    if (!set_input_pixelformat(capture, config.palette)) {
-      logger::error("VideoCapture set input pixel format failed");
-      return 64;
-    }
-
-    capture.set(cv::CAP_PROP_FOURCC, codec_fourcc(config.palette));
 
     double fps = (int)capture.get(cv::CAP_PROP_FPS);
     cv::Size frame_size(capture.get(cv::CAP_PROP_FRAME_WIDTH),
