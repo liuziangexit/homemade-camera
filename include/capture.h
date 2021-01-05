@@ -152,7 +152,7 @@ private:
     }
     logger::info("video file change to ", filename);
     logger::info("capture backend:", capture.getBackendName(),
-                 "writer backend:", writer.getBackendName(), " fps:", fps,
+                 " writer backend:", writer.getBackendName(), " fps:", fps,
                  " resolution:", frame_size);
 
     uint32_t frame_cost = 0;
