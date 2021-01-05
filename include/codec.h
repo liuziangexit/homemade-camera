@@ -8,12 +8,14 @@
 
 namespace homemadecam {
 
-enum codec { RAW, H264, H265, MPEG2, MJPEG };
+enum codec { RAW, H264, H265, MPEG2, MPEG4, MJPEG };
 
 static std::string codec_file_format(codec c) {
   if (c == MJPEG)
     return "mov";
   if (c == MPEG2)
+    return "mov";
+  if (c == MPEG4)
     return "mov";
   if (c == RAW)
     return "mov";
@@ -29,6 +31,8 @@ static int codec_fourcc(codec c) {
     return cv::VideoWriter::fourcc('m', 'j', 'p', 'g');
   if (c == MPEG2)
     return cv::VideoWriter::fourcc('l', 'm', 'p', '2');
+  if (c == MPEG4)
+    return cv::VideoWriter::fourcc('m', 'p', 'g', '4');
   if (c == RAW)
     return cv::VideoWriter::fourcc('r', 'a', 'w', ' ');
   if (c == H264)
@@ -43,6 +47,8 @@ static std::string codec_to_string(codec c) {
     return "MJPEG";
   if (MPEG2 == c)
     return "MPEG2";
+  if (MPEG4 == c)
+    return "MPEG4";
   if (RAW == c)
     return "RAW";
   if (H264 == c)
@@ -61,6 +67,8 @@ static codec codec_parse(std::string s) {
     return MJPEG;
   if (s == "mpeg2")
     return MPEG2;
+  if (s == "mpeg4")
+    return MPEG4;
   if (s == "raw")
     return RAW;
   if (s == "h264")

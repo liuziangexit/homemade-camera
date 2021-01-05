@@ -122,24 +122,11 @@ private:
       logger::error("VideoCapture open failed");
       return 1;
     }
-    /*
-        if (!set_fps(capture, config.fps)) {
-          logger::error("VideoCapture set fps failed");
-          return 62;
-        }
-    */
 
     if (!set_resolution(capture, config.resolution)) {
       logger::error("VideoCapture set resolution failed");
       return 63;
     }
-
-#ifdef __linux__
-   /* if (!set_input_pixelformat(capture, config.palette)) {
-      logger::error("VideoCapture set input pixel format failed");
-      return 64;
-    }*/
-#endif
 
     double fps = (int)capture.get(cv::CAP_PROP_FPS);
     cv::Size frame_size(capture.get(cv::CAP_PROP_FRAME_WIDTH),
