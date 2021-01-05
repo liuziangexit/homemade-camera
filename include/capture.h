@@ -89,6 +89,11 @@ private:
     return fmt.str();
   }
 
+  static bool set_input_pixelformat(cv::VideoCapture &cap, codec c) {
+    cap.set(cv::CAP_PROP_FOURCC, codec_fourcc(c));
+    return codec_fourcc(c) == cap.get(cv::CAP_PROP_FOURCC);
+  }
+
   static bool set_resolution(cv::VideoCapture &cap, cv::Size res) {
     cap.set(cv::CAP_PROP_FRAME_WIDTH, res.width);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, res.height);
@@ -117,16 +122,23 @@ private:
       return 1;
     }
     /*
-        if (!set_resolution(capture, config.resolution)) {
-          logger::error("VideoCapture set resolution failed");
-          return 62;
-        }
-
         if (!set_fps(capture, config.fps)) {
           logger::error("VideoCapture set fps failed");
           return 62;
         }
     */
+
+    if (!set_resolution(capture, config.resolution)) {
+      logger::error("VideoCapture set resolution failed");
+      return 63;
+    }
+
+    if (!set_input_pixelformat(capture, config.palette)) {
+      logger::error("VideoCapture set input pixel format failed");
+      return 64;
+    }
+
+    capture.set(cv::CAP_PROP_FOURCC, codec_fourcc(config.palette));
 
     double fps = (int)capture.get(cv::CAP_PROP_FPS);
     cv::Size frame_size(capture.get(cv::CAP_PROP_FRAME_WIDTH),

@@ -1,4 +1,5 @@
 {
+  "palette": "MJPG",
   "codec": "H264",
   "duration": 60,
   "save-location": "video",

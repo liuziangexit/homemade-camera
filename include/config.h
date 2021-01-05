@@ -17,14 +17,15 @@ public:
   cv::Size resolution;
   int fps;
 
-  uint32_t duration;
-  std::string save_location;
-  enum codec codec;
-  int camera_id;
-  int text_pos; // 0-右上 1-左上 2-左下 3-右下 4-中间
-  int font_height;
-  int web_port;
-  int tcp_timeout;
+  enum codec palette;        //摄像头的像素格式
+  uint32_t duration;         //每个视频文件的持续时间
+  std::string save_location; //保存目录
+  enum codec codec;          //视频文件编码格式
+  int camera_id;             //摄像头序号
+  int text_pos; //视频时间戳位置 0-右上 1-左上 2-左下 3-右下 4-中间
+  int font_height; //视频时间戳字体大小
+  int web_port;    // web服务端口
+  int tcp_timeout; // web服务tcp超时时间（秒）
 
   config(const std::string &filename) {
     if (!read(filename))
@@ -53,6 +54,7 @@ public:
     try {
       js = json::parse(raw);
 
+      this->palette = codec_parse(js["palette"].get<std::string>());
       this->duration = js["duration"].get<uint32_t>();
       this->save_location = js["save-location"].get<std::string>();
       this->codec = codec_parse(js["codec"].get<std::string>());
@@ -81,6 +83,7 @@ public:
     }
     return true;
   }
+
   bool write(const std::string &filename) {
     std::unique_ptr<FILE, void (*)(FILE *)> fp(fopen(filename.c_str(), "wb"),
                                                [](FILE *fp) {
