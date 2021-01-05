@@ -135,10 +135,10 @@ private:
     }
 
 #ifdef __linux__
-    if (!set_input_pixelformat(capture, config.palette)) {
+   /* if (!set_input_pixelformat(capture, config.palette)) {
       logger::error("VideoCapture set input pixel format failed");
       return 64;
-    }
+    }*/
 #endif
 
     double fps = (int)capture.get(cv::CAP_PROP_FPS);
