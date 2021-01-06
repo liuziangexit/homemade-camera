@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
     }
     jpg = frame.second;
   }
-/*
+
   FILE *fp;
   fp = fopen("/web/test.jpg", "wb");
   if (!fp) {
@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
     abort();
   }
 
-  fclose(fp);*/
+  fclose(fp);
 
   homemadecam::logger::info("jpg ok");
 
