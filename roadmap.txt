@@ -9,20 +9,32 @@ OK-低帧率的时候在视频里加warning字样
 ok-beast同时支持http
 ok-一个graceful退出的方式（1.收到退出信号 2.关闭acceptor 3.对于每个session，通知要close    3是重点）
 
--用ffmpeg重写
+OK-用V4L读设备
+-用OpenMAX解码MJPEG
+-V4L解决dequeue的时候需要等到下一帧的问题
+OK-用OpenMAX编码h264
 -树莓派上帧率的问题
 
+-除了模版类以外，应该分.c和.h
 
 -ssl握手应该在基类做
--tbb自己编译的问题
 -http转ws
-
-
 -web界面
 -web直播
+-web播放录像
 -web下载录像
+-自动删除旧录像
+
+-------------------V1.0
+
+-看一下为渲染字的时候高度要调整（capture里的fixme）
 -支持https
+
+-------------------V1.1
+
+
 -对象识别
 -事件
 -web查看事件
--看一下为渲染字的时候高度要调整（capture里的fixme）
+
+-------------------V1.2
