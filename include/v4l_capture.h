@@ -160,6 +160,8 @@ public:
           false, std::shared_ptr<buffer>());
     }
 
+    logger::info("read frame ok");
+
     /* Your loops end here. */
 
     buffer *rv = (buffer *)malloc(sizeof(buffer) + _buffer.length);

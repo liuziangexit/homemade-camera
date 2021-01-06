@@ -52,6 +52,8 @@ int main(int argc, char **argv) {
 
   fclose(fp);
 
+  homemadecam::logger::info("jpg ok");
+
   getchar();
   raise(SIGINT);
 }
