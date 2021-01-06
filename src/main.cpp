@@ -34,6 +34,7 @@ int main(int argc, char **argv) {
   }
 
   std::shared_ptr<homemadecam::v4l_capture::buffer> jpg;
+  homemadecam::logger::info("read loop begin");
   for (int i = 0; i < 300; i++) {
     auto frame = v4l.read();
     if (!frame.first) {
@@ -42,6 +43,7 @@ int main(int argc, char **argv) {
     }
     jpg = frame.second;
   }
+  homemadecam::logger::info("read loop end");
 
   FILE *fp;
   fp = fopen("/web/test.jpg", "wb");
