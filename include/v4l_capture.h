@@ -252,6 +252,7 @@ public:
   ~v4l_capture() { this->close(); }
 
   std::pair<bool, std::shared_ptr<buffer>> read() {
+    uint32_t buffer_init = checkpoint(3);
     struct v4l2_buffer buf;
     memset(&buf, 0, sizeof(buf));
 
@@ -259,10 +260,7 @@ public:
     buf.memory = V4L2_MEMORY_MMAP;
     buf.index = 0;
 
-    /* Here is where you typically start two loops:
-     * - One which runs for as long as you want to
-     *   capture frames (shoot the video).
-     * - One which iterates over your buffers everytime. */
+    uint32_t qbuf = checkpoint(3);
 
     // Put the buffer in the incoming queue.
     if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
@@ -272,6 +270,8 @@ public:
           false, std::shared_ptr<buffer>());
     }
 
+    uint32_t dqbuf = checkpoint(3);
+
     // The buffer's waiting in the outgoing queue.
     if (ioctl(fd, VIDIOC_DQBUF, &buf) < 0) {
       logger::error("VIDIOC_DQBUF failed");
@@ -279,6 +279,8 @@ public:
       return std::pair<bool, std::shared_ptr<buffer>>(
           false, std::shared_ptr<buffer>());
     }
+
+    uint32_t memop = checkpoint(3);
 
     uint32_t current = checkpoint(3);
     if (last_read == 0) {
@@ -295,6 +297,13 @@ public:
     rv->length = _buffer.length;
 
     memcpy(rv->data, this->_buffer.data, this->_buffer.length);
+
+    uint32_t done = checkpoint(3);
+
+    logger::info("init req cost:", qbuf - buffer_init,
+                 "ms, qbuf cost:", dqbuf - qbuf,
+                 "ms, dqbuf cost:", memop - dqbuf,
+                 "ms, memop cost:", done - memop, "ms");
 
     return std::pair<bool, std::shared_ptr<buffer>>(
         true, std::shared_ptr<buffer>(rv, [](buffer *p) { free(p); }));
