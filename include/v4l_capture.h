@@ -196,7 +196,7 @@ public:
     last_read = current;
 
     /* Your loops end here. */
-
+/*
     buffer *rv = (buffer *)malloc(sizeof(buffer) + _buffer.length);
     rv->data = (char *)rv + sizeof(buffer);
     rv->length = _buffer.length;
@@ -204,7 +204,10 @@ public:
     memcpy(rv->data, this->_buffer.data, this->_buffer.length);
 
     return std::pair<bool, std::shared_ptr<buffer>>(
-        true, std::shared_ptr<buffer>(rv, [](buffer *p) { free(p); }));
+        true, std::shared_ptr<buffer>(rv, [](buffer *p) { free(p); }));*/
+
+    return std::pair<bool, std::shared_ptr<buffer>>(
+        true, std::shared_ptr<buffer>(0, [](buffer *p) { free(p); }));
   }
 
   void close() {
