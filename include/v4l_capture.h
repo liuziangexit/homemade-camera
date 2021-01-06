@@ -1,6 +1,7 @@
 #ifndef __HOMEMADECAM_V4L_CAPTURE_H__
 #define __HOMEMADECAM_V4L_CAPTURE_H__
 #include "logger.h"
+#include "time_util.h"
 #include <asm/types.h> /* for videodev2.h */
 #include <assert.h>
 #include <errno.h>
@@ -25,9 +26,12 @@ class v4l_capture {
     std::size_t length;
   } _buffer;
 
+  uint32_t last_read;
+
   void init() {
     fd = 0;
     memset(&_buffer, 0, sizeof(buffer));
+    last_read = 0;
   }
 
 public:
@@ -160,7 +164,13 @@ public:
           false, std::shared_ptr<buffer>());
     }
 
-    logger::info("read frame ok");
+    uint32_t current = checkpoint(3);
+    if (last_read == 0) {
+      logger::info("read frame ok");
+    } else {
+      logger::info("read frame ok, interval: ", current - last_read, "ms");
+    }
+    last_read = current;
 
     /* Your loops end here. */
 
