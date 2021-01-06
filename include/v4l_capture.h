@@ -62,13 +62,14 @@ private:
       return false;
     }
 
-    memset(&streamparm, 0, sizeof(v4l2_streamparm));
     streamparm.parm.capture.timeperframe.numerator = 1;
     streamparm.parm.capture.timeperframe.denominator = value;
     if (!ioctl(fd, VIDIOC_S_PARM, &streamparm)) {
       logger::error("VIDIOC_S_PARM failed");
       return false;
     }
+    logger::info("fps are now set to ",
+                 streamparm.parm.capture.timeperframe.denominator);
     return true;
   }
 
