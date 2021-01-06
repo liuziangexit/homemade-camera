@@ -2,12 +2,14 @@
 #define __HOMEMADECAM_V4L_CAPTURE_H__
 #include "logger.h"
 #include "time_util.h"
+#include <algorithm>
 #include <asm/types.h> /* for videodev2.h */
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/videodev2.h>
 #include <memory>
+#include <sstream>
 #include <stdlib.h>
 #include <string>
 #include <sys/ioctl.h>
@@ -24,6 +26,16 @@ public:
   struct buffer {
     void *data;
     std::size_t length;
+  };
+
+  struct graphic {
+    int width;
+    int height;
+    int fps;
+
+    bool operator==(const graphic &rhs) const {
+      return width == rhs.width && height == rhs.height && fps == rhs.fps;
+    }
   };
 
 private:
@@ -50,10 +62,10 @@ private:
       return false;
     }
 
-    /* v4l2_frmivalenum frmivalenum;
-     memset(&frmivalenum, 0, sizeof(v4l2_frmivalenum));
-     if (!ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmivalenum)) {
-     }*/
+    v4l2_frmivalenum frmivalenum;
+    memset(&frmivalenum, 0, sizeof(v4l2_frmivalenum));
+    if (!ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmivalenum)) {
+    }
 
     streamparm.parm.capture.timeperframe.numerator = 1;
     streamparm.parm.capture.timeperframe.denominator = value;
@@ -64,40 +76,94 @@ private:
     return true;
   }
 
+  // query device capabilities
+  bool check_cap(int32_t flags) {
+    struct v4l2_capability cap;
+    if (ioctl(fd, VIDIOC_QUERYCAP, &cap) < 0) {
+      logger::error("VIDIOC_QUERYCAP failed");
+      return false;
+    }
+    logger::info("DRIVER:", cap.driver, "(", cap.version, ")",
+                 ", DEVICE:", cap.card);
+    if (!(cap.capabilities & flags)) {
+      logger::error("feature not supported");
+      return false;
+    }
+    return true;
+  }
+
 public:
   v4l_capture() { init(); }
-  int open(const std::string &device, uint32_t fps) {
+
+  std::vector<graphic> graphics() {
+    if (this->fd < 0)
+      throw std::runtime_error("invalid fd");
+
+    std::vector<graphic> rv;
+
+    struct v4l2_frmsizeenum frmsize;
+    memset(&frmsize, 0, sizeof(frmsize));
+    frmsize.pixel_format = V4L2_PIX_FMT_MJPEG;
+    while (ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &frmsize) == 0) {
+      if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
+        struct v4l2_frmivalenum frmival;
+        memset(&frmival, 0, sizeof(frmival));
+        frmival.pixel_format = frmsize.pixel_format;
+        frmival.width = frmsize.discrete.width;
+        frmival.height = frmsize.discrete.height;
+        while (ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmival) == 0) {
+          if (frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
+            graphic g{frmsize.discrete.width, frmsize.discrete.height,
+                      1.0 * frmival.discrete.denominator /
+                          frmival.discrete.numerator};
+            rv.push_back(g);
+          } else {
+            throw std::runtime_error("unsupported v4l2_frmivalenum.type");
+          }
+        }
+        frmival.index++;
+      }
+    }
+    else {
+      throw std::runtime_error("unsupported v4l2_frmsizeenum.type");
+    }
+    frmsize.index++;
+    return rv;
+  }
+
+  int open(const std::string &device, graphic g) {
     // open device
     if ((fd = ::open(device.c_str(), O_RDWR)) < 0) {
       close();
       return -1;
     }
-    // query device capabilities
-    struct v4l2_capability cap;
-    if (ioctl(fd, VIDIOC_QUERYCAP, &cap) < 0) {
-      logger::error("VIDIOC_QUERYCAP failed");
-      close();
-      return -2;
-    }
-    logger::info("DRIVER:", cap.driver, "(", cap.version, ")",
-                 ", DEVICE:", cap.card);
-    if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
-      logger::error("V4L2_CAP_VIDEO_CAPTURE not supported");
+
+    if (!check_cap(V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE)) {
       close();
       return -2;
     }
 
-    if (!(cap.capabilities & V4L2_CAP_STREAMING)) {
-      logger::error("V4L2_CAP_STREAMING not supported");
+    auto gs = this->graphics();
+    {
+      std::ostringstream oss;
+      oss << "\r\n";
+      for (const auto p : gs) {
+        oss << p.width << "x" << p.height << "@" << p.fps << std::endl();
+      }
+      logger::info("available graphics on this device are:", oss.str());
+    }
+
+    if (std::find(gs.begin(), gs.end(), g) == gs.end()) {
+      logger::error("specified graphic is not applicable on this device");
       close();
-      return -2;
+      return -3;
     }
 
     struct v4l2_format format;
     format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     format.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
-    format.fmt.pix.width = 1280;
-    format.fmt.pix.height = 720;
+    format.fmt.pix.width = g.width;
+    format.fmt.pix.height = g.height;
     format.fmt.pix.field = V4L2_FIELD_ANY;
 
     if (ioctl(fd, VIDIOC_S_FMT, &format) < 0) {

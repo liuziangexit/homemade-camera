@@ -27,7 +27,8 @@ int main(int argc, char **argv) {
     cap->run();*/
 
   homemadecam::v4l_capture v4l;
-  if (v4l.open("/dev/video0", 30)) {
+  if (v4l.open("/dev/video0",
+               homemadecam::v4l_capture::graphic{1280, 720, 30})) {
     homemadecam::logger::fatal("v4l open failed");
     abort();
   }
