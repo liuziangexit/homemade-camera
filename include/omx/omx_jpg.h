@@ -1,6 +1,15 @@
 #ifndef __HOMEMADECAM_OMX_UTIL_H__
 #define __HOMEMADECAM_OMX_UTIL_H__
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "jpeg.h"
+
+#ifdef __cplusplus
+}
+#endif
+
 #include <assert.h>
 #include <cstddef>
 #include <opencv2/core/mat.hpp>
