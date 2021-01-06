@@ -37,7 +37,7 @@ public:
                               decoder->pOutputBufferHeader->pBuffer,
                               decoder->pOutputBufferHeader->nFilledLen);
     cv::Mat picBGR;
-    cv::cvtColor(picYV12, picBGR, CV_YUV2BGR_YV12);
+    cv::cvtColor(picYV12, picBGR, cv::CV_YUV2BGR_YV12);
     cv::imwrite("test.bmp", picBGR); // only for test
 
     /* decoder->pOutputBufferHeader->nFilledLen;
