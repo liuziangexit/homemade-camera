@@ -1,15 +1,15 @@
 #include "capture.h"
 #include "logger.h"
-#include <opencv2/core/utils/logger.hpp>
+#include "v4l_capture.h"
 #include <signal.h>
-#include <web_service.h>
+//#include <web_service.h>
 
-homemadecam::web *web;
+// homemadecam::web *web;
 homemadecam::capture *cap;
 
 void signal_handler(int signum) {
   homemadecam::logger::info("signal ", signum, " received, quitting...");
-  delete web;
+  //  delete web;
   delete cap;
   exit(signum);
 }
@@ -18,12 +18,15 @@ int main(int argc, char **argv) {
   // cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_VERBOSE);
 
   signal(SIGINT, signal_handler);
-  web = new homemadecam::web("config.json");
-  web->run();
+  //  web = new homemadecam::web("config.json");
+  //  web->run();
 
-  homemadecam::config c("config.json");
-  cap = new homemadecam::capture(c);
-  cap->run();
+  /*  homemadecam::config c("config.json");
+    cap = new homemadecam::capture(c);
+    cap->run();*/
+
+  homemadecam::v4l_capture v4l;
+  v4l.open("/dev/video0");
 
   getchar();
   raise(SIGINT);
