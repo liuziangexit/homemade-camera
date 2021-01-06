@@ -1,7 +1,7 @@
 mkdir -p bin
 BUILD_TYPE="DEBUG"
-if (($# > 1)); then
-  BUILD_TYPE=$1
+if [[ ! $# -eq 0 ]]; then
+  BUILD_TYPE="$1"
 fi
 
 cmake -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -S . -B bin
