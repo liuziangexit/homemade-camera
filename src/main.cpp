@@ -2,6 +2,7 @@
 #include "logger.h"
 #include "v4l_capture.h"
 #include <signal.h>
+#include <stdio.h>
 //#include <web_service.h>
 
 // homemadecam::web *web;
@@ -26,7 +27,30 @@ int main(int argc, char **argv) {
     cap->run();*/
 
   homemadecam::v4l_capture v4l;
-  v4l.open("/dev/video0");
+  if (v4l.open("/dev/video0")) {
+    homemadecam::logger::fatal("v4l open failed");
+    abort();
+  }
+  auto frame = v4l.read();
+  if (!frame.first) {
+    homemadecam::logger::fatal("v4l read failed");
+    abort();
+  }
+
+  FILE *fp;
+  fp = fopen("/web/test.jpg", "wb");
+  if (!fp) {
+    homemadecam::logger::fatal("fopen failed");
+    abort();
+  }
+
+  if (frame.second->length !=
+      fwrite(frame.second->data, 1, frame.second->length, fp)) {
+    homemadecam::logger::fatal("fwrite failed");
+    abort();
+  }
+
+  fclose(fp);
 
   getchar();
   raise(SIGINT);
