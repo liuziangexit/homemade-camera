@@ -1,5 +1,10 @@
 mkdir -p bin
-cmake -DCMAKE_BUILD_TYPE=DEBUG -S . -B bin
+BUILD_TYPE="DEBUG"
+if (($# > 1)); then
+  BUILD_TYPE=$1
+fi
+
+cmake -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -S . -B bin
 cd 3rd-party/ilclient
 source build.sh
 cd ../..
