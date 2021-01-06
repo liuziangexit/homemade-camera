@@ -13,6 +13,8 @@ extern "C" {
 #include <assert.h>
 #include <cstddef>
 #include <opencv2/core/mat.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 #include <utility>
 
 namespace homemadecam {
