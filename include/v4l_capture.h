@@ -45,7 +45,7 @@ private:
       logger::error("VIDIOC_G_PARM failed");
       return false;
     }
-    if (streamparm.parm.capture.capability & V4L2_CAP_TIMEPERFRAME) {
+    if (!(streamparm.parm.capture.capability & V4L2_CAP_TIMEPERFRAME)) {
       logger::error("V4L2_CAP_TIMEPERFRAME not supported");
       return false;
     }
@@ -98,6 +98,7 @@ public:
     format.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
     format.fmt.pix.width = 1280;
     format.fmt.pix.height = 720;
+    format.fmt.pix.field = V4L2_FIELD_ANY;
 
     if (ioctl(fd, VIDIOC_S_FMT, &format) < 0) {
       logger::error("VIDIOC_S_FMT failed");
