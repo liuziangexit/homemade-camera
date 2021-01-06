@@ -30,6 +30,17 @@ public:
   bool jpg_decode(unsigned char *src, std::size_t len) {
     if (decodeImage(decoder, (char *)(src), len))
       return false;
+
+    cv::Mat picYV12 = cv::Mat(720 * 3 / 2, 1280, CV_8UC1,
+                              decoder->pOutputBufferHeader->pBuffer,
+                              decoder->pOutputBufferHeader->nFilledLen);
+    cv::Mat picBGR;
+    cv::cvtColor(picYV12, picBGR, CV_YUV2BGR_YV12);
+    cv::imwrite("test.bmp", picBGR); // only for test
+
+    /* decoder->pOutputBufferHeader->nFilledLen;
+     decoder->pOutputBufferHeader->pBuffer;*/
+
     return true;
   }
   std::pair<bool, void *> jpg_encode(const cv::Mat &src) {}
