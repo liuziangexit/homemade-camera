@@ -18,8 +18,8 @@ public:
   }
   ~omx_jpg() { cleanup(decoder); }
   // std::pair<bool, cv::Mat>
-  bool jpg_decode(char *src, std::size_t len) {
-    if (decodeImage(decoder, src, len))
+  bool jpg_decode(unsigned char *src, std::size_t len) {
+    if (decodeImage(decoder, (char *)(src), len))
       return false;
     return true;
   }
