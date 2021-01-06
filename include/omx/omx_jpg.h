@@ -18,6 +18,7 @@ extern "C" {
 #include <opencv2/imgproc.hpp>
 #include <string.h>
 #include <utility>
+#include <stdio.h>
 
 namespace homemadecam {
 
@@ -38,13 +39,17 @@ public:
     void *fuck = new char[decoder->pOutputBufferHeader->nFilledLen];
     memcpy(fuck, decoder->pOutputBufferHeader->pBuffer,
            decoder->pOutputBufferHeader->nFilledLen);
-    
-    cv::Mat picYV12 = cv::Mat(720 * 3 / 2, 1280, CV_8UC1, fuck,
+
+    FILE* fp=fopen("test.yuv","wb");
+    fwrite(fuck,decoder->pOutputBufferHeader->nFilledLen,1,fp);
+    fclose(fp);
+    printf("NAIVE\n");
+    /*cv::Mat picYV12 = cv::Mat(720 * 3 / 2, 1280, CV_8UC1, fuck,
                               decoder->pOutputBufferHeader->nFilledLen);
     cv::Mat picBGR;
     cv::cvtColor(picYV12, picBGR, 99);
     // CV_YUV2BGR_YV12=99
-    cv::imwrite("test.bmp", picBGR); // only for test
+    cv::imwrite("test.bmp", picBGR); // only for test*/
 
     /* decoder->pOutputBufferHeader->nFilledLen;
      decoder->pOutputBufferHeader->pBuffer;*/
