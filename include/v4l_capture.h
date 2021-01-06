@@ -99,7 +99,7 @@ public:
     struct v4l2_buffer buf;
 
     memset(&buf, 0, sizeof(buf));
-    buf.type = bufrequest.type;
+    buf.type = buf_req.type;
     buf.memory = V4L2_MEMORY_MMAP;
     buf.index = 0;
 
