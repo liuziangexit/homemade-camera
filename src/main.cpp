@@ -31,6 +31,13 @@ int main(int argc, char **argv) {
     homemadecam::logger::fatal("v4l open failed");
     abort();
   }
+
+  v4l.read();
+  v4l.read();
+  v4l.read();
+  v4l.read();
+  v4l.read();
+  v4l.read();
   auto frame = v4l.read();
   if (!frame.first) {
     homemadecam::logger::fatal("v4l read failed");
