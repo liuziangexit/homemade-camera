@@ -37,17 +37,8 @@ jpeg images from the camera
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
-#include <bcm_host.h>
-#include <ilclient.h>
-
-#ifdef __cplusplus
-}
-#endif
+#include "bcm_host.h"
+#include "ilclient.h"
 
 #define OMXJPEG_OK 0
 #define OMXJPEG_ERROR_ILCLIENT_INIT -1024
@@ -68,9 +59,7 @@ typedef struct _COMPONENT_DETAILS {
 struct _OPENMAX_JPEG_DECODER {
   ILCLIENT_T *client;
   COMPONENT_DETAILS *imageDecoder;
-#if IR
   COMPONENT_DETAILS *imageResizer;
-#endif
   OMX_BUFFERHEADERTYPE **ppInputBufferHeader;
   int inputBufferHeaderCount;
   OMX_BUFFERHEADERTYPE *pOutputBufferHeader;
