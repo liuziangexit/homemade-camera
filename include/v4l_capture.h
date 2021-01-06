@@ -31,12 +31,22 @@ public:
       init();
       return -2;
     }
-    logger::info("driver:", cap.driver, "(", cap.version, ")",
-                 ", device:", cap.card, "@", cap.bus_info);
+    logger::info("DRIVER:", cap.driver, "(", cap.version, ")",
+                 ", DEVICE:", cap.card);
     if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
+      logger::error("V4L2_CAP_VIDEO_CAPTURE not supported");
       init();
       return -2;
     }
+
+    if (!(cap.capabilities & V4L2_CAP_STREAMING)) {
+      logger::error("V4L2_CAP_STREAMING not supported");
+      init();
+      return -2;
+    }
+
+    logger::info("successfully opened ", cap.card);
+    return 0;
   }
   ~v4l_capture() { this->close(); }
   void read() {}
