@@ -164,11 +164,11 @@ public:
   v4l_capture() { init(); }
 
   std::vector<graphic> graphics() {
-    if (this->fd < 0)
+    if (this->fd < 0) {
       throw std::runtime_error("invalid fd");
+    }
 
     std::vector<graphic> rv;
-
     struct v4l2_frmsizeenum frmsize;
     memset(&frmsize, 0, sizeof(frmsize));
     frmsize.pixel_format = V4L2_PIX_FMT_MJPEG;
@@ -188,8 +188,8 @@ public:
           } else {
             throw std::runtime_error("unsupported v4l2_frmivalenum.type");
           }
+          frmival.index++;
         }
-        frmival.index++;
       } else {
         throw std::runtime_error("unsupported v4l2_frmsizeenum.type");
       }
