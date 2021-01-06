@@ -59,18 +59,20 @@ extern "C"
 #define OMXJPEG_ERROR_NOSETTINGS -1030
 
 typedef struct _COMPONENT_DETAILS {
-  COMPONENT_T    *component;
-  OMX_HANDLETYPE  handle;
-  int             inPort;
-  int             outPort;
+  COMPONENT_T *component;
+  OMX_HANDLETYPE handle;
+  int inPort;
+  int outPort;
 } COMPONENT_DETAILS;
 
 struct _OPENMAX_JPEG_DECODER {
-  ILCLIENT_T     *client;
+  ILCLIENT_T *client;
   COMPONENT_DETAILS *imageDecoder;
+#if IR
   COMPONENT_DETAILS *imageResizer;
+#endif
   OMX_BUFFERHEADERTYPE **ppInputBufferHeader;
-  int             inputBufferHeaderCount;
+  int inputBufferHeaderCount;
   OMX_BUFFERHEADERTYPE *pOutputBufferHeader;
 };
 

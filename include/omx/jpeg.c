@@ -34,24 +34,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define TIMEOUT_MS 2000
 
-typedef struct _COMPONENT_DETAILS {
-  COMPONENT_T *component;
-  OMX_HANDLETYPE handle;
-  int inPort;
-  int outPort;
-} COMPONENT_DETAILS;
-
-struct _OPENMAX_JPEG_DECODER {
-  ILCLIENT_T *client;
-  COMPONENT_DETAILS *imageDecoder;
-#if IR
-  COMPONENT_DETAILS *imageResizer;
-#endif
-  OMX_BUFFERHEADERTYPE **ppInputBufferHeader;
-  int inputBufferHeaderCount;
-  OMX_BUFFERHEADERTYPE *pOutputBufferHeader;
-};
-
 int bufferIndex = 0; // index to buffer array
 
 void printState(OMX_HANDLETYPE handle) {
