@@ -64,7 +64,7 @@ private:
 
     streamparm.parm.capture.timeperframe.numerator = 1;
     streamparm.parm.capture.timeperframe.denominator = value;
-    if (!ioctl(fd, VIDIOC_S_PARM, &streamparm)) {
+    if (ioctl(fd, VIDIOC_S_PARM, &streamparm) != 0) {
       logger::error("VIDIOC_S_PARM failed");
       return false;
     }
