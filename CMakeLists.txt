@@ -30,6 +30,7 @@ find_package(OpenSSL REQUIRED)
 find_package(TBB REQUIRED)
 
 target_link_libraries(homecam ${OpenCV_LIBS} ${OPENSSL_LIBRARIES} TBB::tbb)
-include_directories(homecam ./include ./3rd-party ${OPENCV_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR} ${TBB_INCLUDE_DIR})
-
-SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L3rd-party/ilclient -lilclient")
+include_directories(homecam ./include ./3rd-party ${OPENCV_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR} ${TBB_INCLUDE_DIR} 3rd-party/raspberrypi 3rd-party/ilclient)
+find_library(ILCLIENT_LIBRARY ilclient HINTS 3rd-party/ilclient)
+link_directories(/opt/vc/lib)
+target_link_libraries(homecam ${ILCLIENT_LIBRARY} bcm_host vchiq_arm vcilcs vcos vcsm)
