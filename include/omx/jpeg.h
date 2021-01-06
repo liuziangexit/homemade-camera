@@ -15,8 +15,8 @@ modification, are permitted provided that the following conditions are met:
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY
-DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
 (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
 LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
 ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
@@ -32,33 +32,35 @@ Defines the methods for interacting with openmax il and ilclient to decode
 jpeg images from the camera
 */
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
-#include "bcm_host.h"
-#include "ilclient.h"
+extern "C" {
+#include <bcm_host.h>
+#include <ilclient.h>
+}
 
-#define OMXJPEG_OK                  0
-#define OMXJPEG_ERROR_ILCLIENT_INIT    -1024
-#define OMXJPEG_ERROR_OMX_INIT         -1025
-#define OMXJPEG_ERROR_MEMORY         -1026
-#define OMXJPEG_ERROR_CREATING_COMP    -1027
-#define OMXJPEG_ERROR_WRONG_NO_PORTS   -1028
-#define OMXJPEG_ERROR_EXECUTING         -1029
-#define OMXJPEG_ERROR_NOSETTINGS   -1030
+#define OMXJPEG_OK 0
+#define OMXJPEG_ERROR_ILCLIENT_INIT -1024
+#define OMXJPEG_ERROR_OMX_INIT -1025
+#define OMXJPEG_ERROR_MEMORY -1026
+#define OMXJPEG_ERROR_CREATING_COMP -1027
+#define OMXJPEG_ERROR_WRONG_NO_PORTS -1028
+#define OMXJPEG_ERROR_EXECUTING -1029
+#define OMXJPEG_ERROR_NOSETTINGS -1030
 
 typedef struct _OPENMAX_JPEG_DECODER OPENMAX_JPEG_DECODER;
 
-//this function run the boilerplate to setup the openmax components;
-int setupOpenMaxJpegDecoder(OPENMAX_JPEG_DECODER** decoder);
+// this function run the boilerplate to setup the openmax components;
+int setupOpenMaxJpegDecoder(OPENMAX_JPEG_DECODER **decoder);
 
-//this function passed the jpeg image buffer in, and returns the decoded image
-int decodeImage(OPENMAX_JPEG_DECODER* decoder,
-                char* sourceImage, size_t imageSize);
+// this function passed the jpeg image buffer in, and returns the decoded image
+int decodeImage(OPENMAX_JPEG_DECODER *decoder, char *sourceImage,
+                size_t imageSize);
 
-//this function cleans up the decoder.
-void cleanup(OPENMAX_JPEG_DECODER* decoder);
+// this function cleans up the decoder.
+void cleanup(OPENMAX_JPEG_DECODER *decoder);
 
 #endif
