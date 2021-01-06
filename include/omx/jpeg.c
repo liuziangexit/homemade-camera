@@ -30,22 +30,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define TIMEOUT_MS 2000
 
-typedef struct _COMPONENT_DETAILS {
-  COMPONENT_T    *component;
-  OMX_HANDLETYPE  handle;
-  int             inPort;
-  int             outPort;
-} COMPONENT_DETAILS;
-
-struct _OPENMAX_JPEG_DECODER {
-  ILCLIENT_T     *client;
-  COMPONENT_DETAILS *imageDecoder;
-  COMPONENT_DETAILS *imageResizer;
-  OMX_BUFFERHEADERTYPE **ppInputBufferHeader;
-  int             inputBufferHeaderCount;
-  OMX_BUFFERHEADERTYPE *pOutputBufferHeader;
-};
-
 int             bufferIndex = 0;	// index to buffer array
 
 int
@@ -658,3 +642,37 @@ cleanup(OPENMAX_JPEG_DECODER * decoder)
     ilclient_destroy(decoder->client);
   }
 }
+/*
+
+int
+main(int argc, char *argv[])
+{
+  OPENMAX_JPEG_DECODER *pDecoder;
+  char           *sourceImage;
+  size_t          imageSize;
+  int             s;
+  if (argc < 2) {
+    printf("Usage: %s <filename>\n", argv[0]);
+    return -1;
+  }
+  FILE           *fp = fopen(argv[1], "rb");
+  if (!fp) {
+    printf("File %s not found.\n", argv[1]);
+  }
+  fseek(fp, 0L, SEEK_END);
+  imageSize = ftell(fp);
+  fseek(fp, 0L, SEEK_SET);
+  sourceImage = malloc(imageSize);
+  assert(sourceImage != NULL);
+  s = fread(sourceImage, 1, imageSize, fp);
+  assert(s == imageSize);
+  fclose(fp);
+  bcm_host_init();
+  s = setupOpenMaxJpegDecoder(&pDecoder);
+  assert(s == 0);
+  s = decodeImage(pDecoder, sourceImage, imageSize);
+  assert(s == 0);
+  cleanup(pDecoder);
+  free(sourceImage);
+  return 0;
+}*/

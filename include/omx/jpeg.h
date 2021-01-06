@@ -58,6 +58,22 @@ extern "C"
 #define OMXJPEG_ERROR_EXECUTING -1029
 #define OMXJPEG_ERROR_NOSETTINGS -1030
 
+typedef struct _COMPONENT_DETAILS {
+  COMPONENT_T    *component;
+  OMX_HANDLETYPE  handle;
+  int             inPort;
+  int             outPort;
+} COMPONENT_DETAILS;
+
+struct _OPENMAX_JPEG_DECODER {
+  ILCLIENT_T     *client;
+  COMPONENT_DETAILS *imageDecoder;
+  COMPONENT_DETAILS *imageResizer;
+  OMX_BUFFERHEADERTYPE **ppInputBufferHeader;
+  int             inputBufferHeaderCount;
+  OMX_BUFFERHEADERTYPE *pOutputBufferHeader;
+};
+
 typedef struct _OPENMAX_JPEG_DECODER OPENMAX_JPEG_DECODER;
 
 // this function run the boilerplate to setup the openmax components;
