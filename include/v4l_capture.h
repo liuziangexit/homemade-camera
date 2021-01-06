@@ -37,17 +37,17 @@ private:
     last_read = 0;
   }
 
-  bool set_fps(uint32_t value) {
+  uint32_t set_fps(uint32_t value) {
     v4l2_streamparm streamparm;
     memset(&streamparm, 0, sizeof(v4l2_streamparm));
     streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     streamparm.parm.capture.timeperframe.numerator = 1;
     streamparm.parm.capture.timeperframe.denominator = value;
-    if (!ioctl(fd, VIDIOC_S_PARM, &streamparm) ||
-        !ioctl(fd, VIDIOC_G_PARM, &streamparm)) {
-      return false;
+    if (ioctl(fd, VIDIOC_S_PARM, &streamparm)) {
+      ioctl(fd, VIDIOC_G_PARM, &streamparm);
     }
-    return true;
+    return streamparm.parm.capture.timeperframe.denominator /
+           streamparm.parm.capture.timeperframe.numerator;
   }
 
 public:
@@ -91,8 +91,9 @@ public:
       return -3;
     }
 
-    if (!set_fps(fps)) {
-      logger::error("setfps failed");
+    uint32_t actual_fps = set_fps(fps);
+    if (actual_fps != fps) {
+      logger::error("setfps failed, actual fps: ", actual_fps);
       close();
       return -99;
     }
