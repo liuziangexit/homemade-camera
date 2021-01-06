@@ -62,12 +62,7 @@ private:
       return false;
     }
 
-    // TODO
-    /* v4l2_frmivalenum frmivalenum;
-     memset(&frmivalenum, 0, sizeof(v4l2_frmivalenum));
-     if (!ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmivalenum)) {
-     }*/
-
+    memset(&streamparm, 0, sizeof(v4l2_streamparm));
     streamparm.parm.capture.timeperframe.numerator = 1;
     streamparm.parm.capture.timeperframe.denominator = value;
     if (!ioctl(fd, VIDIOC_S_PARM, &streamparm)) {
