@@ -29,9 +29,9 @@ public:
   };
 
   struct graphic {
-    int width;
-    int height;
-    int fps;
+    uint32_t width;
+    uint32_t height;
+    uint32_t fps;
 
     bool operator==(const graphic &rhs) const {
       return width == rhs.width && height == rhs.height && fps == rhs.fps;
