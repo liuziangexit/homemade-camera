@@ -194,8 +194,8 @@ public:
         throw std::runtime_error("unsupported v4l2_frmsizeenum.type");
       }
       frmsize.index++;
-      return rv;
     }
+    return rv;
   }
 
   int open(const std::string &device, graphic g) {
