@@ -20,12 +20,15 @@
 namespace homemadecam {
 
 class v4l_capture {
-  int fd;
+public:
   struct buffer {
     void *data;
     std::size_t length;
-  } _buffer;
+  };
 
+private:
+  int fd;
+  buffer _buffer;
   uint32_t last_read;
 
   void init() {
@@ -34,9 +37,22 @@ class v4l_capture {
     last_read = 0;
   }
 
+  bool set_fps(uint32_t value) {
+    v4l2_streamparm streamparm;
+    memset(&streamparm, 0, sizeof(v4l2_streamparm));
+    streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    streamparm.parm.capture.timeperframe.numerator = 1;
+    streamparm.parm.capture.timeperframe.denominator = value;
+    if (!ioctl(fd, VIDIOC_S_PARM, &streamparm) ||
+        !ioctl(fd, VIDIOC_G_PARM, &streamparm)) {
+      return false;
+    }
+    return true;
+  }
+
 public:
   v4l_capture() { init(); }
-  int open(const std::string &device) {
+  int open(const std::string &device, uint32_t fps) {
     // open device
     if ((fd = ::open(device.c_str(), O_RDWR)) < 0) {
       close();
@@ -73,6 +89,12 @@ public:
       logger::error("VIDIOC_S_FMT failed");
       close();
       return -3;
+    }
+
+    if (!set_fps(fps)) {
+      logger::error("setfps failed");
+      close();
+      return -99;
     }
 
     // allocate video memory for frame

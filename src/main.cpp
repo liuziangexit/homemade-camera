@@ -27,21 +27,19 @@ int main(int argc, char **argv) {
     cap->run();*/
 
   homemadecam::v4l_capture v4l;
-  if (v4l.open("/dev/video0")) {
+  if (v4l.open("/dev/video0", 30)) {
     homemadecam::logger::fatal("v4l open failed");
     abort();
   }
 
-  v4l.read();
-  v4l.read();
-  v4l.read();
-  v4l.read();
-  v4l.read();
-  v4l.read();
-  auto frame = v4l.read();
-  if (!frame.first) {
-    homemadecam::logger::fatal("v4l read failed");
-    abort();
+  std::shared_ptr<homemadecam::v4l_capture::buffer> jpg;
+  for (int i = 0; i < 300; i++) {
+    auto frame = v4l.read();
+    if (!frame.first) {
+      homemadecam::logger::fatal("v4l read failed");
+      abort();
+    }
+    jpg = frame.second;
   }
 
   FILE *fp;
@@ -51,8 +49,7 @@ int main(int argc, char **argv) {
     abort();
   }
 
-  if (frame.second->length !=
-      fwrite(frame.second->data, 1, frame.second->length, fp)) {
+  if (jpg->length != fwrite(jpg->data, 1, jpg->length, fp)) {
     homemadecam::logger::fatal("fwrite failed");
     abort();
   }
