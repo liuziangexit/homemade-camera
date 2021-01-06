@@ -42,11 +42,13 @@ private:
   int fd;
   buffer _buffer;
   uint32_t last_read;
+  bool enqueue;
 
   void init() {
     fd = 0;
     memset(&_buffer, 0, sizeof(buffer));
     last_read = 0;
+    enqueue = false;
   }
 
   bool set_fps(uint32_t value) {
@@ -163,6 +165,9 @@ private:
     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     buf.memory = V4L2_MEMORY_MMAP;
     buf.index = 0;
+
+    // clear the buffer(unnecessary but it wont cost much time)
+    memset(_buffer.data, 0, _buffer.length);
 
     // Put the buffer in the incoming queue.
     if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
@@ -282,19 +287,24 @@ public:
   ~v4l_capture() { this->close(); }
 
   std::pair<bool, std::shared_ptr<buffer>> read() {
-    uint32_t buffer_init = checkpoint(3);
-
-    uint32_t qbuf = checkpoint(3);
-
-    if (!enqueue_buffer()) {
-      logger::error("enqueue_buffer failed");
-      close();
-      return std::pair<bool, std::shared_ptr<buffer>>(
-          false, std::shared_ptr<buffer>());
+    // first time?
+    // https://www.youtube.com/watch?v=qNgCGIBrK9A
+    if (!enqueue) {
+      enqueue = true;
+      if (!enqueue_buffer()) {
+        logger::error("enqueue_buffer failed");
+        close();
+        return std::pair<bool, std::shared_ptr<buffer>>(
+            false, std::shared_ptr<buffer>());
+      }
     }
 
-    uint32_t dqbuf = checkpoint(3);
+    // allocate space for refturn
+    buffer *rv = (buffer *)malloc(sizeof(buffer) + _buffer.length);
+    rv->data = (char *)rv + sizeof(buffer);
+    rv->length = _buffer.length;
 
+    // retrieve frame
     if (!dequeue_buffer()) {
       logger::error("dequeue_buffer failed");
       close();
@@ -302,8 +312,21 @@ public:
           false, std::shared_ptr<buffer>());
     }
 
-    uint32_t memop = checkpoint(3);
+    // FIXME
+    // 理论上说这里还是有可能错过下一帧，如果有需要可以通过两个buffer来避免
 
+    // copy to return value
+    memcpy(rv->data, this->_buffer.data, this->_buffer.length);
+
+    // get ready for the next frame
+    if (!enqueue_buffer()) {
+      logger::error("enqueue_buffer failed");
+      close();
+      return std::pair<bool, std::shared_ptr<buffer>>(
+          false, std::shared_ptr<buffer>());
+    }
+
+    // count time
     uint32_t current = checkpoint(3);
     if (last_read == 0) {
       logger::info("read frame ok");
@@ -312,30 +335,15 @@ public:
     }
     last_read = current;
 
-    /* Your loops end here. */
-
-    buffer *rv = (buffer *)malloc(sizeof(buffer) + _buffer.length);
-    rv->data = (char *)rv + sizeof(buffer);
-    rv->length = _buffer.length;
-
-    memcpy(rv->data, this->_buffer.data, this->_buffer.length);
-
-    uint32_t done = checkpoint(3);
-
-    logger::info("init req cost:", qbuf - buffer_init,
-                 "ms, qbuf cost:", dqbuf - qbuf,
-                 "ms, dqbuf cost:", memop - dqbuf,
-                 "ms, memop cost:", done - memop, "ms");
-
     return std::pair<bool, std::shared_ptr<buffer>>(
         true, std::shared_ptr<buffer>(rv, [](buffer *p) { free(p); }));
   }
 
   void close() {
-    if (fd)
-      ::close(fd);
     if (_buffer.data)
       munmap(_buffer.data, _buffer.length);
+    if (fd)
+      ::close(fd);
     init();
   }
 };
