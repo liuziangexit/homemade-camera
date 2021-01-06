@@ -41,7 +41,7 @@ private:
     v4l2_streamparm streamparm;
     memset(&streamparm, 0, sizeof(v4l2_streamparm));
     streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    if (v4l2_ioctl(m_fd, VIDIOC_G_PARM, &streamparm) != 0) {
+    if (ioctl(m_fd, VIDIOC_G_PARM, &streamparm) != 0) {
       return false;
     }
     streamparm.parm.capture.capturemode |= V4L2_CAP_TIMEPERFRAME;
