@@ -31,6 +31,3 @@ find_package(TBB REQUIRED)
 
 target_link_libraries(homecam ${OpenCV_LIBS} ${OPENSSL_LIBRARIES} TBB::tbb)
 include_directories(homecam ./include ./3rd-party ${OPENCV_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR} ${TBB_INCLUDE_DIR})
-
-message(STATUS "building ilclient")
-execute_process(COMMAND "./clean.sh&&./build.sh" WORKING_DIRECTORY 3rd-party/ilclient)
