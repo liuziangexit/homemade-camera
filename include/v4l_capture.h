@@ -156,6 +156,36 @@ private:
     return true;
   }
 
+  bool enqueue_buffer() {
+    struct v4l2_buffer buf;
+    memset(&buf, 0, sizeof(buf));
+
+    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    buf.memory = V4L2_MEMORY_MMAP;
+    buf.index = 0;
+
+    // Put the buffer in the incoming queue.
+    if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
+      return false;
+    }
+    return true;
+  }
+
+  bool dequeue_buffer() {
+    struct v4l2_buffer buf;
+    memset(&buf, 0, sizeof(buf));
+
+    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    buf.memory = V4L2_MEMORY_MMAP;
+    buf.index = 0;
+
+    // The buffer's waiting in the outgoing queue.
+    if (ioctl(fd, VIDIOC_DQBUF, &buf) < 0) {
+      return false;
+    }
+    return true;
+  }
+
 public:
   v4l_capture() { init(); }
 
@@ -253,18 +283,11 @@ public:
 
   std::pair<bool, std::shared_ptr<buffer>> read() {
     uint32_t buffer_init = checkpoint(3);
-    struct v4l2_buffer buf;
-    memset(&buf, 0, sizeof(buf));
-
-    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    buf.memory = V4L2_MEMORY_MMAP;
-    buf.index = 0;
 
     uint32_t qbuf = checkpoint(3);
 
-    // Put the buffer in the incoming queue.
-    if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
-      logger::error("VIDIOC_QBUF failed");
+    if (!enqueue_buffer()) {
+      logger::error("enqueue_buffer failed");
       close();
       return std::pair<bool, std::shared_ptr<buffer>>(
           false, std::shared_ptr<buffer>());
@@ -272,9 +295,8 @@ public:
 
     uint32_t dqbuf = checkpoint(3);
 
-    // The buffer's waiting in the outgoing queue.
-    if (ioctl(fd, VIDIOC_DQBUF, &buf) < 0) {
-      logger::error("VIDIOC_DQBUF failed");
+    if (!dequeue_buffer()) {
+      logger::error("dequeue_buffer failed");
       close();
       return std::pair<bool, std::shared_ptr<buffer>>(
           false, std::shared_ptr<buffer>());
