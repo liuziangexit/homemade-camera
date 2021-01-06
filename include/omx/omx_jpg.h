@@ -1,8 +1,6 @@
 #ifndef __HOMEMADECAM_OMX_UTIL_H__
 #define __HOMEMADECAM_OMX_UTIL_H__
-/*#include "omx_image.c"
 #include "jpeg.h"
-#include "omx_image.h"*/
 #include <assert>
 #include <cstddef>
 #include <opencv2/core/mat.hpp>
