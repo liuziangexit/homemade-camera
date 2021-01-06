@@ -37,10 +37,17 @@ jpeg images from the camera
 #include <stdlib.h>
 #include <string.h>
 
-extern "C" {
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #include <bcm_host.h>
 #include <ilclient.h>
+
+#ifdef __cplusplus
 }
+#endif
 
 #define OMXJPEG_OK 0
 #define OMXJPEG_ERROR_ILCLIENT_INIT -1024
