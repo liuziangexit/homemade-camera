@@ -300,11 +300,9 @@ public:
     }
 
     // allocate space for refturn
-    uint32_t alloc_begin = checkpoint(3);
     buffer *rv = (buffer *)malloc(sizeof(buffer) + _buffer.length);
     rv->data = (char *)rv + sizeof(buffer);
     rv->length = _buffer.length;
-    uint32_t alloc_end = checkpoint(3);
 
     // retrieve frame
     if (!dequeue_buffer()) {
@@ -314,8 +312,17 @@ public:
           false, std::shared_ptr<buffer>());
     }
 
-    // FIXME
-    // 理论上说这里还是有可能错过下一帧，如果有需要可以通过两个buffer来避免
+    /*
+     * FIXME
+     * 现在这里还有一个问题，下面这行copy会耗时很长（RPI3B上测到copy一个1.8MB的数据要5ms左右），
+     * 这可能是因为rv->data实际上不是在主存里，而是在显存里（被mmap进我们地址空间的），
+     * 由于要去显存里拿东西要经过总线，所以很慢
+     *
+     * 解决方法是使用两个buffer
+     *
+     * 因为目前已经能达到稳定的25fps，可以继续后续开发，所以先不管它
+     *
+     * */
 
     // copy to return value
     uint32_t copy_begin = checkpoint(3);
@@ -336,7 +343,6 @@ public:
       logger::info("read frame ok");
     } else {
       logger::info("read frame ok, interval: ", current - last_read,
-                   "ms, alloc cost: ", alloc_end - alloc_begin,
                    "ms, copy cost: ", copyc_end - copy_begin, "ms");
     }
     last_read = current;
