@@ -213,8 +213,8 @@ public:
         while (ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmival) == 0) {
           if (frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
             graphic g{frmsize.discrete.width, frmsize.discrete.height,
-                      1.0 * frmival.discrete.denominator /
-                          frmival.discrete.numerator};
+                      (uint32_t)((double)frmival.discrete.denominator /
+                                 (double)frmival.discrete.numerator)};
             rv.push_back(g);
           } else {
             throw std::runtime_error("unsupported v4l2_frmivalenum.type");
