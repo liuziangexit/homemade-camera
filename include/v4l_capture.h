@@ -62,10 +62,11 @@ private:
       return false;
     }
 
-    v4l2_frmivalenum frmivalenum;
-    memset(&frmivalenum, 0, sizeof(v4l2_frmivalenum));
-    if (!ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmivalenum)) {
-    }
+    // TODO
+    /* v4l2_frmivalenum frmivalenum;
+     memset(&frmivalenum, 0, sizeof(v4l2_frmivalenum));
+     if (!ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmivalenum)) {
+     }*/
 
     streamparm.parm.capture.timeperframe.numerator = 1;
     streamparm.parm.capture.timeperframe.denominator = value;
@@ -76,7 +77,6 @@ private:
     return true;
   }
 
-  // query device capabilities
   bool check_cap(int32_t flags) {
     struct v4l2_capability cap;
     if (ioctl(fd, VIDIOC_QUERYCAP, &cap) < 0) {
@@ -89,6 +89,74 @@ private:
       logger::error("feature not supported");
       return false;
     }
+    return true;
+  }
+
+  bool set_fmt(graphic g) {
+    struct v4l2_format format;
+    format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    format.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
+    format.fmt.pix.width = g.width;
+    format.fmt.pix.height = g.height;
+    format.fmt.pix.field = V4L2_FIELD_ANY;
+
+    if (ioctl(fd, VIDIOC_S_FMT, &format) < 0) {
+      logger::error("VIDIOC_S_FMT failed");
+      return false;
+    }
+    return true;
+  }
+
+  bool setup_buffer() {
+    struct v4l2_requestbuffers buf_req;
+    buf_req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    buf_req.memory = V4L2_MEMORY_MMAP;
+    buf_req.count = 1;
+
+    if (ioctl(fd, VIDIOC_REQBUFS, &buf_req) < 0) {
+      logger::error("VIDIOC_REQBUFS failed");
+      if (errno == EINVAL)
+        logger::error("Video capturing or mmap-streaming is not supported\n");
+      return false;
+    }
+
+    if (buf_req.count < 1) {
+      logger::error("VIDIOC_REQBUFS failed");
+      logger::error("no enough video memory");
+      return false;
+    }
+
+    // map allocated video memory into our address space
+    struct v4l2_buffer buf;
+
+    memset(&buf, 0, sizeof(buf));
+    buf.type = buf_req.type;
+    buf.memory = V4L2_MEMORY_MMAP;
+    buf.index = 0;
+
+    if (-1 == ioctl(fd, VIDIOC_QUERYBUF, &buf)) {
+      logger::error("VIDIOC_QUERYBUF failed");
+      return false;
+    }
+
+    _buffer.length = buf.length; /* remember for munmap() */
+    _buffer.data =
+        mmap(NULL, buf.length, PROT_READ | PROT_WRITE, /* recommended */
+             MAP_SHARED,                               /* recommended */
+             fd, buf.m.offset);
+
+    if (MAP_FAILED == _buffer.data) {
+      logger::error("mmap failed");
+      return false;
+    }
+
+    // enable stream mode
+    int type = buf.type;
+    if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
+      logger::error("stream on failed");
+      return false;
+    }
+
     return true;
   }
 
@@ -122,13 +190,12 @@ public:
           }
         }
         frmival.index++;
+      } else {
+        throw std::runtime_error("unsupported v4l2_frmsizeenum.type");
       }
+      frmsize.index++;
+      return rv;
     }
-    else {
-      throw std::runtime_error("unsupported v4l2_frmsizeenum.type");
-    }
-    frmsize.index++;
-    return rv;
   }
 
   int open(const std::string &device, graphic g) {
@@ -138,17 +205,19 @@ public:
       return -1;
     }
 
+    // check device capabilities
     if (!check_cap(V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE)) {
       close();
       return -2;
     }
 
+    // check if the specified graphic will working
     auto gs = this->graphics();
     {
       std::ostringstream oss;
       oss << "\r\n";
       for (const auto p : gs) {
-        oss << p.width << "x" << p.height << "@" << p.fps << std::endl();
+        oss << p.width << "x" << p.height << "@" << p.fps << std::endl;
       }
       logger::info("available graphics on this device are:", oss.str());
     }
@@ -159,83 +228,31 @@ public:
       return -3;
     }
 
-    struct v4l2_format format;
-    format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    format.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
-    format.fmt.pix.width = g.width;
-    format.fmt.pix.height = g.height;
-    format.fmt.pix.field = V4L2_FIELD_ANY;
-
-    if (ioctl(fd, VIDIOC_S_FMT, &format) < 0) {
-      logger::error("VIDIOC_S_FMT failed");
+    // set format
+    if (!set_fmt(g)) {
+      logger::error("setfmt failed");
       close();
-      return -3;
+      return -4;
     }
 
-    if (!set_fps(fps)) {
+    // fps
+    if (!set_fps(g.fps)) {
       logger::error("setfps failed");
-      close();
-      return -99;
-    }
-
-    // allocate video memory for frame
-    struct v4l2_requestbuffers buf_req;
-    buf_req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    buf_req.memory = V4L2_MEMORY_MMAP;
-    buf_req.count = 1;
-
-    if (ioctl(fd, VIDIOC_REQBUFS, &buf_req) < 0) {
-      logger::error("VIDIOC_REQBUFS failed");
-      if (errno == EINVAL)
-        logger::error("Video capturing or mmap-streaming is not supported\n");
-      close();
-      return -4;
-    }
-
-    if (buf_req.count < 1) {
-      logger::error("VIDIOC_REQBUFS failed");
-      logger::error("no enough video memory");
-      close();
-      return -4;
-    }
-
-    // map allocated video memory into our address space
-    struct v4l2_buffer buf;
-
-    memset(&buf, 0, sizeof(buf));
-    buf.type = buf_req.type;
-    buf.memory = V4L2_MEMORY_MMAP;
-    buf.index = 0;
-
-    if (-1 == ioctl(fd, VIDIOC_QUERYBUF, &buf)) {
-      logger::error("VIDIOC_QUERYBUF failed");
       close();
       return -5;
     }
 
-    _buffer.length = buf.length; /* remember for munmap() */
-    _buffer.data =
-        mmap(NULL, buf.length, PROT_READ | PROT_WRITE, /* recommended */
-             MAP_SHARED,                               /* recommended */
-             fd, buf.m.offset);
-
-    if (MAP_FAILED == _buffer.data) {
-      logger::error("mmap failed");
+    // allocate video memory for frame
+    if (!setup_buffer()) {
+      logger::error("setup buffer failed");
       close();
       return -6;
     }
 
-    // enable stream mode
-    int type = buf.type;
-    if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
-      logger::error("stream on failed");
-      close();
-      return -7;
-    }
-
-    logger::info("successfully opened ", cap.card);
+    logger::info("device been successfully opened");
     return 0;
   }
+
   ~v4l_capture() { this->close(); }
 
   std::pair<bool, std::shared_ptr<buffer>> read() {
