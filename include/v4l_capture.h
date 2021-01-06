@@ -300,9 +300,11 @@ public:
     }
 
     // allocate space for refturn
+    uint32_t alloc_begin = checkpoint(3);
     buffer *rv = (buffer *)malloc(sizeof(buffer) + _buffer.length);
     rv->data = (char *)rv + sizeof(buffer);
     rv->length = _buffer.length;
+    uint32_t alloc_end = checkpoint(3);
 
     // retrieve frame
     if (!dequeue_buffer()) {
@@ -331,7 +333,8 @@ public:
     if (last_read == 0) {
       logger::info("read frame ok");
     } else {
-      logger::info("read frame ok, interval: ", current - last_read, "ms");
+      logger::info("read frame ok, interval: ", current - last_read,
+                   "ms, alloc cost: ", alloc_end - alloc_begin, "ms");
     }
     last_read = current;
 
