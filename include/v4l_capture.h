@@ -318,7 +318,9 @@ public:
     // 理论上说这里还是有可能错过下一帧，如果有需要可以通过两个buffer来避免
 
     // copy to return value
+    uint32_t copy_begin = checkpoint(3);
     memcpy(rv->data, this->_buffer.data, this->_buffer.length);
+    uint32_t copyc_end = checkpoint(3);
 
     // get ready for the next frame
     if (!enqueue_buffer()) {
@@ -334,7 +336,8 @@ public:
       logger::info("read frame ok");
     } else {
       logger::info("read frame ok, interval: ", current - last_read,
-                   "ms, alloc cost: ", alloc_end - alloc_begin, "ms");
+                   "ms, alloc cost: ", alloc_end - alloc_begin,
+                   "ms, copy cost: ", copyc_end - copy_begin, "ms");
     }
     last_read = current;
 
