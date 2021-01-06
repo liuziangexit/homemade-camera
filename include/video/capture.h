@@ -2,11 +2,11 @@
 #define __HOMEMADECAM_CAPTURE_H__
 
 #include "codec.h"
-#include "config.h"
-#include "guard.h"
-#include "logger.h"
-#include "string_util.h"
-#include "time_util.h"
+#include "config/config.h"
+#include "util/guard.h"
+#include "util/logger.h"
+#include "util/string_util.h"
+#include "util/time_util.h"
 #include <algorithm>
 #include <atomic>
 #include <future>

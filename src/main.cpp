@@ -1,6 +1,6 @@
-#include "capture.h"
-#include "logger.h"
-#include "v4l_capture.h"
+#include "util/logger.h"
+#include "video/capture.h"
+#include "video/v4l_capture.h"
 #include <signal.h>
 #include <stdio.h>
 //#include <web_service.h>

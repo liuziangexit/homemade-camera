@@ -1,7 +1,7 @@
 #ifndef __HOMEMADECAM_CONFIG_H__
 #define __HOMEMADECAM_CONFIG_H__
-#include "codec.h"
-#include "logger.h"
+#include "util/logger.h"
+#include "video/codec.h"
 #include "json/json.hpp"
 #include <cstdint>
 #include <memory>

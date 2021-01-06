@@ -1,10 +1,10 @@
 #ifndef __HOMECAM_WEB_SERVICE_H_
 #define __HOMECAM_WEB_SERVICE_H_
-#include "asio_http_session.h"
-#include "asio_listener.h"
-#include "asio_ws_session.h"
 #include "boost/beast.hpp"
-#include "config.h"
+#include "config/config.h"
+#include "web/asio_http_session.h"
+#include "web/asio_listener.h"
+#include "web/asio_ws_session.h"
 #include <condition_variable>
 #include <memory>
 #include <mutex>

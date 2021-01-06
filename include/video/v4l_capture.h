@@ -1,7 +1,7 @@
 #ifndef __HOMEMADECAM_V4L_CAPTURE_H__
 #define __HOMEMADECAM_V4L_CAPTURE_H__
-#include "logger.h"
-#include "time_util.h"
+#include "util/logger.h"
+#include "util/time_util.h"
 #include <algorithm>
 #include <asm/types.h> /* for videodev2.h */
 #include <assert.h>
