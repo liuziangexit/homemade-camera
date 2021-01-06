@@ -16,6 +16,7 @@ extern "C" {
 #include <opencv2/core/mat.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
+#include <string.h>
 #include <utility>
 
 namespace homemadecam {
@@ -34,11 +35,15 @@ public:
     if (decodeImage(decoder, (char *)(src), len))
       return false;
 
-    cv::Mat picYV12 = cv::Mat(720 * 3 / 2, 1280, CV_8UC1,
-                              decoder->pOutputBufferHeader->pBuffer,
+    void *fuck = new char[decoder->pOutputBufferHeader->nFilledLen];
+    memcpy(fuck, decoder->pOutputBufferHeader->pBuffer,
+           decoder->pOutputBufferHeader->nFilledLen);
+    
+    cv::Mat picYV12 = cv::Mat(720 * 3 / 2, 1280, CV_8UC1, fuck,
                               decoder->pOutputBufferHeader->nFilledLen);
     cv::Mat picBGR;
-    cv::cvtColor(picYV12, picBGR, CV_YUV2BGR_YV12);
+    cv::cvtColor(picYV12, picBGR, 99);
+    // CV_YUV2BGR_YV12=99
     cv::imwrite("test.bmp", picBGR); // only for test
 
     /* decoder->pOutputBufferHeader->nFilledLen;
