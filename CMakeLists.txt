@@ -17,7 +17,7 @@ message(STATUS "System            : ${CMAKE_SYSTEM_NAME}")
 message(STATUS "Project           : ${PROJECT_NAME}")
 message(STATUS "Project Directory : ${PROJECT_SOURCE_DIR}")
 
-add_executable(homecam src/main.cpp)
+add_executable(homecam src/main.cpp include/omx/jpeg.c)
 find_package(OpenCV REQUIRED)
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     find_package(Threads REQUIRED)
@@ -31,3 +31,5 @@ find_package(TBB REQUIRED)
 
 target_link_libraries(homecam ${OpenCV_LIBS} ${OPENSSL_LIBRARIES} TBB::tbb)
 include_directories(homecam ./include ./3rd-party ${OPENCV_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR} ${TBB_INCLUDE_DIR})
+
+SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L3rd-party/ilclient -lilclient")

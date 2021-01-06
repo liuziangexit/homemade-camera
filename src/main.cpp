@@ -1,3 +1,4 @@
+#include "omx/omx_jpg.h"
 #include "util/logger.h"
 #include "video/capture.h"
 #include "video/v4l_capture.h"
@@ -35,7 +36,7 @@ int main(int argc, char **argv) {
 
   std::shared_ptr<homemadecam::v4l_capture::buffer> jpg;
   homemadecam::logger::info("read loop begin");
-  for (int i = 0; i < 300; i++) {
+  for (int i = 0; i < 2; i++) {
     auto frame = v4l.read();
     if (!frame.first) {
       homemadecam::logger::fatal("v4l read failed");
@@ -44,6 +45,10 @@ int main(int argc, char **argv) {
     jpg = frame.second;
   }
   homemadecam::logger::info("read loop end");
+
+  homemadecam::omx_jpg omx;
+  auto decode =
+      omx.jpg_decode(static_cast<unsigned char *>(jpg->data), jpg->length);
 
   FILE *fp;
   fp = fopen("/web/test.jpg", "wb");
