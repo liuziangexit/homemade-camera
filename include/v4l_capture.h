@@ -42,12 +42,23 @@ private:
     memset(&streamparm, 0, sizeof(v4l2_streamparm));
     streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if (ioctl(fd, VIDIOC_G_PARM, &streamparm) != 0) {
+      logger::error("VIDIOC_G_PARM failed");
       return false;
     }
-    streamparm.parm.capture.capturemode |= V4L2_CAP_TIMEPERFRAME;
+    if (streamparm.parm.capture.capability & V4L2_CAP_TIMEPERFRAME) {
+      logger::error("V4L2_CAP_TIMEPERFRAME not supported");
+      return false;
+    }
+
+    /* v4l2_frmivalenum frmivalenum;
+     memset(&frmivalenum, 0, sizeof(v4l2_frmivalenum));
+     if (!ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmivalenum)) {
+     }*/
+
     streamparm.parm.capture.timeperframe.numerator = 1;
     streamparm.parm.capture.timeperframe.denominator = value;
     if (!ioctl(fd, VIDIOC_S_PARM, &streamparm)) {
+      logger::error("VIDIOC_S_PARM failed");
       return false;
     }
     return true;
