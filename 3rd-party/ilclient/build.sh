@@ -4,3 +4,4 @@ cp -u /opt/vc/src/hello_pi/Makefile.include .
 make -C libs/ilclient
 cp libs/ilclient/libilclient.a .
 cp libs/ilclient/ilclient.h .
+cp -u /opt/vc/include/bcm_host.h .
