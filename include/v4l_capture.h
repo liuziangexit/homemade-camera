@@ -7,7 +7,6 @@
 #include <fcntl.h>
 #include <linux/videodev2.h>
 #include <memory>
-#include <pair>
 #include <stdlib.h>
 #include <string>
 #include <sys/ioctl.h>
@@ -15,6 +14,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <utility>
 
 namespace homemadecam {
 
