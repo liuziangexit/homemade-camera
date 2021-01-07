@@ -1,7 +1,16 @@
-#ifndef __HOMEMADECAM_OMX_UTIL_H__
-#define __HOMEMADECAM_OMX_UTIL_H__
+#ifndef __HOMEMADECAM_OMX_JPG_H__
+#define __HOMEMADECAM_OMX_JPG_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "omx_image.h"
+
+#ifdef __cplusplus
+}
+#endif
+
 #include <assert.h>
 #include <cstddef>
 #include <opencv2/core/core_c.h>
@@ -24,8 +33,8 @@ class omx_jpg {
     char orientation; // orientation according to exif tag (1..8, default: 1)
   };
 
-  int decodeImage(const char *src, uint32_t len, IMAGE *image) {
-    FILE *imageFile = fmemopen(src, len, "rb");
+  int decodeImage(const unsigned char *src, uint32_t len, IMAGE *image) {
+    FILE *imageFile = fmemopen((void *)src, len, "rb");
 
     if (!imageFile) {
       return -1;
@@ -39,7 +48,7 @@ class omx_jpg {
     rewind(imageFile);
 
     int ret;
-
+    static const char magNumJpeg[] = {0xff, 0xd8, 0xff};
     if (memcmp(magNum, magNumJpeg, sizeof(magNumJpeg)) == 0) {
       /*  if (soft || jInfo.mode == JPEG_MODE_PROGRESSIVE ||
             jInfo.nColorComponents != 3) {
@@ -56,8 +65,7 @@ class omx_jpg {
 
     fclose(imageFile);
 
-    if (info)
-      printf("Width: %u, Height: %u\n", image->width, image->height);
+    printf("Width: %u, Height: %u\n", image->width, image->height);
 
     return ret;
   }
@@ -65,22 +73,21 @@ class omx_jpg {
 public:
   omx_jpg() {
     if ((client = ilclient_init()) == NULL) {
-      fprintf(stderr, "Error init ilclient\n");
-      throw std::runtime_error();
+      throw std::runtime_error("Error init ilclient");
     }
   }
   ~omx_jpg() { ilclient_destroy(client); }
   // std::pair<bool, cv::Mat>
-  bool jpg_decode(unsigned char *src, std::size_t len) {
+  bool jpg_decode(unsigned char *src, uint32_t len) {
     IMAGE out;
-    if (this->decodeImage(src, len, out))
+    if (this->decodeImage(src, len, &out))
       return false;
 
     void *fuck = new char[out.nData];
     memcpy(fuck, out.pData, out.nData);
 
     FILE *fp = fopen("test.yuv", "wb");
-    fwrite(fuck, decoder->pOutputBufferHeader->nFilledLen, 1, fp);
+    fwrite(fuck, out.nData, 1, fp);
     fclose(fp);
     printf("NAIVE\n");
     /*cv::Mat picYV12 = cv::Mat(720 * 3 / 2, 1280, CV_8UC1, fuck,

@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
   }
   homemadecam::logger::info("read loop end");
 
-  homemadecam::omx_lib omx_lib;
+  homemadecam::omx_lib lib;
   homemadecam::omx_jpg omx;
   auto decode =
       omx.jpg_decode(static_cast<unsigned char *>(jpg->data), jpg->length);
