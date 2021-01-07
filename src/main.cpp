@@ -3,6 +3,7 @@
 #include "util/logger.h"
 #include "video/capture.h"
 #include "video/v4l_capture.h"
+#include <opencv2/imgcodecs.hpp>
 #include <signal.h>
 #include <stdio.h>
 //#include <web_service.h>
@@ -50,21 +51,14 @@ int main(int argc, char **argv) {
   homemadecam::omx_lib lib;
   homemadecam::omx_jpg omx;
   auto decode =
-      omx.jpg_decode(static_cast<unsigned char *>(jpg->data), jpg->length);
-
-  FILE *fp;
-  fp = fopen("/web/test.jpg", "wb");
-  if (!fp) {
-    homemadecam::logger::fatal("fopen failed");
+      omx.decode(static_cast<unsigned char *>(jpg->data), jpg->length);
+  if (!decode.first) {
+    homemadecam::logger::fatal("decode failed");
     abort();
   }
 
-  if (jpg->length != fwrite(jpg->data, 1, jpg->length, fp)) {
-    homemadecam::logger::fatal("fwrite failed");
-    abort();
-  }
-
-  fclose(fp);
+  cv::imwrite("test.jpg", decode.second);
+  cv::imwrite("test.png", decode.second);
 
   homemadecam::logger::info("jpg ok");
 

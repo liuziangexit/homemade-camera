@@ -11,10 +11,12 @@ extern "C" {
 }
 #endif
 
+#include "util/logger.h"
 #include <assert.h>
 #include <cstddef>
 #include <opencv2/core/core_c.h>
 #include <opencv2/core/mat.hpp>
+#include <opencv2/highgui.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <stdexcept>
@@ -40,7 +42,7 @@ class omx_jpg {
       return -1;
     }
 
-    char magNum[8];
+    unsigned char magNum[8];
     if (fread(&magNum, 1, 8, imageFile) != 8) {
       fclose(imageFile);
       return -2;
@@ -48,7 +50,7 @@ class omx_jpg {
     rewind(imageFile);
 
     int ret;
-    static const char magNumJpeg[] = {0xff, 0xd8, 0xff};
+    static const unsigned char magNumJpeg[] = {0xff, 0xd8, 0xff};
     if (memcmp(magNum, magNumJpeg, sizeof(magNumJpeg)) == 0) {
       /*  if (soft || jInfo.mode == JPEG_MODE_PROGRESSIVE ||
             jInfo.nColorComponents != 3) {
@@ -58,14 +60,15 @@ class omx_jpg {
         } else {*/
       ret = omxDecodeJpeg(client, imageFile, image);
     } else {
-      printf("Unsupported image\n");
+      logger::error("Unsupported image");
       fclose(imageFile);
       return -3;
     }
 
     fclose(imageFile);
 
-    printf("Width: %u, Height: %u\n", image->width, image->height);
+    logger::info("decodeImage: Width: ", image->width,
+                 ", Height: ", image->height);
 
     return ret;
   }
@@ -77,32 +80,25 @@ public:
     }
   }
   ~omx_jpg() { ilclient_destroy(client); }
-  // std::pair<bool, cv::Mat>
-  bool jpg_decode(unsigned char *src, uint32_t len) {
+
+  std::pair<bool, cv::Mat> decode(unsigned char *src, uint32_t len) {
     IMAGE out;
     if (this->decodeImage(src, len, &out))
-      return false;
-
-    void *fuck = new char[out.nData];
-    memcpy(fuck, out.pData, out.nData);
+      return std::pair<bool, cv::Mat>(false, cv::Mat());
 
     FILE *fp = fopen("test.yuv", "wb");
-    fwrite(fuck, out.nData, 1, fp);
+    fwrite(out.pData, out.nData, 1, fp);
     fclose(fp);
-    printf("NAIVE\n");
-    /*cv::Mat picYV12 = cv::Mat(720 * 3 / 2, 1280, CV_8UC1, fuck,
-                              decoder->pOutputBufferHeader->nFilledLen);
-    cv::Mat picBGR;
-    cv::cvtColor(picYV12, picBGR, 99);
-    // CV_YUV2BGR_YV12=99
-    cv::imwrite("test.bmp", picBGR); // only for test*/
 
-    /* decoder->pOutputBufferHeader->nFilledLen;
-     decoder->pOutputBufferHeader->pBuffer;*/
-
-    return true;
+    cv::Mat yuv420 = cv::Mat(out.height * 3 / 2, out.width, CV_8UC1, out.pData);
+    cv::Mat bgr(out.height, out.width, CV_8UC3);
+    cv::cvtColor(yuv420, bgr, cv::COLOR_YUV420p2RGB);
+    return std::pair<bool, cv::Mat>(true, bgr);
   }
-  std::pair<bool, void *> jpg_encode(const cv::Mat &src) {}
+
+  std::pair<bool, void *> encode(const cv::Mat &src) {
+    throw std::runtime_error("encode not available");
+  }
 };
 
 } // namespace homemadecam
