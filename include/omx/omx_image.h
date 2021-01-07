@@ -29,7 +29,16 @@
 #ifndef OMXIMAGE_H
 #define OMXIMAGE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "ilclient.h"
+
+#ifdef __cplusplus
+}
+#endif
+
 #include "image_def.h"
 
 #define OMX_IMAGE_OK 0x0
@@ -45,7 +54,8 @@
 /** Decodes jpeg image. Decoded images are in yuv420 color space.
  *  Note: Can't decode progressive jpegs or jpegs with more than
  *  3 color components. */
-int omxDecodeJpeg(ILCLIENT_T *client, FILE *jpegFile, IMAGE *jpeg);
+int omxDecodeJpeg(ILCLIENT_T *client, unsigned char *src, uint32_t len,
+                  IMAGE *jpeg);
 
 /** Resizes inImage to outImage. Make sure to set width,
  *  height and colorSpace of outImage before calling this.

@@ -17,7 +17,7 @@ message(STATUS "System            : ${CMAKE_SYSTEM_NAME}")
 message(STATUS "Project           : ${PROJECT_NAME}")
 message(STATUS "Project Directory : ${PROJECT_SOURCE_DIR}")
 
-add_executable(homecam src/main.cpp include/omx/jpeg.c)
+add_executable(homecam src/main.cpp include/omx/omx_image.c)
 find_package(OpenCV REQUIRED)
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     find_package(Threads REQUIRED)
