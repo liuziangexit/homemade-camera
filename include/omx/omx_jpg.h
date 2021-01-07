@@ -82,17 +82,15 @@ public:
   ~omx_jpg() { ilclient_destroy(client); }
 
   std::pair<bool, cv::Mat> decode(unsigned char *src, uint32_t len) {
+    // OMX decode jpeg
     IMAGE out;
     if (this->decodeImage(src, len, &out))
       return std::pair<bool, cv::Mat>(false, cv::Mat());
 
-    FILE *fp = fopen("test.yuv", "wb");
-    fwrite(out.pData, out.nData, 1, fp);
-    fclose(fp);
-
+    // convert yuv420 to bgr
     cv::Mat yuv420 = cv::Mat(out.height * 3 / 2, out.width, CV_8UC1, out.pData);
     cv::Mat bgr(out.height, out.width, CV_8UC3);
-    cv::cvtColor(yuv420, bgr, cv::COLOR_YUV420p2RGB);
+    cv::cvtColor(yuv420, bgr, cv::COLOR_YUV2BGR_I420);
     return std::pair<bool, cv::Mat>(true, bgr);
   }
 
