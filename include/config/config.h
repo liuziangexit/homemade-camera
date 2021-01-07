@@ -21,7 +21,7 @@ public:
   uint32_t duration;         //每个视频文件的持续时间
   std::string save_location; //保存目录
   enum codec codec;          //视频文件编码格式
-  int camera_id;             //摄像头序号
+  std::string device;        //摄像头设备挂载点
   int text_pos; //视频时间戳位置 0-右上 1-左上 2-左下 3-右下 4-中间
   int font_height; //视频时间戳字体大小
   int web_port;    // web服务端口
@@ -58,7 +58,7 @@ public:
       this->duration = js["duration"].get<uint32_t>();
       this->save_location = js["save-location"].get<std::string>();
       this->codec = codec_parse(js["codec"].get<std::string>());
-      this->camera_id = js["camera-id"].get<int>();
+      this->device = js["device"].get<std::string>();
       {
         std::string r = js["resolution"].get<std::string>();
         auto pos = r.find('x');
@@ -100,7 +100,7 @@ public:
         {"duration", this->duration},
         {"save-location", this->save_location},
         {"codec", codec_to_string(this->codec)},
-        {"camera-id", this->camera_id},
+        {"device", this->device},
         {"text-pos", this->text_pos},
         {"font-height", this->font_height},
         {"web-port", this->web_port},

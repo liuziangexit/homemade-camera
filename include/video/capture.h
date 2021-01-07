@@ -1,12 +1,14 @@
 #ifndef __HOMEMADECAM_CAPTURE_H__
 #define __HOMEMADECAM_CAPTURE_H__
 
+#include "../omx/omx_jpg.h"
 #include "codec.h"
 #include "config/config.h"
 #include "util/guard.h"
 #include "util/logger.h"
 #include "util/string_util.h"
 #include "util/time_util.h"
+#include "v4l_capture.h"
 #include <algorithm>
 #include <atomic>
 #include <future>
@@ -94,43 +96,23 @@ private:
     return codec_fourcc(c) == cap.get(cv::CAP_PROP_FOURCC);
   }
 
-  static bool set_resolution(cv::VideoCapture &cap, cv::Size res) {
-    cap.set(cv::CAP_PROP_FRAME_WIDTH, res.width);
-    cap.set(cv::CAP_PROP_FRAME_HEIGHT, res.height);
-    return cap.get(cv::CAP_PROP_FRAME_WIDTH) == res.width &&
-           cap.get(cv::CAP_PROP_FRAME_HEIGHT) == res.height;
-  }
-
-  static bool set_fps(cv::VideoCapture &cap, int fps) {
-    cap.set(cv::CAP_PROP_FPS, fps);
-    return cap.get(cv::CAP_PROP_FPS) == fps;
-  }
-
-  int do_capture(config &config) {
+  int do_capture(const config &config) {
     if (config.duration < 1)
       return 4; //短于1秒的话文件名可能重复
-    cv::VideoCapture capture;
-#ifdef __APPLE__
-#define API cv::CAP_AVFOUNDATION
-#elif __linux__
-#define API cv::CAP_V4L
-#else
-#define API cv::CAP_ANY
-#endif
 
-    if (!capture.open(config.camera_id, API)) {
+    v4l_capture capture;
+    if (capture.open(config.device,
+                     v4l_capture::graphic{(uint32_t)config.resolution.width,
+                                          (uint32_t)config.resolution.height,
+                                          (uint32_t)config.fps})) {
       logger::error("VideoCapture open failed");
       return 1;
     }
 
-    if (!set_resolution(capture, config.resolution)) {
-      logger::error("VideoCapture set resolution failed");
-      return 63;
-    }
+    omx_jpg jpg_decoder;
 
-    double fps = (int)capture.get(cv::CAP_PROP_FPS);
-    cv::Size frame_size(capture.get(cv::CAP_PROP_FRAME_WIDTH),
-                        capture.get(cv::CAP_PROP_FRAME_HEIGHT));
+    uint32_t fps = (uint32_t)config.fps;
+    cv::Size frame_size(config.resolution);
     const uint64_t frame_time = 1000 / fps;
 
     cv::Ptr<cv::freetype::FreeType2> freetype = cv::freetype::createFreeType2();
@@ -151,7 +133,7 @@ private:
       return 2;
     }
     logger::info("video file change to ", filename);
-    logger::info("capture backend:", capture.getBackendName(),
+    logger::info("capture backend:", "liuziang v4l_capture",
                  " writer backend:", writer.getBackendName(), " fps:", fps,
                  " resolution:", frame_size);
 
@@ -163,16 +145,20 @@ private:
       }
 
       auto frame_begin = checkpoint(3);
-      cv::Mat frame;
-      if (!capture.grab()) {
-        logger::error("VideoCapture grab failed");
-        continue;
+      std::pair<bool, std::shared_ptr<v4l_capture::buffer>> frame_jpg =
+          capture.read();
+      if (!frame_jpg.first) {
+        logger::error("VideoCapture read failed");
+        return 50;
       }
       auto frame_grab = checkpoint(3);
-      if (!capture.retrieve(frame)) {
-        logger::error("VideoCapture retrieve failed");
+      std::pair<bool, cv::Mat> decoded = jpg_decoder.decode(
+          (unsigned char *)(frame_jpg.second->data), frame_jpg.second->length);
+      if (!decoded.first) {
+        logger::error("VideoCapture decode failed");
         return 3;
       }
+      cv::Mat &frame = decoded.second;
       auto frame_retrieve = checkpoint(3);
 
       {

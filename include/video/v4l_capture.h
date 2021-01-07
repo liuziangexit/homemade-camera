@@ -28,6 +28,7 @@ public:
     std::size_t length;
   };
 
+  //TODO 支持设定像素格式yuv/mjpg
   struct graphic {
     uint32_t width;
     uint32_t height;

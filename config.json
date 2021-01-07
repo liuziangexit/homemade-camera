@@ -3,7 +3,7 @@
   "codec": "H264",
   "duration": 60,
   "save-location": "video",
-  "camera-id": 0,
+  "device": "/dev/video0",
   "resolution": "1280x720",
   "fps": 30,
   "text-pos": 3,
