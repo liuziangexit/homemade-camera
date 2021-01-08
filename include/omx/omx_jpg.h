@@ -22,6 +22,7 @@ extern "C" {
 #include <stdexcept>
 #include <stdio.h>
 #include <string.h>
+#include <util/time_util.h>
 #include <utility>
 
 namespace homemadecam {
@@ -84,13 +85,22 @@ public:
   std::pair<bool, cv::Mat> decode(unsigned char *src, uint32_t len) {
     // OMX decode jpeg
     IMAGE out;
+    auto decode = checkpoint(3);
     if (this->decodeImage(src, len, &out))
       return std::pair<bool, cv::Mat>(false, cv::Mat());
 
     // convert yuv420 to bgr
+    auto ctmat = checkpoint(3);
     cv::Mat yuv420 = cv::Mat(out.height * 3 / 2, out.width, CV_8UC1, out.pData);
     cv::Mat bgr(out.height, out.width, CV_8UC3);
+    auto cvtcolor = checkpoint(3);
     cv::cvtColor(yuv420, bgr, cv::COLOR_YUV2BGR_I420);
+    auto done = checkpoint(3);
+
+    logger::info("omx_jpg decode:", ctmat - decode,
+                 "ms, construct mat:", cvtcolor - ctmat,
+                 "ms, cvtcolor:", done - cvtcolor, "ms");
+
     return std::pair<bool, cv::Mat>(true, bgr);
   }
 

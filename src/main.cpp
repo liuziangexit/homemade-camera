@@ -1,6 +1,7 @@
 #include "util/logger.h"
 #include "video/capture.h"
 //#include "web/service.h"
+#include "omx/omx_lib.h"
 #include <signal.h>
 
 // homemadecam::web *web;
@@ -17,6 +18,8 @@ int main(int argc, char **argv) {
   signal(SIGINT, signal_handler);
   /*web = new homemadecam::web("config.json");
   web->run();*/
+
+  homemadecam::omx_lib omxlib;
 
   homemadecam::config c("config.json");
   cap = new homemadecam::capture(c);

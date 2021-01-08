@@ -133,7 +133,7 @@ private:
       return 2;
     }
     logger::info("video file change to ", filename);
-    logger::info("capture backend:", "liuziang v4l_capture",
+    logger::info("capture backend:", "V4LCAPTURE",
                  " writer backend:", writer.getBackendName(), " fps:", fps,
                  " resolution:", frame_size);
 
@@ -144,23 +144,23 @@ private:
         break;
       }
 
-      auto frame_begin = checkpoint(3);
+      auto cap_ckp = checkpoint(3);
       std::pair<bool, std::shared_ptr<v4l_capture::buffer>> frame_jpg =
           capture.read();
       if (!frame_jpg.first) {
         logger::error("VideoCapture read failed");
         return 50;
       }
-      auto frame_grab = checkpoint(3);
+      auto decode_ckp = checkpoint(3);
       std::pair<bool, cv::Mat> decoded = jpg_decoder.decode(
           (unsigned char *)(frame_jpg.second->data), frame_jpg.second->length);
       if (!decoded.first) {
-        logger::error("VideoCapture decode failed");
+        logger::error("JPG decode failed");
         return 3;
       }
       cv::Mat &frame = decoded.second;
-      auto frame_retrieve = checkpoint(3);
 
+      auto draw_ckp = checkpoint(3);
       {
         //在指定位置渲染时间
         time_t tm;
@@ -184,23 +184,23 @@ private:
         }
       }
 
-      auto frame_drawtext = checkpoint(3);
+      auto write_ckp = checkpoint(3);
       writer.write(frame);
-      auto frame_write = checkpoint(3);
-      if (frame_write - frame_begin > frame_time) {
+      auto done_ckp = checkpoint(3);
+      if (done_ckp - cap_ckp > frame_time) {
         logger::warn("low frame rate, expect ", frame_time, "ms, actual ",
-                     frame_write - frame_begin,
-                     "ms(grab:", frame_grab - frame_begin,
-                     "ms, retrieve:", frame_retrieve - frame_grab,
-                     "ms, drawtext:", frame_drawtext - frame_retrieve,
-                     "ms, write:", frame_write - frame_drawtext, "ms)");
+                     done_ckp - cap_ckp, //
+                     "ms (capture:", decode_ckp - cap_ckp,
+                     "ms, decode:", draw_ckp - decode_ckp,
+                     "ms, draw:", write_ckp - draw_ckp,
+                     "ms, write:", done_ckp - write_ckp, "ms)");
       } else {
-        logger::info("cost ", frame_write - frame_begin, "ms");
+        logger::info("cost ", done_ckp - cap_ckp, "ms");
       }
-      frame_cost = frame_write - frame_begin;
+      frame_cost = done_ckp - cap_ckp;
 
       //到了预定的时间，换文件
-      if (frame_write - task_begin >= config.duration * 1000) {
+      if (done_ckp - task_begin >= config.duration * 1000) {
         goto OPEN_WRITER;
       }
     }
