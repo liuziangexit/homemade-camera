@@ -28,7 +28,7 @@ public:
     std::size_t length;
   };
 
-  //TODO 支持设定像素格式yuv/mjpg
+  // TODO 支持设定像素格式yuv/mjpg
   struct graphic {
     uint32_t width;
     uint32_t height;
@@ -313,20 +313,10 @@ public:
           false, std::shared_ptr<buffer>());
     }
 
-    /*
-     * FIXME
-     * 现在这里还有一个问题，下面这行copy会耗时很长（RPI3B上测到copy一个1.8MB的数据要5ms左右），
-     * 这可能是因为this->_buffer.data实际上不是在主存里，而是在显存里（被mmap进我们地址空间的），
-     * 由于要去显存里拿东西要经过总线，所以很慢
-     *
-     * 因为目前已经能达到稳定的25fps，可以继续后续开发，所以先不管它
-     *
-     * */
+    // FIXME deq之后，enq之前，这个地方如果摄像头产出了一个新帧的话，就丢失了
 
     // copy to return value
-    uint32_t copy_begin = checkpoint(3);
     memcpy(rv->data, this->_buffer.data, this->_buffer.length);
-    uint32_t copyc_end = checkpoint(3);
 
     // get ready for the next frame
     if (!enqueue_buffer()) {
@@ -335,16 +325,6 @@ public:
       return std::pair<bool, std::shared_ptr<buffer>>(
           false, std::shared_ptr<buffer>());
     }
-
-    // count time
-    uint32_t current = checkpoint(3);
-    if (last_read == 0) {
-      logger::info("read frame ok");
-    } else {
-      logger::info("read frame ok, interval: ", current - last_read,
-                   "ms, copy cost: ", copyc_end - copy_begin, "ms");
-    }
-    last_read = current;
 
     return std::pair<bool, std::shared_ptr<buffer>>(
         true, std::shared_ptr<buffer>(rv, [](buffer *p) { free(p); }));
