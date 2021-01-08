@@ -300,10 +300,14 @@ public:
       }
     }
 
+    auto alloc_begin = checkpoint(3);
+
     // allocate space for refturn
     buffer *rv = (buffer *)malloc(sizeof(buffer) + _buffer.length);
     rv->data = (char *)rv + sizeof(buffer);
     rv->length = _buffer.length;
+
+    auto alloc_end = checkpoint(3);
 
     // retrieve frame
     if (!dequeue_buffer()) {
@@ -315,8 +319,13 @@ public:
 
     // FIXME deq之后，enq之前，这个地方如果摄像头产出了一个新帧的话，就丢失了
 
+    auto cpy_begin = checkpoint(3);
     // copy to return value
     memcpy(rv->data, this->_buffer.data, this->_buffer.length);
+    auto cpy_end = checkpoint(3);
+
+    logger::info("v4lcapture alloc:", alloc_end - alloc_begin,
+                 "ms, cpy:", cpy_end - cpy_begin, "ms");
 
     // get ready for the next frame
     if (!enqueue_buffer()) {
