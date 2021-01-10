@@ -157,7 +157,7 @@ private:
     }
 
     // enable stream mode
-    int type = buf.type;
+    int type = buf_req.type;
     if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
       logger::error("stream on failed");
       return false;
