@@ -19,6 +19,8 @@
 #include <unistd.h>
 #include <utility>
 
+#define V4L_BUFFER_CNT 2
+
 namespace homemadecam {
 
 class v4l_capture {
@@ -41,15 +43,16 @@ public:
 
 private:
   int fd;
-  buffer _buffer;
+  buffer _buffer[V4L_BUFFER_CNT];
   uint32_t last_read;
-  bool enqueue;
+  bool first_frame;
+  int enq_idx = 0, deq_idx = 0;
 
   void init() {
     fd = 0;
-    memset(&_buffer, 0, sizeof(buffer));
+    memset(&_buffer, 0, sizeof(buffer) * V4L_BUFFER_CNT);
     last_read = 0;
-    enqueue = false;
+    first_frame = true;
   }
 
   bool set_fps(uint32_t value) {
@@ -110,7 +113,7 @@ private:
     struct v4l2_requestbuffers buf_req;
     buf_req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     buf_req.memory = V4L2_MEMORY_MMAP;
-    buf_req.count = 1;
+    buf_req.count = V4L_BUFFER_CNT;
 
     if (ioctl(fd, VIDIOC_REQBUFS, &buf_req) < 0) {
       logger::error("VIDIOC_REQBUFS failed");
@@ -119,34 +122,38 @@ private:
       return false;
     }
 
-    if (buf_req.count < 1) {
+    if (buf_req.count < V4L_BUFFER_CNT) {
       logger::error("VIDIOC_REQBUFS failed");
       logger::error("no enough video memory");
       return false;
     }
 
-    // map allocated video memory into our address space
-    struct v4l2_buffer buf;
+    //循环的时候如果出错了，那需要把此前循环时候map的内存都unmap回去，这个工作会在此函数返回false之后的一个close里做
+    // map the allocated video memory into the program's address space
+    for (int i = 0; i < V4L_BUFFER_CNT; i++) {
+      struct v4l2_buffer buf;
 
-    memset(&buf, 0, sizeof(buf));
-    buf.type = buf_req.type;
-    buf.memory = V4L2_MEMORY_MMAP;
-    buf.index = 0;
+      memset(&buf, 0, sizeof(buf));
+      buf.type = buf_req.type;
+      buf.memory = V4L2_MEMORY_MMAP;
+      buf.index = i;
 
-    if (-1 == ioctl(fd, VIDIOC_QUERYBUF, &buf)) {
-      logger::error("VIDIOC_QUERYBUF failed");
-      return false;
-    }
+      if (-1 == ioctl(fd, VIDIOC_QUERYBUF, &buf)) {
+        logger::error("VIDIOC_QUERYBUF failed");
+        return false;
+      }
 
-    _buffer.length = buf.length; /* remember for munmap() */
-    _buffer.data =
-        mmap(NULL, buf.length, PROT_READ | PROT_WRITE, /* recommended */
-             MAP_SHARED,                               /* recommended */
-             fd, buf.m.offset);
+      _buffer[i].length = buf.length; /* remember for munmap() */
+      _buffer[i].data =
+          mmap(NULL, buf.length, PROT_READ | PROT_WRITE, /* recommended */
+               MAP_SHARED,                               /* recommended */
+               fd, buf.m.offset);
 
-    if (MAP_FAILED == _buffer.data) {
-      logger::error("mmap failed");
-      return false;
+      if (_buffer[i].data == MAP_FAILED) {
+        logger::error("mmap failed");
+        _buffer[i].data = nullptr;
+        return false;
+      }
     }
 
     // enable stream mode
@@ -159,16 +166,16 @@ private:
     return true;
   }
 
-  bool enqueue_buffer() {
+  bool enqueue_buffer(uint32_t idx) {
     struct v4l2_buffer buf;
     memset(&buf, 0, sizeof(buf));
 
     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     buf.memory = V4L2_MEMORY_MMAP;
-    buf.index = 0;
+    buf.index = idx;
 
     // clear the buffer(unnecessary but it wont cost much time)
-    memset(_buffer.data, 0, _buffer.length);
+    memset(_buffer[idx].data, 0, _buffer[idx].length);
 
     // Put the buffer in the incoming queue.
     if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
@@ -177,13 +184,13 @@ private:
     return true;
   }
 
-  bool dequeue_buffer() {
+  bool dequeue_buffer(uint32_t idx) {
     struct v4l2_buffer buf;
     memset(&buf, 0, sizeof(buf));
 
     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     buf.memory = V4L2_MEMORY_MMAP;
-    buf.index = 0;
+    buf.index = idx;
 
     // The buffer's waiting in the outgoing queue.
     if (ioctl(fd, VIDIOC_DQBUF, &buf) < 0) {
@@ -192,8 +199,16 @@ private:
     return true;
   }
 
+  inline int next(int *val) {
+    auto ret = *val;
+    *val = (*val + 1) % V4L_BUFFER_CNT;
+    return ret;
+  }
+
 public:
   v4l_capture() { init(); }
+
+  ~v4l_capture() { this->close(); }
 
   std::vector<graphic> graphics() {
     if (this->fd < 0) {
@@ -282,17 +297,16 @@ public:
     }
 
     logger::info("device been successfully opened");
+
     return 0;
   }
-
-  ~v4l_capture() { this->close(); }
 
   std::pair<bool, std::shared_ptr<buffer>> read() {
     // first time?
     // https://www.youtube.com/watch?v=qNgCGIBrK9A
-    if (!enqueue) {
-      enqueue = true;
-      if (!enqueue_buffer()) {
+    if (first_frame) {
+      first_frame = false;
+      if (!enqueue_buffer(next(&enq_idx))) {
         logger::error("enqueue_buffer failed");
         close();
         return std::pair<bool, std::shared_ptr<buffer>>(
@@ -300,50 +314,55 @@ public:
       }
     }
 
-    auto alloc_begin = checkpoint(3);
-
-    // allocate space for refturn
-    buffer *rv = (buffer *)malloc(sizeof(buffer) + _buffer.length);
-    rv->data = (char *)rv + sizeof(buffer);
-    rv->length = _buffer.length;
-
-    auto alloc_end = checkpoint(3);
-
-    // retrieve frame
-    if (!dequeue_buffer()) {
-      logger::error("dequeue_buffer failed");
-      close();
-      return std::pair<bool, std::shared_ptr<buffer>>(
-          false, std::shared_ptr<buffer>());
-    }
-
-    // FIXME deq之后，enq之前，这个地方如果摄像头产出了一个新帧的话，就丢失了
-
-    auto cpy_begin = checkpoint(3);
-    // copy to return value
-    memcpy(rv->data, this->_buffer.data, this->_buffer.length);
-    auto cpy_end = checkpoint(3);
-
-    logger::info("v4lcapture alloc:", alloc_end - alloc_begin,
-                 "ms, cpy:", cpy_end - cpy_begin, "ms");
-
     // get ready for the next frame
-    if (!enqueue_buffer()) {
+    if (!enqueue_buffer(next(&enq_idx))) {
       logger::error("enqueue_buffer failed");
       close();
       return std::pair<bool, std::shared_ptr<buffer>>(
           false, std::shared_ptr<buffer>());
     }
 
+    auto alloc_begin = checkpoint(3);
+
+    // allocate space for return
+    buffer *rv = (buffer *)malloc(sizeof(buffer) + _buffer[deq_idx].length);
+    rv->data = (char *)rv + sizeof(buffer);
+    rv->length = _buffer[deq_idx].length;
+
+    auto alloc_end = checkpoint(3);
+
+    // retrieve frame
+    if (!dequeue_buffer(deq_idx)) {
+      logger::error("dequeue_buffer failed");
+      close();
+      return std::pair<bool, std::shared_ptr<buffer>>(
+          false, std::shared_ptr<buffer>());
+    }
+
+    auto cpy_begin = checkpoint(3);
+    // copy to return value
+    memcpy(rv->data, this->_buffer[deq_idx].data,
+           this->_buffer[deq_idx].length);
+    auto cpy_end = checkpoint(3);
+
+    next(&deq_idx);
+
+    logger::info("v4lcapture alloc:", alloc_end - alloc_begin,
+                 "ms, cpy:", cpy_end - cpy_begin, "ms");
+
     return std::pair<bool, std::shared_ptr<buffer>>(
         true, std::shared_ptr<buffer>(rv, [](buffer *p) { free(p); }));
   }
 
   void close() {
-    if (_buffer.data)
-      munmap(_buffer.data, _buffer.length);
-    if (fd)
+    for (int i = 0; i < V4L_BUFFER_CNT; i++) {
+      if (_buffer[i].data) {
+        munmap(_buffer[i].data, _buffer[i].length);
+      }
+    }
+    if (fd) {
       ::close(fd);
+    }
     init();
   }
 };
