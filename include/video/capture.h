@@ -134,7 +134,8 @@ private:
     }
     logger::info("video file change to ", filename);
     logger::info("capture backend:", "V4LCAPTURE",
-                 " writer backend:", writer.getBackendName(), " fps:", fps,
+                 " writer backend:", writer.getBackendName(),
+                 " codec:", codec_to_string(config.codec), " fps:", fps,
                  " resolution:", frame_size);
 
     uint32_t frame_cost = 0;
