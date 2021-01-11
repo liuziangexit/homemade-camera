@@ -44,7 +44,7 @@ static int codec_fourcc(codec c) {
 
 static std::string codec_to_string(codec c) {
   if (MJPEG == c)
-    return "MJPEG";
+    return "MJPG";
   if (MPEG2 == c)
     return "MPEG2";
   if (MPEG4 == c)
