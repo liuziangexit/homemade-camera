@@ -13,8 +13,9 @@ OK-用V4L读设备
 OK-用OpenMAX解码MJPEG
 OK-用OpenMAX编码h264
 OK-不知道怎么回事改了下代码就自己好了-omx_h264在720p时打不开的问题
+OK-V4L解决dequeue的时候需要等到下一帧的问题
 -omx_h264编出来的视频帧损坏的问题
--V4L解决dequeue的时候需要等到下一帧的问题
+-长时间运行seg fault
 
 
 -除了模版类以外，应该分.c和.h
