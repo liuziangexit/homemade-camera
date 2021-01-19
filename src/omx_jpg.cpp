@@ -10,6 +10,8 @@ extern "C" {
 }
 #endif
 
+#include "omx/image_def.h"
+#include "util/guard.h"
 #include "util/logger.h"
 #include <assert.h>
 #include <opencv2/core/core_c.h>
@@ -77,6 +79,7 @@ std::pair<bool, cv::Mat> omx_jpg::decode(unsigned char *src, uint32_t len) {
   auto decode = checkpoint(3);
   if (this->decodeImage(src, len, &out))
     return std::pair<bool, cv::Mat>(false, cv::Mat());
+  guard gout = [&out] { destroyImage(&out); };
 
   // convert yuv420 to bgr
   cv::Mat yuv420 = cv::Mat(out.height * 3 / 2, out.width, CV_8UC1, out.pData);
