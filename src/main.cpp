@@ -12,10 +12,13 @@ hcam::capture *cap;
 void signal_handler(int signum) {
   hcam::logger::info("signal ", signum, " received, quitting...");
   // delete web;
-  delete cap;
-  muntrace();
+  // delete cap;
+
   exit(signum);
 }
+
+hcam::omx_lib omxlib;
+hcam::config c("config.json");
 
 int main(int argc, char **argv) {
   signal(SIGINT, signal_handler);
@@ -24,13 +27,11 @@ int main(int argc, char **argv) {
 
   mtrace();
 
-  hcam::omx_lib omxlib;
-
-  hcam::config c("config.json");
   cap = new hcam::capture(c);
   cap->run();
 
   getchar();
-
+  delete cap;
+  muntrace();
   raise(SIGINT);
 }
