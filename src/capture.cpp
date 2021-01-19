@@ -108,16 +108,17 @@ int capture::do_capture(const config &config) {
 
 OPEN_WRITER:
   auto task_begin = checkpoint(3);
-  auto filename =
-      make_filename(config.save_location, codec_file_format(config.codec));
-  if (!writer.open(filename, codec_fourcc(config.codec), fps, frame_size)) {
+  auto filename = make_filename(config.save_location,
+                                codec_file_format(config.output_codec));
+  if (!writer.open(filename, codec_fourcc(config.output_codec), fps,
+                   frame_size)) {
     logger::error("VideoWriter open ", filename, " failed");
     return 2;
   }
   logger::info("video file change to ", filename);
   logger::info("capture backend:", "V4LCAPTURE",
                " writer backend:", writer.getBackendName(),
-               " codec:", codec_to_string(config.codec), " fps:", fps,
+               " codec:", codec_to_string(config.output_codec), " fps:", fps,
                " resolution:", frame_size);
 
   uint32_t frame_cost = 0;
