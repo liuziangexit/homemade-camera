@@ -226,7 +226,7 @@ int v4l_capture::open(const std::string &device, v4l_capture::graphic g) {
   }
 
   // check if the specified graphic will working
-  auto gs = this->graphics();
+  auto gs = this->graphics(g.pix_fmt);
   {
     std::ostringstream oss;
     oss << "\r\n";

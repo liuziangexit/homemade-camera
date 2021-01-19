@@ -83,7 +83,7 @@ bool config::write(const std::string &filename) {
   json js = {
       {"duration", this->duration},
       {"save-location", this->save_location},
-      {"codec", codec_to_string(this->codec)},
+      {"codec", codec_to_string(this->output_codec)},
       {"device", this->device},
       {"text-pos", this->text_pos},
       {"font-height", this->font_height},
