@@ -2,10 +2,10 @@
 #define __HCAM_CODEC_H__
 #include <algorithm>
 #include <cctype>
+#include <linux/videodev2.h>
 #include <opencv2/videoio.hpp>
 #include <stdexcept>
 #include <string>
-#include <videodev2.h>
 
 namespace hcam {
 
