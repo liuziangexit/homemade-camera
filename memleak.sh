@@ -1,1 +1,4 @@
-valgrind --leak-check=yes --track-origins=yes bin/homecam 
+#valgrind --leak-check=yes bin/homecam 
+export MALLOC_TRACE="mtrace.log"
+./bin/homecam
+mtrace bin/homecam mtrace.log
