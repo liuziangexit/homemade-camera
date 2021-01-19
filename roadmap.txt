@@ -6,20 +6,20 @@ OK-渲染文字
 ok-http服务器
 OK-info和error的错误使用
 OK-低帧率的时候在视频里加warning字样
-ok-beast同时支持http
-ok-一个graceful退出的方式（1.收到退出信号 2.关闭acceptor 3.对于每个session，通知要close    3是重点）
+OK-beast同时支持http
+OK-一个graceful退出的方式（1.收到退出信号 2.关闭acceptor 3.对于每个session，通知要close    3是重点）
 
 OK-用V4L读设备
 OK-用OpenMAX解码MJPEG
 OK-用OpenMAX编码h264
 OK-不知道怎么回事改了下代码就自己好了-omx_h264在720p时打不开的问题
 OK-V4L解决dequeue的时候需要等到下一帧的问题
--omx_h264编出来的视频帧损坏的问题
--长时间运行seg fault
-
+OK-omx_h264编出来的视频帧损坏的问题
 
 -除了模版类以外，应该分.c和.h
 
+-内存泄漏
+-长时间运行seg fault
 -ssl握手应该在基类做
 -http转ws
 -web界面
