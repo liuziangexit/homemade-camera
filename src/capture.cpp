@@ -85,7 +85,8 @@ int capture::do_capture(const config &config) {
   if (capture.open(config.device,
                    v4l_capture::graphic{(uint32_t)config.resolution.width,
                                         (uint32_t)config.resolution.height,
-                                        (uint32_t)config.fps})) {
+                                        (uint32_t)config.fps,
+                                        config.cam_pix_fmt})) {
     logger::error("VideoCapture open failed");
     return 1;
   }

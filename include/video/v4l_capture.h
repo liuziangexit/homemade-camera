@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <utility>
 #include <vector>
+#include <video/codec.h>
 
 #define V4L_BUFFER_CNT 2
 
@@ -19,21 +20,21 @@ public:
     std::size_t length;
   };
 
-  // TODO 支持设定像素格式yuv/mjpg
   struct graphic {
     uint32_t width;
     uint32_t height;
     uint32_t fps;
+    codec pix_fmt;
 
     bool operator==(const graphic &rhs) const {
-      return width == rhs.width && height == rhs.height && fps == rhs.fps;
+      return width == rhs.width && height == rhs.height && fps == rhs.fps &&
+             pix_fmt == rhs.pix_fmt;
     }
   };
 
 private:
   int fd;
   buffer _buffer[V4L_BUFFER_CNT];
-  uint32_t last_read;
   bool first_frame;
   int enq_idx = 0, deq_idx = 0;
 
@@ -53,7 +54,7 @@ private:
 public:
   v4l_capture();
   ~v4l_capture();
-  std::vector<graphic> graphics();
+  std::vector<graphic> graphics(codec);
   int open(const std::string &, graphic);
   std::pair<bool, std::shared_ptr<buffer>> read();
   void close();

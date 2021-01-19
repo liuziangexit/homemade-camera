@@ -18,13 +18,13 @@
 #include <unistd.h>
 #include <utility>
 #include <vector>
+#include <video/codec.h>
 
 namespace hcam {
 
 void v4l_capture::init() {
   fd = 0;
   memset(&_buffer, 0, sizeof(buffer) * V4L_BUFFER_CNT);
-  last_read = 0;
   first_frame = true;
 }
 
@@ -70,7 +70,7 @@ bool v4l_capture::check_cap(int32_t flags) {
 bool v4l_capture::set_fmt(graphic g) {
   struct v4l2_format format;
   format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  format.fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG;
+  format.fmt.pix.pixelformat = codec_v4l2_pix_fmt(g.pix_fmt);
   format.fmt.pix.width = g.width;
   format.fmt.pix.height = g.height;
   format.fmt.pix.field = V4L2_FIELD_ANY;
@@ -176,7 +176,7 @@ v4l_capture::v4l_capture() { init(); }
 
 v4l_capture::~v4l_capture() { this->close(); }
 
-std::vector<v4l_capture::graphic> v4l_capture::graphics() {
+std::vector<v4l_capture::graphic> v4l_capture::graphics(codec pix_fmt) {
   if (this->fd < 0) {
     throw std::runtime_error("invalid fd");
   }
@@ -184,7 +184,7 @@ std::vector<v4l_capture::graphic> v4l_capture::graphics() {
   std::vector<graphic> rv;
   struct v4l2_frmsizeenum frmsize;
   memset(&frmsize, 0, sizeof(frmsize));
-  frmsize.pixel_format = V4L2_PIX_FMT_MJPEG;
+  frmsize.pixel_format = codec_v4l2_pix_fmt(pix_fmt);
   while (ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &frmsize) == 0) {
     if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
       struct v4l2_frmivalenum frmival;
@@ -196,7 +196,8 @@ std::vector<v4l_capture::graphic> v4l_capture::graphics() {
         if (frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
           graphic g{frmsize.discrete.width, frmsize.discrete.height,
                     (uint32_t)((double)frmival.discrete.denominator /
-                               (double)frmival.discrete.numerator)};
+                               (double)frmival.discrete.numerator),
+                    pix_fmt};
           rv.push_back(g);
         } else {
           throw std::runtime_error("unsupported v4l2_frmivalenum.type");
@@ -230,6 +231,7 @@ int v4l_capture::open(const std::string &device, v4l_capture::graphic g) {
     std::ostringstream oss;
     oss << "\r\n";
     for (const auto p : gs) {
+      oss << codec_to_string(p.pix_fmt) << " ";
       oss << p.width << "x" << p.height << "@" << p.fps << std::endl;
     }
     logger::info("available graphics on this device are:", oss.str());

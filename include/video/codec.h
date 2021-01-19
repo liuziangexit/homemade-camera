@@ -5,12 +5,15 @@
 #include <opencv2/videoio.hpp>
 #include <stdexcept>
 #include <string>
+#include <videodev2.h>
 
 namespace hcam {
 
-enum codec { RAW, H264, H265, MPEG2, MPEG4, MJPEG };
+enum codec { RAW, H264, H265, MPEG2, MPEG4, MJPEG, YUV420 };
 
 static std::string codec_file_format(codec c) {
+  if (c == YUV420)
+    return "yuv";
   if (c == MJPEG)
     return "mov";
   if (c == MPEG2)
@@ -27,6 +30,8 @@ static std::string codec_file_format(codec c) {
 }
 
 static int codec_fourcc(codec c) {
+  if (c == YUV420)
+    throw std::invalid_argument("");
   if (c == MJPEG)
     return cv::VideoWriter::fourcc('m', 'j', 'p', 'g');
   if (c == MPEG2)
@@ -42,7 +47,17 @@ static int codec_fourcc(codec c) {
   throw std::invalid_argument("");
 }
 
+static int codec_v4l2_pix_fmt(codec c) {
+  if (c == YUV420)
+    return V4L2_PIX_FMT_YUV420;
+  if (c == MJPEG)
+    return V4L2_PIX_FMT_MJPEG;
+  throw std::invalid_argument("");
+}
+
 static std::string codec_to_string(codec c) {
+  if (YUV420 == c)
+    return "YUV";
   if (MJPEG == c)
     return "MJPG";
   if (MPEG2 == c)
@@ -63,6 +78,8 @@ static codec codec_parse(std::string s) {
     // TODO verify it is ASCII
     return std::tolower(c);
   });
+  if (s == "yuv")
+    return YUV420;
   if (s == "mjpg")
     return MJPEG;
   if (s == "mpeg2")

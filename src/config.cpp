@@ -37,10 +37,11 @@ bool config::read(const std::string &filename) {
   try {
     js = json::parse(raw);
 
-    this->palette = codec_parse(js["palette"].get<std::string>());
+    this->cam_pix_fmt =
+        codec_parse(js["camera-pixel-format"].get<std::string>());
     this->duration = js["duration"].get<uint32_t>();
     this->save_location = js["save-location"].get<std::string>();
-    this->codec = codec_parse(js["codec"].get<std::string>());
+    this->output_codec = codec_parse(js["output-codec"].get<std::string>());
     this->device = js["device"].get<std::string>();
     {
       std::string r = js["resolution"].get<std::string>();

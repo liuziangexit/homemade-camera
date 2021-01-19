@@ -1,6 +1,6 @@
 {
-  "palette": "MJPG",
-  "codec": "H264",
+  "camera-pixel-format": "MJPG",
+  "output-codec": "H264",
   "duration": 60,
   "save-location": "video",
   "device": "/dev/video0",
