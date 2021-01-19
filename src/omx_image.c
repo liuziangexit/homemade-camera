@@ -31,8 +31,8 @@
 #include <stdlib.h>
 #include <semaphore.h>
 
-#include "omx_image.h"
 #include "bcm_host.h"
+#include "omx/omx_image.h"
 
 #define TIMEOUT_MS 1500
 #define DECODER_BUFFER_NUM 3

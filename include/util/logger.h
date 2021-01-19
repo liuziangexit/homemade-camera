@@ -70,7 +70,6 @@ public:
     logger_impl(4, std::forward<ARGS>(args)...);
   }
 };
-std::mutex logger::mut;
 } // namespace hcam
 
 #endif
