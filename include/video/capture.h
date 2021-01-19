@@ -1,5 +1,5 @@
-#ifndef __HOMEMADECAM_CAPTURE_H__
-#define __HOMEMADECAM_CAPTURE_H__
+#ifndef __HCAM_CAPTURE_H__
+#define __HCAM_CAPTURE_H__
 
 #include "../omx/omx_jpg.h"
 #include "codec.h"
@@ -28,7 +28,7 @@
 
 // FIXME 结束等待时候不要spin
 
-namespace homemadecam {
+namespace hcam {
 
 class capture {
 public:
@@ -295,9 +295,9 @@ private:
                       8, false);
   }
 
-  typename homemadecam::config config;
+  typename hcam::config config;
 };
 
-} // namespace homemadecam
+} // namespace hcam
 
 #endif

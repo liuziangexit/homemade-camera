@@ -1,5 +1,5 @@
-#ifndef __HOMEMADECAM_V4L_CAPTURE_H__
-#define __HOMEMADECAM_V4L_CAPTURE_H__
+#ifndef __HCAM_V4L_CAPTURE_H__
+#define __HCAM_V4L_CAPTURE_H__
 #include "util/logger.h"
 #include "util/time_util.h"
 #include <algorithm>
@@ -21,7 +21,7 @@
 
 #define V4L_BUFFER_CNT 2
 
-namespace homemadecam {
+namespace hcam {
 
 class v4l_capture {
 public:
@@ -367,6 +367,6 @@ public:
   }
 };
 
-} // namespace homemadecam
+} // namespace hcam
 
 #endif

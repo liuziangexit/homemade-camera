@@ -1,12 +1,12 @@
-#ifndef __HOMEMADECAM_CODEC_H__
-#define __HOMEMADECAM_CODEC_H__
+#ifndef __HCAM_CODEC_H__
+#define __HCAM_CODEC_H__
 #include <algorithm>
 #include <cctype>
 #include <opencv2/videoio.hpp>
 #include <stdexcept>
 #include <string>
 
-namespace homemadecam {
+namespace hcam {
 
 enum codec { RAW, H264, H265, MPEG2, MPEG4, MJPEG };
 
@@ -78,6 +78,6 @@ static codec codec_parse(std::string s) {
   throw std::invalid_argument("");
 }
 
-} // namespace homemadecam
+} // namespace hcam
 
 #endif

@@ -1,5 +1,5 @@
-#ifndef __HOMEMADECAM_LOGGER_H__
-#define __HOMEMADECAM_LOGGER_H__
+#ifndef __HCAM_LOGGER_H__
+#define __HCAM_LOGGER_H__
 #include <iostream>
 #include <mutex>
 #include <sstream>
@@ -9,7 +9,7 @@
 #include <time.h>
 #include <utility>
 
-namespace homemadecam {
+namespace hcam {
 class logger {
   static std::mutex mut;
 
@@ -71,6 +71,6 @@ public:
   }
 };
 std::mutex logger::mut;
-} // namespace homemadecam
+} // namespace hcam
 
 #endif

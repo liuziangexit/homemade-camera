@@ -15,7 +15,7 @@
 #include <tbb/concurrent_hash_map.h>
 #include <utility>
 
-namespace homemadecam {
+namespace hcam {
 
 struct endpoint_compare;
 
@@ -131,7 +131,7 @@ private:
         fmt << endpoint.address() << ":" << endpoint.port();
         throw std::runtime_error(fmt.str());
       }
-      homemadecam::logger::info(endpoint, " session->unregister_ ok");
+      hcam::logger::info(endpoint, " session->unregister_ ok");
       return true;
     };
     auto session = std::make_shared<TYPE>(std::move(sock), unregister);
@@ -152,6 +152,6 @@ private:
   session_map_t sessions;
 };
 
-} // namespace homemadecam
+} // namespace hcam
 
 #endif // HOMECAM_WEB_SERVICE_H

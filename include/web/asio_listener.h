@@ -22,7 +22,7 @@ namespace net = boost::asio;            // from <boost/asio.hpp>
 namespace ssl = boost::asio::ssl;       // from <boost/asio/ssl.hpp>
 using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
-namespace homemadecam {
+namespace hcam {
 
 // Accepts incoming connections and launches the sessions
 class asio_listener : public std::enable_shared_from_this<asio_listener> {
@@ -37,7 +37,7 @@ public:
       : ioc_(ioc), endpoint_(endpoint), create_session_(create_session),
         acceptor_(net::make_strand(ioc)) {}
 
-  ~asio_listener() { homemadecam::logger::info("asio_listener destruct"); }
+  ~asio_listener() { hcam::logger::info("asio_listener destruct"); }
 
   // Start accepting incoming connections
   void run() {
@@ -66,7 +66,7 @@ public:
     if (ec) {
       throw std::runtime_error("acceptor_.listen");
     }
-    homemadecam::logger::info("listening at ", this->endpoint_);
+    hcam::logger::info("listening at ", this->endpoint_);
     do_accept();
   }
 
@@ -74,7 +74,7 @@ public:
     try {
       acceptor_.close();
     } catch (const std::exception &ex) {
-      homemadecam::logger::error("listener quitting: ", ex.what());
+      hcam::logger::error("listener quitting: ", ex.what());
     }
   }
 
@@ -88,12 +88,12 @@ private:
 
   void on_accept(beast::error_code ec, tcp::socket socket) {
     if (ec) {
-      homemadecam::logger::error("asio accept fail: ", ec.message());
+      hcam::logger::error("asio accept fail: ", ec.message());
       if (ec == boost::asio::error::operation_aborted) {
         return;
       }
     } else {
-      homemadecam::logger::info(socket.remote_endpoint(), " TCP handshake OK");
+      hcam::logger::info(socket.remote_endpoint(), " TCP handshake OK");
       // Create the session and run it
       this->create_session_(std::move(socket));
     }
@@ -103,6 +103,6 @@ private:
   }
 };
 
-} // namespace homemadecam
+} // namespace hcam
 
 #endif // HOMECAM_WEB_SERVICE_H

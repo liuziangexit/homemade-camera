@@ -20,7 +20,7 @@ namespace net = boost::asio;      // from <boost/asio.hpp>
 namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
 using tcp = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 
-namespace homemadecam {
+namespace hcam {
 
 template <bool SSL> struct stream {
   using type = beast::ssl_stream<beast::tcp_stream>;
@@ -63,23 +63,23 @@ public:
       abort();
     }
 #endif
-    homemadecam::logger::info(this->remote_, " asio_base_session destruct");
+    hcam::logger::info(this->remote_, " asio_base_session destruct");
   }
 
   virtual void run() { throw std::exception(); }
 
   virtual void close() {
-    homemadecam::logger::info(this->remote_, " asio_base_session close: begin");
+    hcam::logger::info(this->remote_, " asio_base_session close: begin");
     if (!this->unregister_()) {
-      homemadecam::logger::info(
+      hcam::logger::info(
           this->remote_,
           " asio_base_session close: \"this\" has been closed before");
     }
     beast::get_lowest_layer(stream_).close();
-    homemadecam::logger::info(this->remote_, " asio_base_session close: ok");
+    hcam::logger::info(this->remote_, " asio_base_session close: ok");
   }
 };
 
-} // namespace homemadecam
+} // namespace hcam
 
 #endif // HOMECAM_WEB_SERVICE_H

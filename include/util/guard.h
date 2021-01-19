@@ -1,10 +1,10 @@
-#ifndef __HOMEMADECAM_GUARD_H__
-#define __HOMEMADECAM_GUARD_H__
+#ifndef __HCAM_GUARD_H__
+#define __HCAM_GUARD_H__
 #include <functional>
 #include <type_traits>
 #include <utility>
 
-namespace homemadecam {
+namespace hcam {
 
 class guard {
 public:
@@ -17,6 +17,6 @@ private:
   const std::function<void()> fun;
 };
 
-} // namespace homemadecam
+} // namespace hcam
 
 #endif

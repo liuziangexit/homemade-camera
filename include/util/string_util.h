@@ -1,11 +1,11 @@
-#ifndef __HOMEMADECAM_STRING_UTIL_H__
-#define __HOMEMADECAM_STRING_UTIL_H__
+#ifndef __HCAM_STRING_UTIL_H__
+#define __HCAM_STRING_UTIL_H__
 #include <functional>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
 
-namespace homemadecam {
+namespace hcam {
 
 // trim from start (in place)
 static inline void ltrim(std::string &s) {
@@ -28,6 +28,6 @@ static inline void trim(std::string &s) {
   rtrim(s);
 }
 
-} // namespace homemadecam
+} // namespace hcam
 
 #endif

@@ -1,11 +1,11 @@
-#ifndef __HOMEMADECAM_TIME_UTIL_H__
-#define __HOMEMADECAM_TIME_UTIL_H__
+#ifndef __HCAM_TIME_UTIL_H__
+#define __HCAM_TIME_UTIL_H__
 #include <functional>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
 
-namespace homemadecam {
+namespace hcam {
 
 template <typename T> T pow(T num, int32_t pow) {
   for (int i = 0, count = pow > 0 ? pow : -pow; i < count; i++) {
@@ -33,6 +33,6 @@ uint64_t checkpoint(uint32_t power) {
   return target + delta;
 }
 
-} // namespace homemadecam
+} // namespace hcam
 
 #endif

@@ -1,5 +1,5 @@
-#ifndef __HOMEMADECAM_CONFIG_H__
-#define __HOMEMADECAM_CONFIG_H__
+#ifndef __HCAM_CONFIG_H__
+#define __HCAM_CONFIG_H__
 #include "util/logger.h"
 #include "video/codec.h"
 #include "json/json.hpp"
@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace homemadecam {
+namespace hcam {
 
 class config {
 public:
@@ -115,6 +115,6 @@ public:
   }
 };
 
-} // namespace homemadecam
+} // namespace hcam
 
 #endif

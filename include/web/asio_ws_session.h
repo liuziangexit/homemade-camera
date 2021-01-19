@@ -23,7 +23,7 @@ namespace net = boost::asio;            // from <boost/asio.hpp>
 namespace ssl = boost::asio::ssl;       // from <boost/asio/ssl.hpp>
 using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
-namespace homemadecam {
+namespace hcam {
 
 // Echoes back all received WebSocket messages
 
@@ -41,7 +41,7 @@ public:
             std::forward<ARGS>(args)...) {}
 
   ~asio_ws_session() {
-    homemadecam::logger::info(this->remote_, " asio_ws_session destruct");
+    hcam::logger::info(this->remote_, " asio_ws_session destruct");
   }
 
   // Get on the correct executor
@@ -79,12 +79,12 @@ public:
   void on_handshake(beast::error_code ec) {
     if constexpr (SSL) {
       if (ec) {
-        homemadecam::logger::error(this->remote_,
+        hcam::logger::error(this->remote_,
                                    " SSL handshake error: ", ec.message());
         this->close();
         return;
       } else {
-        homemadecam::logger::info(this->remote_, " SSL handshake OK");
+        hcam::logger::info(this->remote_, " SSL handshake OK");
       }
     } else {
       if (ec) {
@@ -115,12 +115,12 @@ public:
 
   void on_accept(beast::error_code ec) {
     if (ec) {
-      homemadecam::logger::error(this->remote_,
+      hcam::logger::error(this->remote_,
                                  "Websocket handshake failed: ", ec.message());
       this->close();
       return;
     }
-    homemadecam::logger::info(this->remote_, " Websocket handshake OK");
+    hcam::logger::info(this->remote_, " Websocket handshake OK");
 
     // Read a message
     do_read();
@@ -140,18 +140,18 @@ public:
 
     // This indicates that the session was closed
     if (ec == websocket::error::closed) {
-      homemadecam::logger::info(this->remote_, " Websocket closed");
+      hcam::logger::info(this->remote_, " Websocket closed");
       this->close();
       return;
     }
 
     if (ec) {
-      homemadecam::logger::error(this->remote_,
+      hcam::logger::error(this->remote_,
                                  " Websocket read failed: ", ec.message());
       this->close();
       return;
     } else {
-      homemadecam::logger::info(this->remote_, " Websocket read OK");
+      hcam::logger::info(this->remote_, " Websocket read OK");
     }
 
     // Echo the message
@@ -168,12 +168,12 @@ public:
     // boost::ignore_unused(bytes_transferred);
 
     if (ec) {
-      homemadecam::logger::info(this->remote_,
+      hcam::logger::info(this->remote_,
                                 " Websocket write failed: ", ec.message());
       this->close();
       return;
     } else {
-      homemadecam::logger::info(this->remote_, " Websocket write OK");
+      hcam::logger::info(this->remote_, " Websocket write OK");
     }
 
     // Clear the buffer
@@ -184,12 +184,12 @@ public:
   }
 
   virtual void close() override {
-    homemadecam::logger::info(this->remote_, " websocket closed");
+    hcam::logger::info(this->remote_, " websocket closed");
     asio_base_session<
         SSL, websocket::stream<typename stream<SSL>::type, true>>::close();
   }
 };
 
-} // namespace homemadecam
+} // namespace hcam
 
 #endif // HOMECAM_WEB_SERVICE_H

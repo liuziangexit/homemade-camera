@@ -4,11 +4,11 @@
 #include "omx/omx_lib.h"
 #include <signal.h>
 
-// homemadecam::web *web;
-homemadecam::capture *cap;
+// hcam::web *web;
+hcam::capture *cap;
 
 void signal_handler(int signum) {
-  homemadecam::logger::info("signal ", signum, " received, quitting...");
+  hcam::logger::info("signal ", signum, " received, quitting...");
   // delete web;
   delete cap;
   exit(signum);
@@ -16,13 +16,13 @@ void signal_handler(int signum) {
 
 int main(int argc, char **argv) {
   signal(SIGINT, signal_handler);
-  /*web = new homemadecam::web("config.json");
+  /*web = new hcam::web("config.json");
   web->run();*/
 
-  homemadecam::omx_lib omxlib;
+  hcam::omx_lib omxlib;
 
-  homemadecam::config c("config.json");
-  cap = new homemadecam::capture(c);
+  hcam::config c("config.json");
+  cap = new hcam::capture(c);
   cap->run();
 
   getchar();

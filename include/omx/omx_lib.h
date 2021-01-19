@@ -1,5 +1,5 @@
-#ifndef __HOMEMADECAM_OMX_LIB_H__
-#define __HOMEMADECAM_OMX_LIB_H__
+#ifndef __HCAM_OMX_LIB_H__
+#define __HCAM_OMX_LIB_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,7 +13,7 @@ extern "C" {
 }
 #endif
 
-namespace homemadecam {
+namespace hcam {
 
 class omx_lib {
 public:
@@ -31,6 +31,6 @@ public:
   }
 };
 
-} // namespace homemadecam
+} // namespace hcam
 
 #endif

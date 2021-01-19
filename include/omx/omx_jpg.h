@@ -1,5 +1,5 @@
-#ifndef __HOMEMADECAM_OMX_JPG_H__
-#define __HOMEMADECAM_OMX_JPG_H__
+#ifndef __HCAM_OMX_JPG_H__
+#define __HCAM_OMX_JPG_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,7 +25,7 @@ extern "C" {
 #include <util/time_util.h>
 #include <utility>
 
-namespace homemadecam {
+namespace hcam {
 
 class omx_jpg {
   ILCLIENT_T *client = 0;
@@ -107,6 +107,6 @@ public:
   }
 };
 
-} // namespace homemadecam
+} // namespace hcam
 
 #endif

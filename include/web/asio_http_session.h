@@ -22,7 +22,7 @@ namespace net = boost::asio;      // from <boost/asio.hpp>
 namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
 using tcp = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 
-namespace homemadecam {
+namespace hcam {
 
 template <bool SSL>
 class asio_http_session
@@ -37,7 +37,7 @@ public:
             std::forward<ARGS>(args)...) {}
 
   ~asio_http_session() {
-    homemadecam::logger::info(this->remote_, " asio_http_session destruct");
+    hcam::logger::info(this->remote_, " asio_http_session destruct");
   }
 
   // Get on the correct executor
@@ -76,12 +76,12 @@ public:
   void on_handshake(beast::error_code ec) {
     if constexpr (SSL) {
       if (ec) {
-        homemadecam::logger::error(this->remote_,
+        hcam::logger::error(this->remote_,
                                    " SSL handshake error: ", ec.message());
         this->close();
         return;
       } else {
-        homemadecam::logger::info(this->remote_, " SSL handshake OK");
+        hcam::logger::info(this->remote_, " SSL handshake OK");
       }
     } else {
       if (ec) {
@@ -120,12 +120,12 @@ public:
     }
 
     if (ec) {
-      homemadecam::logger::error(this->remote_,
+      hcam::logger::error(this->remote_,
                                  " http read failed: ", ec.message());
       this->close();
       return;
     } else {
-      homemadecam::logger::info(this->remote_, " http read OK");
+      hcam::logger::info(this->remote_, " http read OK");
     }
 
     // TODO ...
@@ -170,12 +170,12 @@ public:
     deleter();
 
     if (ec) {
-      homemadecam::logger::info(this->remote_,
+      hcam::logger::info(this->remote_,
                                 " http write failed: ", ec.message());
       this->close();
       return;
     } else {
-      homemadecam::logger::info(this->remote_, " http write OK");
+      hcam::logger::info(this->remote_, " http write OK");
     }
 
     //也许是因为"Connection: close"或者什么其他原因
@@ -190,11 +190,11 @@ public:
   }
 
   virtual void close() override {
-    homemadecam::logger::info(this->remote_, " http closed");
+    hcam::logger::info(this->remote_, " http closed");
     asio_base_session<SSL, typename stream<SSL>::type>::close();
   }
 };
 
-} // namespace homemadecam
+} // namespace hcam
 
 #endif // HOMECAM_WEB_SERVICE_H
