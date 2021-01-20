@@ -25,6 +25,7 @@ OK-线程池
 -运行一晚上
 -0x80001009的问题(https://android.googlesource.com/platform/frameworks/native/+/kitkat-release/include/media/openmax/OMX_Core.h
 -树莓派上达到720p 30帧
+-OPENCV里的那个copy frame的修改应该放到外面去做，至少要检测现在是不是在用omxh264
 -测试线程池的完美转发
 -ssl握手应该在基类做
 -http转ws
