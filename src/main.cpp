@@ -3,6 +3,7 @@
 //#include "web/service.h"
 #include "omx/omx_lib.h"
 #include <signal.h>
+#include <thread>
 
 // hcam::web *web;
 hcam::capture *cap;
@@ -16,6 +17,7 @@ void signal_handler(int signum) {
 
 int main(int argc, char **argv) {
   signal(SIGINT, signal_handler);
+  signal(SIGTERM, signal_handler);
   /*web = new hcam::web("config.json");
   web->run();*/
 
@@ -25,6 +27,7 @@ int main(int argc, char **argv) {
   cap = new hcam::capture(c);
   cap->run();
 
-  getchar();
+  std::this_thread::sleep_for(std::chrono::hours(8));
+  /* getchar();*/
   raise(SIGINT);
 }
