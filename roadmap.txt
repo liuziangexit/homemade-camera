@@ -20,10 +20,12 @@ OK-支持设置像素格式
 
 OK-内存泄漏
 OK-长时间运行seg fault
+OK-线程池
+-多线程来加速，一个线程读相机，然后把后续工作丢到线程池里做(这个功能需要是可在配置文件里开关的)
 -运行一晚上
 -0x80001009的问题(https://android.googlesource.com/platform/frameworks/native/+/kitkat-release/include/media/openmax/OMX_Core.h
--多线程来加速，一个线程读相机，然后把后续工作丢到线程池里做(这个功能需要是可在配置文件里开关的)
 -树莓派上达到720p 30帧
+-测试线程池的完美转发
 -ssl握手应该在基类做
 -http转ws
 -web界面
@@ -34,6 +36,7 @@ OK-长时间运行seg fault
 
 -------------------V1.0
 
+-守护进程
 -web直播
 
 -------------------V1.1
