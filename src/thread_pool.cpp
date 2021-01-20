@@ -1,5 +1,6 @@
 #include "util/thread_pool.h"
 #include <assert.h>
+#include <atomic>
 #include <stdexcept>
 #include <stdlib.h>
 
@@ -35,7 +36,7 @@ void thread_pool::stop() {
       t.join();
   workers.clear();
 
-  auto prev = state.store(STOPPED);
+  auto prev = state.exchange(STOPPED);
   assert(prev == STOPPING);
 }
 
