@@ -8,16 +8,23 @@ namespace hcam {
 thread_pool::thread_pool() : state(STOPPED) {}
 
 void thread_pool::run(uint32_t thread_cnt) {
-  assert(state == STOPPED);
-  for (uint32_t i = 0; i < thread_cnt; i++) {
-    workers.emplace_back(&thread_pool::worker_func, this);
+  {
+    int expect = STOPPED;
+    if (!state.compare_exchange_strong(expect, RUNNING))
+      throw std::logic_error("invalid state");
   }
-  state = RUNNING;
+  while (!jobs.empty())
+    jobs.pop();
+  for (uint32_t i = 0; i < thread_cnt; i++)
+    workers.emplace_back(&thread_pool::worker_func, this);
 }
 
 void thread_pool::stop() {
-  assert(state == RUNNING);
-  state = STOPPING;
+  {
+    int expect = RUNNING;
+    if (!state.compare_exchange_strong(expect, STOPPING))
+      throw std::logic_error("invalid state");
+  }
 
   // wake workers
   cv.notify_all();
@@ -28,11 +35,8 @@ void thread_pool::stop() {
       t.join();
   workers.clear();
 
-  // clear jobs
-  while (!jobs.empty())
-    jobs.pop();
-
-  state = STOPPED;
+  auto prev = state.store(STOPPED);
+  assert(prev == STOPPING);
 }
 
 void thread_pool::worker_func() {
