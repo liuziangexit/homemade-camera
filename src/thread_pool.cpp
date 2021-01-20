@@ -7,51 +7,6 @@ namespace hcam {
 
 thread_pool::thread_pool() : state(STOPPED) {}
 
-template <typename F, typename... ARGS>
-std::future<typename std::result_of<F(ARGS...)>::type>
-thread_pool::async(F &&f, ARGS &&...args) {
-  assert(state == RUNNING);
-  static_assert(std::is_function_v<F>, "F not callable");
-
-  F *f_copy = ::new F(std::forward<F>(f));
-  auto promise = ::new (std::nothrow)
-      std::promise<typename std::result_of<F(ARGS...)>::type>;
-  if (!promise) {
-    ::delete (f_copy);
-    throw std::bad_alloc();
-  }
-  try {
-    std::function<void()> bundle = std::bind(
-        [f_copy, promise](ARGS... args) {
-          //如果这个返回值类型没有默认构造怎么办？。。。
-          typename std::result_of<F(ARGS...)>::type result;
-          bool thrown = false;
-          try {
-            result = (*f_copy)(std::forward<ARGS>(args)...);
-          } catch (const std::exception &e) {
-            promise->set_exception(e);
-            thrown = true;
-          }
-          if (!thrown) {
-            promise->set_value(result);
-          }
-          ::delete (f_copy);
-          ::delete (promise);
-        },
-        std::forward<ARGS>(args)...);
-
-    std::lock_guard g(jobs_m);
-    jobs.push(std::move(bundle));
-  } catch (...) {
-    ::delete f_copy;
-    ::delete (promise);
-    throw std::current_exception();
-  }
-
-  cv.notify_one();
-  return promise->get_future();
-}
-
 void thread_pool::run(uint32_t thread_cnt) {
   assert(state == STOPPED);
   for (uint32_t i = 0; i < thread_cnt; i++) {
