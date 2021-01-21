@@ -16,8 +16,6 @@
 #include <utility>
 #include <vector>
 
-// FIXME 结束等待时候不要spin
-
 namespace hcam {
 
 class capture {
