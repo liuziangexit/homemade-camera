@@ -24,6 +24,7 @@ OK-线程池
 -多线程来加速，一个线程读相机，然后把后续工作丢到线程池里做(这个功能需要是可在配置文件里开关的)
 -运行一晚上
 -0x80001009的问题(https://android.googlesource.com/platform/frameworks/native/+/kitkat-release/include/media/openmax/OMX_Core.h
+-JPEG解码
 -树莓派上达到720p 30帧
 -OPENCV里的那个copy frame的修改应该放到外面去做，至少要检测现在是不是在用omxh264
 -测试线程池的完美转发
@@ -49,3 +50,6 @@ OK-线程池
 -对象识别
 -事件
 -web查看事件
+
+
+-自己基于omx去写jpg的编解码
