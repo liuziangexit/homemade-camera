@@ -2,6 +2,7 @@
 #include "video/capture.h"
 //#include "web/service.h"
 #include "omx/omx_lib.h"
+#include <opencv2/core/utility.hpp>
 #include <signal.h>
 #include <thread>
 
@@ -16,6 +17,8 @@ void signal_handler(int signum) {
 }
 
 int main(int argc, char **argv) {
+  // FIXME 可配置　
+  cv::setNumThreads(4);
   signal(SIGINT, signal_handler);
   signal(SIGTERM, signal_handler);
   /*web = new hcam::web("config.json");

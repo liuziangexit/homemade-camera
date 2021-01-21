@@ -269,18 +269,31 @@ int v4l_capture::open(const std::string &device, v4l_capture::graphic g) {
   return 0;
 }
 
+uint32_t last_read = 0;
+
 std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
+  uint32_t current_read = checkpoint(3);
+  if (last_read != 0) {
+    // FIXME 如果buffer数不足，才打印
+    logger::info("read interval: ", current_read - last_read, "ms");
+  }
+  last_read = current_read;
+
   // first time?
   // https://www.youtube.com/watch?v=qNgCGIBrK9A
   if (first_frame) {
     first_frame = false;
-    if (!enqueue_buffer(next(&enq_idx))) {
-      logger::error("enqueue_buffer failed");
-      close();
-      return std::pair<bool, std::shared_ptr<buffer>>(
-          false, std::shared_ptr<buffer>());
+    for (int i = 0; i < V4L_BUFFER_CNT - 1; i++) {
+      if (!enqueue_buffer(next(&enq_idx))) {
+        logger::error("enqueue_buffer failed");
+        close();
+        return std::pair<bool, std::shared_ptr<buffer>>(
+            false, std::shared_ptr<buffer>());
+      }
     }
   }
+
+  auto enqueue_time = checkpoint(3);
 
   // get ready for the next frame
   if (!enqueue_buffer(next(&enq_idx))) {
@@ -290,14 +303,14 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
                                                     std::shared_ptr<buffer>());
   }
 
-  auto alloc_begin = checkpoint(3);
+  auto alloc_time = checkpoint(3);
 
   // allocate space for return
   buffer *rv = (buffer *)malloc(sizeof(buffer) + _buffer[deq_idx].length);
   rv->data = (char *)rv + sizeof(buffer);
   rv->length = _buffer[deq_idx].length;
 
-  auto alloc_end = checkpoint(3);
+  auto dequeue_time = checkpoint(3);
 
   // retrieve frame
   if (!dequeue_buffer(deq_idx)) {
@@ -307,15 +320,17 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
                                                     std::shared_ptr<buffer>());
   }
 
-  auto cpy_begin = checkpoint(3);
+  auto copy_time = checkpoint(3);
   // copy to return value
   memcpy(rv->data, this->_buffer[deq_idx].data, this->_buffer[deq_idx].length);
-  auto cpy_end = checkpoint(3);
+  auto done_time = checkpoint(3);
 
   next(&deq_idx);
 
-  logger::info("v4lcapture alloc:", alloc_end - alloc_begin,
-               "ms, cpy:", cpy_end - cpy_begin, "ms");
+  logger::info("v4lcapture enqueue:", alloc_time - enqueue_time,
+               "ms, alloc:", dequeue_time - alloc_time, "ms",
+               "ms, dequeue:", copy_time - dequeue_time, "ms",
+               "ms, copy:", done_time - copy_time, "ms");
 
   return std::pair<bool, std::shared_ptr<buffer>>(
       true, std::shared_ptr<buffer>(rv, [](buffer *p) { free(p); }));

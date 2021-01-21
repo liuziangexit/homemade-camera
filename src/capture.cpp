@@ -32,11 +32,11 @@ void capture::run() {
     if (!state.compare_exchange_strong(expect, RUNNING))
       throw std::logic_error("capture already running");
   }
-  capture_thread =
-      std::thread([this] { this->result = this->do_capture(this->_config); });
+  capture_thread = std::thread([this] { this->do_capture(this->_config); });
+  write_thread = std::thread([this] { this->do_write(this->_config); });
 }
 
-int capture::stop() {
+void capture::stop() {
   {
     int expect = RUNNING;
     if (!state.compare_exchange_strong(expect, STOPPING))
@@ -44,9 +44,9 @@ int capture::stop() {
   }
   if (capture_thread.joinable())
     capture_thread.join();
-  int r = (int)result;
+  if (write_thread.joinable())
+    write_thread.join();
   state = STOPPED;
-  return r;
 }
 
 std::string capture::make_filename(std::string save_directory,
@@ -68,13 +68,7 @@ std::string capture::make_filename(std::string save_directory,
   return fmt.str();
 }
 
-int capture::do_capture(const config &config) {
-  static const int open_writer_retry = 3;
-  int tried = 0;
-
-  if (config.duration < 1)
-    return 4; //短于1秒的话文件名可能重复
-
+void capture::do_capture(const config &config) {
   v4l_capture capture;
   if (capture.open(config.device,
                    v4l_capture::graphic{(uint32_t)config.resolution.width,
@@ -82,19 +76,63 @@ int capture::do_capture(const config &config) {
                                         (uint32_t)config.fps,
                                         config.cam_pix_fmt})) {
     logger::error("VideoCapture open failed");
-    return 1;
+    return;
   }
-
   omx_jpg jpg_decoder;
 
-  uint32_t fps = (uint32_t)config.fps;
+  while (true) {
+    if (state == STOPPING) {
+      std::unique_lock l(frames_mtx);
+      frame_context ctx;
+      ctx.quit = true;
+      frame_queue.push(ctx);
+      frames_cv.notify_one();
+      break;
+    }
+
+    frame_context ctx;
+
+    ctx.capture_time = checkpoint(3);
+    std::pair<bool, std::shared_ptr<v4l_capture::buffer>> frame_jpg =
+        capture.read();
+    if (!frame_jpg.first) {
+      logger::error("VideoCapture read failed");
+      return;
+    }
+    ctx.decode_time = checkpoint(3);
+    std::pair<bool, cv::Mat> decoded = jpg_decoder.decode(
+        (unsigned char *)(frame_jpg.second->data), frame_jpg.second->length);
+    if (!decoded.first) {
+      logger::error("JPG decode failed");
+      return;
+    }
+    ctx.decode_done_time = checkpoint(3);
+    ctx.frame = std::move(decoded.second);
+
+    std::unique_lock l(frames_mtx);
+    frame_queue.push(std::move(ctx));
+    frames_cv.notify_one();
+  }
+}
+
+// FIXME 这些线程报错怎么向上层反应？
+//可以规定一些二进制的位作为错误编号，这样就可以把两种线程的各种错误"或"起来统一返回出去
+//FIXME 如果消费速度跟不上生产，警告
+void capture::do_write(const config &config) {
+  static const int open_writer_retry = 3;
+  int tried = 0;
+
+  if (config.duration < 1)
+    return; //短于1秒的话文件名可能重复
+
+  auto fps = (uint32_t)config.fps;
   cv::Size frame_size(config.resolution);
-  const uint64_t frame_time = 1000 / fps;
+  const uint64_t expect_frame_time = 1000 / fps;
 
   cv::Ptr<cv::freetype::FreeType2> freetype = cv::freetype::createFreeType2();
   if (freetype.empty()) {
     logger::error("create freetype2 instance failed");
-    return 5;
+    return;
   }
 
   freetype->loadFontData("Helvetica.ttc", 0);
@@ -111,39 +149,30 @@ OPEN_WRITER:
       //也许还需要sleep一下？
       goto OPEN_WRITER;
     } else {
-      return 2;
+      return;
     }
   }
   logger::info("video file change to ", filename);
-  logger::info("capture backend:", "V4LCAPTURE",
-               " writer backend:", writer.getBackendName(),
+  logger::info(" writer backend:", writer.getBackendName(),
                " codec:", codec_to_string(config.output_codec), " fps:", fps,
                " resolution:", frame_size);
-
-  uint32_t frame_cost = 0;
 
   while (true) {
     if (state == STOPPING) {
       break;
     }
 
-    auto cap_ckp = checkpoint(3);
-    std::pair<bool, std::shared_ptr<v4l_capture::buffer>> frame_jpg =
-        capture.read();
-    if (!frame_jpg.first) {
-      logger::error("VideoCapture read failed");
-      return 50;
-    }
-    auto decode_ckp = checkpoint(3);
-    std::pair<bool, cv::Mat> decoded = jpg_decoder.decode(
-        (unsigned char *)(frame_jpg.second->data), frame_jpg.second->length);
-    if (!decoded.first) {
-      logger::error("JPG decode failed");
-      return 3;
-    }
-    cv::Mat &frame = decoded.second;
+    std::unique_lock l(frames_mtx);
+    frames_cv.wait(l, [this] { return !frame_queue.empty(); });
+    frame_context ctx = std::move(frame_queue.front());
+    frame_queue.pop();
+    if (ctx.quit)
+      break;
+    l.unlock();
 
-    auto draw_ckp = checkpoint(3);
+    cv::Mat &frame = ctx.frame;
+
+    ctx.process_time = checkpoint(3);
     {
       //在指定位置渲染时间
       time_t tm;
@@ -157,8 +186,13 @@ OPEN_WRITER:
       render_text(config.text_pos, fmt.str(), config.font_height,
                   std::optional<cv::Scalar>(), freetype, frame);
       //低帧率时渲染警告
-      if (frame_cost > frame_time) {
-        fmt.str("LOW FPS: ");
+      if (frame_cost != 0) {
+        // FIXME 这个要可配置 1.不显示帧率 2.只显示低帧率警告 3.显示帧率
+        if (frame_cost > expect_frame_time) {
+          fmt.str("LOW FPS: ");
+        } else {
+          fmt.str("FPS: ");
+        }
         fmt << 1000 / frame_cost;
         render_text((config.text_pos + 1) % 4, fmt.str(), config.font_height,
                     std::make_optional(
@@ -167,27 +201,33 @@ OPEN_WRITER:
       }
     }
 
-    auto write_ckp = checkpoint(3);
+    ctx.write_time = checkpoint(3);
     writer.write(frame);
-    auto done_ckp = checkpoint(3);
-    if (done_ckp - cap_ckp > frame_time) {
-      logger::warn("low frame rate, expect ", frame_time, "ms, actual ",
-                   done_ckp - cap_ckp, //
-                   "ms (capture:", decode_ckp - cap_ckp,
-                   "ms, decode:", draw_ckp - decode_ckp,
-                   "ms, draw:", write_ckp - draw_ckp,
-                   "ms, write:", done_ckp - write_ckp, "ms)");
-    } else {
-      logger::info("cost ", done_ckp - cap_ckp, "ms");
+    ctx.done_time = checkpoint(3);
+
+    frame_cost = ctx.decode_done_time - ctx.capture_time;
+    if (ctx.done_time - ctx.process_time > frame_cost) {
+      frame_cost = ctx.done_time - ctx.process_time;
     }
-    frame_cost = done_ckp - cap_ckp;
+
+    if (frame_cost > expect_frame_time) {
+      logger::warn("low frame rate, expect ", expect_frame_time, "ms, actual ",
+                   frame_cost, //
+                   "ms (capture:", ctx.decode_time - ctx.capture_time,
+                   "ms, decode:", ctx.decode_done_time - ctx.decode_time,
+                   "ms, inter-thread:", ctx.process_time - ctx.decode_done_time,
+                   "ms, process:", ctx.write_time - ctx.process_time,
+                   "ms, write:", ctx.done_time - ctx.write_time, "ms)");
+    } else {
+      logger::info("cost ", frame_cost, "ms");
+    }
 
     //到了预定的时间，换文件
-    if (done_ckp - task_begin >= config.duration * 1000) {
+    // FIXME linux的mono时间是不会往回的吧？确认一下
+    if (ctx.done_time - task_begin >= config.duration * 1000) {
       goto OPEN_WRITER;
     }
   }
-  return 0;
 }
 
 void capture::render_text(int pos, const std::string &text, int font_height,
