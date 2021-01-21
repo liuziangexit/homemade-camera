@@ -328,8 +328,8 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
   next(&deq_idx);
 
   logger::info("v4lcapture enqueue:", alloc_time - enqueue_time,
-               "ms, alloc:", dequeue_time - alloc_time, "ms",
-               "ms, dequeue:", copy_time - dequeue_time, "ms",
+               "ms, alloc:", dequeue_time - alloc_time,
+               "ms, dequeue:", copy_time - dequeue_time,
                "ms, copy:", done_time - copy_time, "ms");
 
   return std::pair<bool, std::shared_ptr<buffer>>(
