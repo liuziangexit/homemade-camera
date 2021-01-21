@@ -20,42 +20,33 @@
 #include <time.h>
 #include <utility>
 
-// FIXME 用mutex
-
 namespace hcam {
 
-capture::capture(const config &_config) : m_config(_config) {}
+capture::capture(const config &_config) : _config(_config) {}
 
 capture::~capture() { stop(); }
 
 void capture::run() {
   {
-    uint32_t expect = 0;
-    if (!m_flag.compare_exchange_strong(expect, 1))
+    int expect = STOPPED;
+    if (!state.compare_exchange_strong(expect, RUNNING))
       throw std::logic_error("capture already running");
   }
-  std::thread(&capture::task, this, m_config).detach();
+  capture_thread =
+      std::thread([this] { this->result = this->do_capture(this->_config); });
 }
 
 int capture::stop() {
-  if (m_flag == 1) {
-    m_flag = 2;
-    while (m_flag != 3)
-      ;
+  {
+    int expect = RUNNING;
+    if (!state.compare_exchange_strong(expect, STOPPING))
+      throw std::logic_error("invalid state");
   }
+  if (capture_thread.joinable())
+    capture_thread.join();
   int r = (int)result;
-  m_flag = 0;
+  state = STOPPED;
   return r;
-}
-
-void capture::task(config config) {
-  guard reset_flag([this]() {
-    auto prev_state = m_flag.exchange(3);
-    if (prev_state == 0 || prev_state == 3)
-      throw std::runtime_error("capture flag is been tamper");
-  });
-
-  result = do_capture(config);
 }
 
 std::string capture::make_filename(std::string save_directory,
@@ -132,7 +123,7 @@ OPEN_WRITER:
   uint32_t frame_cost = 0;
 
   while (true) {
-    if (m_flag == 2) {
+    if (state == STOPPING) {
       break;
     }
 

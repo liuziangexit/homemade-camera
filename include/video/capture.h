@@ -4,12 +4,15 @@
 #include "codec.h"
 #include "config/config.h"
 #include <atomic>
+#include <condition_variable>
+#include <mutex>
 #include <opencv2/core.hpp>
 #include <opencv2/freetype.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
 #include <optional>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -30,11 +33,14 @@ public:
   ~capture();
 
 private:
-  // 0-未开始,1-开始,2-要求结束,3-正在结束
-  std::atomic<uint32_t> m_flag = 0;
-  config m_config;
-
-  void task(config);
+  enum { STOPPED, RUNNING, STOPPING };
+  std::atomic<int> state = STOPPED;
+  config _config;
+  // capture线程解码出来的帧，write线程会去这里拿
+  std::vector<cv::Mat> frames;
+  std::mutex frames_mtx;
+  std::condition_variable frames_cv;
+  std::thread capture_thread, write_thread;
 
   std::string make_filename(std::string, const std::string &);
 
