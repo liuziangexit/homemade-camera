@@ -21,6 +21,7 @@ OK-支持设置像素格式
 OK-内存泄漏
 OK-长时间运行seg fault
 OK-线程池
+-可配置logger level，增加debug level
 -多线程来加速，一个线程读相机，然后把后续工作丢到线程池里做(这个功能需要是可在配置文件里开关的)
 -运行一晚上
 -0x80001009的问题(https://android.googlesource.com/platform/frameworks/native/+/kitkat-release/include/media/openmax/OMX_Core.h
