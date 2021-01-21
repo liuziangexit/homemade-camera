@@ -78,6 +78,9 @@ std::string capture::make_filename(std::string save_directory,
 }
 
 int capture::do_capture(const config &config) {
+  static const int open_writer_retry = 3;
+  int tried = 0;
+
   if (config.duration < 1)
     return 4; //短于1秒的话文件名可能重复
 
@@ -112,8 +115,13 @@ OPEN_WRITER:
                                 codec_file_format(config.output_codec));
   if (!writer.open(filename, codec_fourcc(config.output_codec), fps,
                    frame_size)) {
-    logger::error("VideoWriter open ", filename, " failed");
-    return 2;
+    logger::error("VideoWriter open ", filename, " failed ", tried + 1);
+    if (++tried < open_writer_retry) {
+      //也许还需要sleep一下？
+      goto OPEN_WRITER;
+    } else {
+      return 2;
+    }
   }
   logger::info("video file change to ", filename);
   logger::info("capture backend:", "V4LCAPTURE",
