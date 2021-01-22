@@ -87,9 +87,9 @@ std::pair<bool, cv::Mat> omx_jpg::decode(unsigned char *src, uint32_t len) {
   auto cvtcolor = checkpoint(3);
   cv::cvtColor(yuv420, bgr, cv::COLOR_YUV2BGR_I420);
   auto done = checkpoint(3);
-
-  logger::info("omx_jpg decode:", cvtcolor - decode,
-               "ms, cvtcolor:", done - cvtcolor, "ms");
+  /*
+    logger::info("omx_jpg decode:", cvtcolor - decode,
+                 "ms, cvtcolor:", done - cvtcolor, "ms");*/
 
   return std::pair<bool, cv::Mat>(true, bgr);
 }

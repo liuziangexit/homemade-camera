@@ -3,13 +3,13 @@
 #include "omx/omx_jpg.h"
 #include "util/guard.h"
 #include "util/logger.h"
-#include "util/string_util.h"
 #include "util/time_util.h"
 #include "video/codec.h"
 #include "video/v4l_capture.h"
 #include <algorithm>
 #include <atomic>
 #include <future>
+#include <memory>
 #include <opencv2/core.hpp>
 #include <opencv2/freetype.hpp>
 #include <opencv2/videoio.hpp>
@@ -47,25 +47,6 @@ void capture::stop() {
   if (write_thread.joinable())
     write_thread.join();
   state = STOPPED;
-}
-
-std::string capture::make_filename(std::string save_directory,
-                                   const std::string &file_format) {
-  trim(save_directory);
-  if (!save_directory.empty() && *save_directory.rbegin() != '/' &&
-      *save_directory.rbegin() != '\\')
-    save_directory.append("/");
-
-  //整一个文件名
-  time_t tm;
-  time(&tm);
-  auto localt = localtime(&tm);
-  std::ostringstream fmt(save_directory, std::ios_base::app);
-  fmt << localt->tm_year + 1900 << '-' << localt->tm_mon + 1 << '-'
-      << localt->tm_mday << " at " << localt->tm_hour << '.' << localt->tm_min
-      << '.' << localt->tm_sec;
-  fmt << '.' << file_format;
-  return fmt.str();
 }
 
 void capture::do_capture(const config &config) {
@@ -111,16 +92,18 @@ void capture::do_capture(const config &config) {
 
     std::unique_lock l(frames_mtx);
     frame_queue.push(std::move(ctx));
+    if (frame_queue.size() > 10) {
+      logger::warn("frame_queue.size(): ", frame_queue.size());
+    }
     frames_cv.notify_one();
   }
 }
 
 // FIXME 这些线程报错怎么向上层反应？
 //可以规定一些二进制的位作为错误编号，这样就可以把两种线程的各种错误"或"起来统一返回出去
-//FIXME 如果消费速度跟不上生产，警告
+// FIXME 如果消费速度跟不上生产，警告
 void capture::do_write(const config &config) {
   static const int open_writer_retry = 3;
-  int tried = 0;
 
   if (config.duration < 1)
     return; //短于1秒的话文件名可能重复
@@ -136,24 +119,67 @@ void capture::do_write(const config &config) {
   }
 
   freetype->loadFontData("Helvetica.ttc", 0);
-  cv::VideoWriter writer;
+  std::unique_ptr<cv::VideoWriter> writer, next_writer;
+  std::string writer_filename, next_writer_filename;
+  std::mutex next_writer_mut;
+  bool first_time = true;
+  auto prepare_writer = [config, frame_size,
+                         fps](time_t date,
+                              std::unique_ptr<cv::VideoWriter> &writer,
+                              std::string &filename) {
+    filename = make_filename(config.save_location,
+                             codec_file_format(config.output_codec), date);
+    writer = std::make_unique<cv::VideoWriter>();
+
+    for (int tried = 0; tried < open_writer_retry; tried++) {
+      if (writer->open(filename, codec_fourcc(config.output_codec), fps,
+                       frame_size)) {
+        return true;
+      } else {
+        logger::error("VideoWriter open ", filename, " failed ", tried + 1);
+      }
+    }
+    return false;
+  };
+
+  // FIXME 这些abort都是偷懒，应该用报错的方式平滑终止，然后返回到上层
 
 OPEN_WRITER:
-  auto task_begin = checkpoint(3);
-  auto filename = make_filename(config.save_location,
-                                codec_file_format(config.output_codec));
-  if (!writer.open(filename, codec_fourcc(config.output_codec), fps,
-                   frame_size)) {
-    logger::error("VideoWriter open ", filename, " failed ", tried + 1);
-    if (++tried < open_writer_retry) {
-      //也许还需要sleep一下？
-      goto OPEN_WRITER;
-    } else {
-      return;
+  if (first_time) {
+    // first time!
+    time_t tm;
+    time(&tm);
+    if (!prepare_writer(tm, writer, writer_filename))
+      abort();
+    first_time = false;
+  } else {
+    std::unique_lock l(next_writer_mut, std::try_to_lock);
+    if (!l.owns_lock()) {
+      abort();
     }
+    writer = std::move(next_writer);
+    writer_filename = std::move(next_writer_filename);
   }
-  logger::info("video file change to ", filename);
-  logger::info(" writer backend:", writer.getBackendName(),
+
+  // prepare next writer asynchronous
+  {
+    time_t tm;
+    time(&tm);
+    tm += config.duration;
+    std::thread([tm, &next_writer, &next_writer_mut, prepare_writer,
+                 &next_writer_filename] {
+      std::unique_lock l(next_writer_mut, std::try_to_lock);
+      if (!l.owns_lock()) {
+        abort();
+      }
+      if (!prepare_writer(tm, next_writer, next_writer_filename))
+        abort();
+    }).detach();
+  }
+
+  auto task_begin = checkpoint(3);
+  logger::info("video file change to ", writer_filename);
+  logger::info(" writer backend:", writer->getBackendName(),
                " codec:", codec_to_string(config.output_codec), " fps:", fps,
                " resolution:", frame_size);
 
@@ -202,7 +228,7 @@ OPEN_WRITER:
     }
 
     ctx.write_time = checkpoint(3);
-    writer.write(frame);
+    writer->write(frame);
     ctx.done_time = checkpoint(3);
 
     frame_cost = ctx.decode_done_time - ctx.capture_time;
@@ -225,6 +251,12 @@ OPEN_WRITER:
     //到了预定的时间，换文件
     // FIXME linux的mono时间是不会往回的吧？确认一下
     if (ctx.done_time - task_begin >= config.duration * 1000) {
+      auto writer_p = writer.release();
+      std::thread([writer_p] {
+        // destruct时候会开始做一些文件的写入工作，如果文件很大，会花上许多秒或者更久，那么工作队列里的东西就开始堆积了
+        // 所以我们在另一个线程做destruct
+        delete writer_p;
+      }).detach();
       goto OPEN_WRITER;
     }
   }

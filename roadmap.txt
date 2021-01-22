@@ -21,12 +21,12 @@ OK-内存泄漏
 OK-长时间运行seg fault
 OK-线程池
 OK-多线程加速
+OK-运行一晚上
 
 -jpg decode达到33ms以下
 -把opencv的多线程关掉，看看影不影响jpg decode（应该不）
 -看看第三方库是不是都开了优化
 -看看转换色域的代码还能不能优化了(1.看看opencv有没有用指令集加速 2.看看能不能直接设置omx输出bgr，这样就不用转了)
--运行一晚上
 -树莓派上达到720p 30帧
 -可配置logger level，增加debug level
 -0x80001009的问题(https://android.googlesource.com/platform/frameworks/native/+/kitkat-release/include/media/openmax/OMX_Core.h

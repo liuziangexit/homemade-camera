@@ -3,6 +3,7 @@
 
 #include "codec.h"
 #include "config/config.h"
+#include "util/string_util.h"
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -25,6 +26,7 @@ public:
 
   void run();
 
+  // FIXME 实现内部出错停止的功能
   void stop();
 
   ~capture();
@@ -54,7 +56,22 @@ private:
   //帧速
   uint32_t frame_cost = 0;
 
-  std::string make_filename(std::string, const std::string &);
+  static std::string make_filename(std::string save_directory,
+                                   const std::string &file_format, time_t tm) {
+    trim(save_directory);
+    if (!save_directory.empty() && *save_directory.rbegin() != '/' &&
+        *save_directory.rbegin() != '\\')
+      save_directory.append("/");
+
+    //整一个文件名
+    auto localt = localtime(&tm);
+    std::ostringstream fmt(save_directory, std::ios_base::app);
+    fmt << localt->tm_year + 1900 << '-' << localt->tm_mon + 1 << '-'
+        << localt->tm_mday << " at " << localt->tm_hour << '.' << localt->tm_min
+        << '.' << localt->tm_sec;
+    fmt << '.' << file_format;
+    return fmt.str();
+  }
 
   static bool set_input_pixelformat(cv::VideoCapture &cap, codec c) {
     cap.set(cv::CAP_PROP_FOURCC, codec_fourcc(c));
