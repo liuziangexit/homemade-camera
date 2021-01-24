@@ -5,6 +5,7 @@
 #include "util/logger.h"
 #include "util/time_util.h"
 #include "video/codec.h"
+#include "video/soft_jpg.h"
 #include "video/v4l_capture.h"
 #include <algorithm>
 #include <atomic>
@@ -59,7 +60,7 @@ void capture::do_capture(const config &config) {
     logger::error("VideoCapture open failed");
     return;
   }
-  omx_jpg jpg_decoder;
+  soft_jpg jpg_decoder;
 
   while (true) {
     if (state == STOPPING) {
@@ -74,15 +75,15 @@ void capture::do_capture(const config &config) {
     frame_context ctx;
 
     ctx.capture_time = checkpoint(3);
-    std::pair<bool, std::shared_ptr<v4l_capture::buffer>> frame_jpg =
+    std::pair<bool, std::shared_ptr<v4l_capture::buffer>> packet =
         capture.read();
-    if (!frame_jpg.first) {
+    if (!packet.first) {
       logger::error("VideoCapture read failed");
       return;
     }
     ctx.decode_time = checkpoint(3);
     std::pair<bool, cv::Mat> decoded = jpg_decoder.decode(
-        (unsigned char *)(frame_jpg.second->data), frame_jpg.second->length);
+        (unsigned char *)(packet.second->data), packet.second->length);
     if (!decoded.first) {
       logger::error("JPG decode failed");
       return;

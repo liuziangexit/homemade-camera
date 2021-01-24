@@ -34,8 +34,12 @@ find_package(OpenSSL REQUIRED)
 #find_package(TBB REQUIRED PATHS 3rd-party/oneTBB)
 find_package(TBB REQUIRED)
 
+find_library(TURBOJPEG_LIBRARY turbojpeg HINTS /opt/libjpeg-turbo/lib32/)
+target_link_libraries(homecam ${TURBOJPEG_LIBRARY})
+message(STATUS "TURBOJPEG_LIBRARY : ${TURBOJPEG_LIBRARY}")
+
 target_link_libraries(homecam ${OpenCV_LIBS} ${OPENSSL_LIBRARIES} TBB::tbb)
-include_directories(homecam ./include ./3rd-party ${OPENCV_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR} ${TBB_INCLUDE_DIR} 3rd-party/raspberrypi 3rd-party/ilclient)
+include_directories(homecam ./include ./3rd-party ${OPENCV_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR} ${TBB_INCLUDE_DIR} 3rd-party/raspberrypi 3rd-party/ilclient /opt/libjpeg-turbo/include/)
 find_library(ILCLIENT_LIBRARY ilclient HINTS 3rd-party/ilclient)
 find_library(BCM_HOST_LIBRARY bcm_host HINTS /opt/vc/lib)
 find_library(VCHIQ_ARM_LIBRARY vchiq_arm HINTS /opt/vc/lib)
