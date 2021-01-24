@@ -307,7 +307,7 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
 
   // allocate space for return
   buffer *rv = (buffer *)malloc(sizeof(buffer) + _buffer[deq_idx].length);
-  rv->data = (char *)rv + sizeof(buffer);
+  rv->data = (char *)rv + sizeof(struct buffer);
   rv->length = _buffer[deq_idx].length;
 
   auto dequeue_time = checkpoint(3);
