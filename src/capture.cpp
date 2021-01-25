@@ -1,6 +1,5 @@
 #include "video/capture.h"
 #include "config/config.h"
-#include "util/guard.h"
 #include "util/logger.h"
 #include "util/time_util.h"
 #include "video/codec.h"
@@ -19,6 +18,10 @@
 #include <thread>
 #include <time.h>
 #include <utility>
+
+#ifdef __linux__
+#define USE_V4L_CAPTURE
+#endif
 
 namespace hcam {
 
@@ -50,6 +53,7 @@ void capture::stop() {
 }
 
 void capture::do_capture(const config &config) {
+#ifdef USE_V4L_CAPTURE
   v4l_capture capture;
   if (capture.open(config.device,
                    v4l_capture::graphic{(uint32_t)config.resolution.width,
@@ -60,6 +64,48 @@ void capture::do_capture(const config &config) {
     return;
   }
   soft_jpg jpg_decoder;
+
+  auto get_frame = [](frame_context &ctx) {
+    ctx.capture_time = checkpoint(3);
+    std::pair<bool, std::shared_ptr<v4l_capture::buffer>> packet =
+        capture.read();
+    if (!packet.first) {
+      logger::error("VideoCapture read failed");
+      return false;
+    }
+    ctx.decode_time = checkpoint(3);
+    std::pair<bool, cv::Mat> decoded = jpg_decoder.decode(
+        (unsigned char *)(packet.second->data), packet.second->length);
+    if (!decoded.first) {
+      logger::error("JPG decode failed");
+      return false;
+    }
+    ctx.frame = std::move(decoded.second);
+    ctx.decode_done_time = checkpoint(3);
+  };
+#else
+  cv::VideoCapture capture;
+  if (config.device.empty()) {
+    if (!capture.open(0))
+      throw std::runtime_error("capture open failed");
+  } else {
+    if (!capture.open(config.device))
+      throw std::runtime_error("capture open failed");
+  }
+
+  auto get_frame = [&capture](frame_context &ctx) {
+    ctx.capture_time = checkpoint(3);
+    cv::Mat mat;
+    if (!capture.read(mat)) {
+      logger::error("!VideoCapture read failed");
+      return false;
+    }
+    ctx.decode_time = checkpoint(3);
+    ctx.decode_done_time = ctx.decode_time;
+    ctx.frame = std::move(mat);
+    return true;
+  };
+#endif
 
   while (true) {
     if (state == STOPPING) {
@@ -72,23 +118,11 @@ void capture::do_capture(const config &config) {
     }
 
     frame_context ctx;
-
-    ctx.capture_time = checkpoint(3);
-    std::pair<bool, std::shared_ptr<v4l_capture::buffer>> packet =
-        capture.read();
-    if (!packet.first) {
-      logger::error("VideoCapture read failed");
-      return;
+    if (!get_frame(ctx)) {
+      ctx.quit = true;
+      frame_queue.push(std::move(ctx));
+      break;
     }
-    ctx.decode_time = checkpoint(3);
-    std::pair<bool, cv::Mat> decoded = jpg_decoder.decode(
-        (unsigned char *)(packet.second->data), packet.second->length);
-    if (!decoded.first) {
-      logger::error("JPG decode failed");
-      return;
-    }
-    ctx.decode_done_time = checkpoint(3);
-    ctx.frame = std::move(decoded.second);
 
     std::unique_lock l(frames_mtx);
     frame_queue.push(std::move(ctx));
@@ -105,6 +139,8 @@ void capture::do_capture(const config &config) {
 void capture::do_write(const config &config) {
   static const int open_writer_retry = 3;
 
+  std::thread destruct_thread;
+
   if (config.duration < 1)
     return; //短于1秒的话文件名可能重复
 
@@ -117,8 +153,8 @@ void capture::do_write(const config &config) {
     logger::error("create freetype2 instance failed");
     return;
   }
-
   freetype->loadFontData("Helvetica.ttc", 0);
+
   std::unique_ptr<cv::VideoWriter> writer, next_writer;
   std::string writer_filename, next_writer_filename;
   std::mutex next_writer_mut;

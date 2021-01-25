@@ -2,7 +2,9 @@
 #define __HCAM_CODEC_H__
 #include <algorithm>
 #include <cctype>
+#ifdef __linux__
 #include <linux/videodev2.h>
+#endif
 #include <opencv2/videoio.hpp>
 #include <stdexcept>
 #include <string>
@@ -47,6 +49,7 @@ static int codec_fourcc(codec c) {
   throw std::invalid_argument("");
 }
 
+#ifdef __linux__
 static int codec_v4l2_pix_fmt(codec c) {
   if (c == YUV420)
     return V4L2_PIX_FMT_YUV420;
@@ -54,6 +57,7 @@ static int codec_v4l2_pix_fmt(codec c) {
     return V4L2_PIX_FMT_MJPEG;
   throw std::invalid_argument("");
 }
+#endif
 
 static std::string codec_to_string(codec c) {
   if (YUV420 == c)
