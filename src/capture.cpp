@@ -4,7 +4,6 @@
 #include "util/time_util.h"
 #include "video/codec.h"
 #include "video/soft_jpg.h"
-#include "video/v4l_capture.h"
 #include <algorithm>
 #include <atomic>
 #include <future>
@@ -21,6 +20,8 @@
 
 #ifdef __linux__
 #define USE_V4L_CAPTURE
+#include "video/soft_jpg.h"
+#include "video/v4l_capture.h"
 #endif
 
 namespace hcam {
@@ -40,6 +41,7 @@ void capture::run() {
 }
 
 void capture::stop() {
+  logger::info("stopping capture");
   {
     int expect = RUNNING;
     if (!state.compare_exchange_strong(expect, STOPPING)) {
@@ -57,6 +59,7 @@ void capture::stop() {
       write_thread.join();
   }
   state = STOPPED;
+  logger::info("capture stopped");
 }
 
 void capture::internal_stop_avoid_deadlock() {
@@ -76,7 +79,7 @@ void capture::do_capture(const config &config) {
   }
   soft_jpg jpg_decoder;
 
-  auto get_frame = [](frame_context &ctx) {
+  auto get_frame = [&jpg_decoder, &capture](frame_context &ctx) -> bool {
     ctx.capture_time = checkpoint(3);
     std::pair<bool, std::shared_ptr<v4l_capture::buffer>> packet =
         capture.read();
@@ -93,6 +96,7 @@ void capture::do_capture(const config &config) {
     }
     ctx.frame = std::move(decoded.second);
     ctx.decode_done_time = checkpoint(3);
+    return true;
   };
 #else
   cv::VideoCapture capture;
@@ -104,7 +108,7 @@ void capture::do_capture(const config &config) {
       throw std::runtime_error("capture open failed");
   }
 
-  auto get_frame = [&capture](frame_context &ctx) {
+  auto get_frame = [&capture](frame_context &ctx) -> bool {
     ctx.capture_time = checkpoint(3);
     cv::Mat mat;
     if (!capture.read(mat)) {
@@ -141,6 +145,7 @@ void capture::do_capture(const config &config) {
   ctx.quit = true;
   frame_queue.push(ctx);
   frames_cv.notify_one();
+  this->internal_stop_avoid_deadlock();
 }
 
 void capture::do_write(const config &config) {
@@ -271,23 +276,27 @@ OPEN_WRITER:
       render_text(config.timestamp_pos, fmt.str(), config.font_height,
                   std::optional<cv::Scalar>(), freetype, frame);
       //渲染帧率
+      fmt.str("");
       if (frame_cost != 0) {
         auto low_fps = frame_cost > expect_frame_time;
         if (low_fps) {
           if (config.display_fps == 1 || config.display_fps == 2) {
-            fmt.str("LOW FPS: ");
+            fmt << "LOW FPS: ";
+            fmt << 1000 / frame_cost;
           }
         } else {
           if (config.display_fps == 2) {
-            fmt.str("FPS: ");
+            fmt << "FPS: ";
+            fmt << 1000 / frame_cost;
           }
         }
-        fmt << 1000 / frame_cost;
-        render_text((config.timestamp_pos + 1) % 4, fmt.str(),
-                    config.font_height,
-                    low_fps ? cv::Scalar((double)30, (double)120, (double)238)
-                            : std::optional<cv::Scalar>(),
-                    freetype, frame);
+        if (fmt.str() != "") {
+          render_text((config.timestamp_pos + 1) % 4, fmt.str(),
+                      config.font_height,
+                      low_fps ? cv::Scalar((double)30, (double)120, (double)238)
+                              : std::optional<cv::Scalar>(),
+                      freetype, frame);
+        }
       }
     }
 
