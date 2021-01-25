@@ -1,6 +1,5 @@
 #include "video/capture.h"
 #include "config/config.h"
-#include "omx/omx_jpg.h"
 #include "util/guard.h"
 #include "util/logger.h"
 #include "util/time_util.h"

@@ -1,7 +1,6 @@
 #include "util/logger.h"
 #include "video/capture.h"
 //#include "web/service.h"
-#include "omx/omx_lib.h"
 #include <opencv2/core/utility.hpp>
 #include <signal.h>
 #include <thread>
@@ -23,8 +22,6 @@ int main(int argc, char **argv) {
   signal(SIGTERM, signal_handler);
   /*web = new hcam::web("config.json");
   web->run();*/
-
-  hcam::omx_lib omxlib;
 
   hcam::config c("config.json");
   cap = new hcam::capture(c);
