@@ -11,13 +11,11 @@ std::pair<bool, cv::Mat> soft_jpg::decode(unsigned char *src, uint32_t len) {
   if (tjDecompressHeader2(_jpegDecompressor, src, len, &width, &height,
                           &jpegSubsamp))
     return std::pair<bool, cv::Mat>(false, cv::Mat());
-  std::unique_ptr<unsigned char[]> output(
-      new unsigned char[width * height * CHANNEL_CNT]);
-  if (tjDecompress2(_jpegDecompressor, src, len, output.get(), width,
-                    0 /*pitch*/, height, TJPF_BGR, TJFLAG_FASTDCT))
+  cv::Mat mat(height, width, CV_8UC3);
+  if (tjDecompress2(_jpegDecompressor, src, len, mat.data, width, 0 /*pitch*/,
+                    height, TJPF_BGR, TJFLAG_FASTDCT))
     return std::pair<bool, cv::Mat>(false, cv::Mat());
-  return std::pair<bool, cv::Mat>(
-      true, cv::Mat(height, width, CV_8UC3, output.get()));
+  return std::pair<bool, cv::Mat>(true, mat);
 }
 
 } // namespace hcam
