@@ -268,20 +268,25 @@ OPEN_WRITER:
           << localt->tm_mday << " " << localt->tm_hour << ':' << localt->tm_min
           << ':' << localt->tm_sec;
 
-      render_text(config.text_pos, fmt.str(), config.font_height,
+      render_text(config.timestamp_pos, fmt.str(), config.font_height,
                   std::optional<cv::Scalar>(), freetype, frame);
-      //低帧率时渲染警告
+      //渲染帧率
       if (frame_cost != 0) {
-        // FIXME 这个要可配置 1.不显示帧率 2.只显示低帧率警告 3.显示帧率
-        if (frame_cost > expect_frame_time) {
-          fmt.str("LOW FPS: ");
+        auto low_fps = frame_cost > expect_frame_time;
+        if (low_fps) {
+          if (config.display_fps == 1 || config.display_fps == 2) {
+            fmt.str("LOW FPS: ");
+          }
         } else {
-          fmt.str("FPS: ");
+          if (config.display_fps == 2) {
+            fmt.str("FPS: ");
+          }
         }
         fmt << 1000 / frame_cost;
-        render_text((config.text_pos + 1) % 4, fmt.str(), config.font_height,
-                    std::make_optional(
-                        cv::Scalar((double)30, (double)120, (double)238)),
+        render_text((config.timestamp_pos + 1) % 4, fmt.str(),
+                    config.font_height,
+                    low_fps ? cv::Scalar((double)30, (double)120, (double)238)
+                            : std::optional<cv::Scalar>(),
                     freetype, frame);
       }
     }

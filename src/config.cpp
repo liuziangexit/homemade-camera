@@ -57,7 +57,8 @@ bool config::read(const std::string &filename) {
       }
     }
     this->fps = js["fps"].get<int>();
-    this->text_pos = js["text-pos"].get<int>();
+    this->timestamp_pos = js["timestamp-pos"].get<int>();
+    this->display_fps = js["display-fps"].get<int>();
     this->font_height = js["font-height"].get<int>();
     this->web_port = js["web-port"].get<int>();
     this->tcp_timeout = js["tcp-timeout"].get<int>();
@@ -85,7 +86,7 @@ bool config::write(const std::string &filename) {
       {"save-location", this->save_location},
       {"codec", codec_to_string(this->output_codec)},
       {"device", this->device},
-      {"text-pos", this->text_pos},
+      {"timestamp_pos", this->timestamp_pos},
       {"font-height", this->font_height},
       {"web-port", this->web_port},
       {"tcp-timeout", this->tcp_timeout} //

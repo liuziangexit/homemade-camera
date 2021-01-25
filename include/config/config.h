@@ -16,7 +16,8 @@ public:
   std::string save_location; //保存目录
   enum codec output_codec;   //视频文件编码格式
   std::string device;        //摄像头设备挂载点
-  int text_pos; //视频时间戳位置 0-右上 1-左上 2-左下 3-右下 4-中间
+  int timestamp_pos; //视频时间戳位置 0-右上 1-左上 2-左下 3-右下 4-中间
+  int display_fps; //帧率显示模式 0-NEVER 2-WARNING ONLY 3-ALWAYS
   int font_height; //视频时间戳字体大小
   int web_port;    // web服务端口
   int tcp_timeout; // web服务tcp超时时间（秒）

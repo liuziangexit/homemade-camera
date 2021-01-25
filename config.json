@@ -6,7 +6,8 @@
   "device": "/dev/video0",
   "resolution": "1280x720",
   "fps": 30,
-  "text-pos": 3,
+  "timestamp-pos": 3,
+  "display-fps": 0,
   "font-height": 30,
   "web-port": 8080,
   "tcp-timeout": 10
