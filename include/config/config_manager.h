@@ -4,8 +4,6 @@
 #include "config.h"
 #include "lazy/lazy.h"
 
-// FIXME 结束等待时候不要spin
-
 namespace hcam {
 
 // liuziangexit_lazy::lazy<config> config

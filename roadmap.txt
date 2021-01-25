@@ -26,6 +26,9 @@ OK-jpg decode达到33ms以下
 OK-树莓派上达到720p 30帧
 
 -可配置logger level，增加debug level
+-可配置帧率显示模式
+-capture类内部出错平滑停止
+-configmanager
 -0x80001009的问题(https://android.googlesource.com/platform/frameworks/native/+/kitkat-release/include/media/openmax/OMX_Core.h
 -重新实现omx相关的代码，最少要实现jpeg编解码
 -OPENCV里的那个copy frame的修改应该放到外面去做，至少要检测现在是不是在用omxh264

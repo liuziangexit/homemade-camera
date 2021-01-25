@@ -120,6 +120,7 @@ void capture::do_capture(const config &config) {
     std::unique_lock l(frames_mtx);
     frame_queue.push(std::move(ctx));
     if (frame_queue.size() > 10) {
+      //消费跟不上生产
       logger::warn("frame_queue.size(): ", frame_queue.size());
     }
     frames_cv.notify_one();
@@ -133,7 +134,6 @@ void capture::do_capture(const config &config) {
 
 // FIXME 这些线程报错怎么向上层反应？
 //可以规定一些二进制的位作为错误编号，这样就可以把两种线程的各种错误"或"起来统一返回出去
-// FIXME 如果消费速度跟不上生产，警告
 void capture::do_write(const config &config) {
   static const int open_writer_retry = 3;
 
@@ -176,15 +176,13 @@ void capture::do_write(const config &config) {
     return false;
   };
 
-  // FIXME 这些abort都是偷懒，应该用报错的方式平滑终止，然后返回到上层
-
 OPEN_WRITER:
   if (first_time) {
     // first time!
     time_t tm;
     time(&tm);
     if (!prepare_writer(tm, writer, writer_filename))
-      abort();
+      throw std::runtime_error("prepare_writer failed");
     first_time = false;
   } else {
     {
