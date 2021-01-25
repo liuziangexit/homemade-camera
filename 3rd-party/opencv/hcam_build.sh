@@ -7,4 +7,6 @@ cmake --enable-nonfree --enable-pic --enable-shared \
  -DBUILD_OPENCV_PYTHON3=OFF -DBUILD_OPENCV_PYTHON2=OFF\
  -DOPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules/ \
  -D CMAKE_BUILD_TYPE=RELEASE -D ENABLE_NEON=ON -D ENABLE_VFPV3=ON \
- -S. -Bopencv_build
+ -S. -Bbuild
+ cd build
+ make -j4

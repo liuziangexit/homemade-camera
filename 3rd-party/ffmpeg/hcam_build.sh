@@ -7,4 +7,6 @@
 --enable-encoder=h264_v4l2m2m --enable-encoder=h264_vaapi --enable-omx --enable-omx-rpi --enable-encoder=h264_omx --enable-mmal --enable-hwaccel=h264_mmal \
 --enable-static --disable-shared \
 --disable-doc --disable-htmlpages --disable-podpages --disable-txtpages --disable-manpages \
+
+make -j4
 #--enable-debug --disable-optimizations --disable-asm

@@ -1,0 +1,3 @@
+cmake -DCMAKE_BUILD_TYPE=RELEASE -DTBB4PY_BUILD=OFF -DTBB_TEST=OFF -S. -Bbuild
+cd build
+make -j4
