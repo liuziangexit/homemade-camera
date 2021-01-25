@@ -109,18 +109,11 @@ void capture::do_capture(const config &config) {
 
   while (true) {
     if (state == STOPPING) {
-      std::unique_lock l(frames_mtx);
-      frame_context ctx;
-      ctx.quit = true;
-      frame_queue.push(ctx);
-      frames_cv.notify_one();
       break;
     }
 
     frame_context ctx;
     if (!get_frame(ctx)) {
-      ctx.quit = true;
-      frame_queue.push(std::move(ctx));
       break;
     }
 
@@ -131,6 +124,11 @@ void capture::do_capture(const config &config) {
     }
     frames_cv.notify_one();
   }
+  std::unique_lock l(frames_mtx);
+  frame_context ctx;
+  ctx.quit = true;
+  frame_queue.push(ctx);
+  frames_cv.notify_one();
 }
 
 // FIXME 这些线程报错怎么向上层反应？
@@ -138,8 +136,6 @@ void capture::do_capture(const config &config) {
 // FIXME 如果消费速度跟不上生产，警告
 void capture::do_write(const config &config) {
   static const int open_writer_retry = 3;
-
-  std::thread destruct_thread;
 
   if (config.duration < 1)
     return; //短于1秒的话文件名可能重复
@@ -155,9 +151,11 @@ void capture::do_write(const config &config) {
   }
   freetype->loadFontData("Helvetica.ttc", 0);
 
+  //不知道为什么，在idea里面调试的时候，如果触发SIGINT，writer们从来不能正常destruct，先不管
+  std::thread prepare_writer_thread, destruct_thread;
   std::unique_ptr<cv::VideoWriter> writer, next_writer;
   std::string writer_filename, next_writer_filename;
-  std::mutex next_writer_mut;
+  std::atomic<bool> next_writer_mut;
   bool first_time = true;
   auto prepare_writer = [config, frame_size,
                          fps](time_t date,
@@ -189,12 +187,15 @@ OPEN_WRITER:
       abort();
     first_time = false;
   } else {
-    std::unique_lock l(next_writer_mut, std::try_to_lock);
-    if (!l.owns_lock()) {
-      abort();
+    {
+      bool expect = false;
+      if (!next_writer_mut.compare_exchange_strong(expect, true)) {
+        abort();
+      }
     }
     writer = std::move(next_writer);
     writer_filename = std::move(next_writer_filename);
+    next_writer_mut.store(false);
   }
 
   // prepare next writer asynchronous
@@ -202,15 +203,21 @@ OPEN_WRITER:
     time_t tm;
     time(&tm);
     tm += config.duration;
-    std::thread([tm, &next_writer, &next_writer_mut, prepare_writer,
-                 &next_writer_filename] {
-      std::unique_lock l(next_writer_mut, std::try_to_lock);
-      if (!l.owns_lock()) {
-        abort();
-      }
-      if (!prepare_writer(tm, next_writer, next_writer_filename))
-        abort();
-    }).detach();
+    if (prepare_writer_thread.joinable())
+      prepare_writer_thread.join();
+    prepare_writer_thread =
+        std::thread([tm, &next_writer, &next_writer_mut, prepare_writer,
+                     &next_writer_filename] {
+          {
+            bool expect = false;
+            if (!next_writer_mut.compare_exchange_strong(expect, true)) {
+              abort();
+            }
+          }
+          if (!prepare_writer(tm, next_writer, next_writer_filename))
+            abort();
+          next_writer_mut.store(false);
+        });
   }
 
   auto task_begin = checkpoint(3);
@@ -228,8 +235,9 @@ OPEN_WRITER:
     frames_cv.wait(l, [this] { return !frame_queue.empty(); });
     frame_context ctx = std::move(frame_queue.front());
     frame_queue.pop();
-    if (ctx.quit)
+    if (ctx.quit) {
       break;
+    }
     l.unlock();
 
     cv::Mat &frame = ctx.frame;
@@ -288,14 +296,20 @@ OPEN_WRITER:
     // FIXME linux的mono时间是不会往回的吧？确认一下
     if (ctx.done_time - task_begin >= config.duration * 1000) {
       auto writer_p = writer.release();
-      std::thread([writer_p] {
+      if (destruct_thread.joinable())
+        destruct_thread.join();
+      destruct_thread = std::thread([writer_p] {
         // destruct时候会开始做一些文件的写入工作，如果文件很大，会花上许多秒或者更久，那么工作队列里的东西就开始堆积了
         // 所以我们在另一个线程做destruct
         delete writer_p;
-      }).detach();
+      });
       goto OPEN_WRITER;
     }
   }
+  if (destruct_thread.joinable())
+    destruct_thread.join();
+  if (prepare_writer_thread.joinable())
+    prepare_writer_thread.join();
 }
 
 void capture::render_text(int pos, const std::string &text, int font_height,
