@@ -42,14 +42,25 @@ void capture::run() {
 void capture::stop() {
   {
     int expect = RUNNING;
-    if (!state.compare_exchange_strong(expect, STOPPING))
-      throw std::logic_error("invalid state");
+    if (!state.compare_exchange_strong(expect, STOPPING)) {
+      logger::info("stop failed, expect state ", RUNNING, ", actual state ",
+                   expect);
+      return;
+    }
   }
-  if (capture_thread.joinable())
-    capture_thread.join();
-  if (write_thread.joinable())
-    write_thread.join();
+  if (std::this_thread::get_id() != capture_thread.get_id()) {
+    if (capture_thread.joinable())
+      capture_thread.join();
+  }
+  if (std::this_thread::get_id() != write_thread.get_id()) {
+    if (write_thread.joinable())
+      write_thread.join();
+  }
   state = STOPPED;
+}
+
+void capture::internal_stop_avoid_deadlock() {
+  std::thread([this] { stop(); }).detach();
 }
 
 void capture::do_capture(const config &config) {
@@ -132,13 +143,11 @@ void capture::do_capture(const config &config) {
   frames_cv.notify_one();
 }
 
-// FIXME 这些线程报错怎么向上层反应？
-//可以规定一些二进制的位作为错误编号，这样就可以把两种线程的各种错误"或"起来统一返回出去
 void capture::do_write(const config &config) {
   static const int open_writer_retry = 3;
 
   if (config.duration < 1)
-    return; //短于1秒的话文件名可能重复
+    this->stop(); //短于1秒的话文件名可能重复
 
   auto fps = (uint32_t)config.fps;
   cv::Size frame_size(config.resolution);
@@ -147,7 +156,7 @@ void capture::do_write(const config &config) {
   cv::Ptr<cv::freetype::FreeType2> freetype = cv::freetype::createFreeType2();
   if (freetype.empty()) {
     logger::error("create freetype2 instance failed");
-    return;
+    this->stop();
   }
   freetype->loadFontData("Helvetica.ttc", 0);
 
@@ -181,14 +190,17 @@ OPEN_WRITER:
     // first time!
     time_t tm;
     time(&tm);
-    if (!prepare_writer(tm, writer, writer_filename))
-      throw std::runtime_error("prepare_writer failed");
+    if (!prepare_writer(tm, writer, writer_filename)) {
+      logger::error("prepare_writer failed");
+      this->stop();
+    }
     first_time = false;
   } else {
     {
       bool expect = false;
       if (!next_writer_mut.compare_exchange_strong(expect, true)) {
-        abort();
+        logger::error("next_writer_mut.compare_exchange_strong failed");
+        this->stop();
       }
     }
     writer = std::move(next_writer);
@@ -204,16 +216,21 @@ OPEN_WRITER:
     if (prepare_writer_thread.joinable())
       prepare_writer_thread.join();
     prepare_writer_thread =
-        std::thread([tm, &next_writer, &next_writer_mut, prepare_writer,
+        std::thread([this, tm, &next_writer, &next_writer_mut, prepare_writer,
                      &next_writer_filename] {
           {
             bool expect = false;
             if (!next_writer_mut.compare_exchange_strong(expect, true)) {
-              abort();
+              {
+                logger::error("next_writer_mut.compare_exchange_strong failed");
+                internal_stop_avoid_deadlock();
+              }
             }
           }
-          if (!prepare_writer(tm, next_writer, next_writer_filename))
-            abort();
+          if (!prepare_writer(tm, next_writer, next_writer_filename)) {
+            logger::error("prepare_writer failed");
+            internal_stop_avoid_deadlock();
+          }
           next_writer_mut.store(false);
         });
   }

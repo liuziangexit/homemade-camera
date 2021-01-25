@@ -26,7 +26,6 @@ public:
 
   void run();
 
-  // FIXME 实现内部出错停止的功能
   void stop();
 
   ~capture();
@@ -84,6 +83,8 @@ private:
 
   void render_text(int, const std::string &, int, std::optional<cv::Scalar>,
                    cv::freetype::FreeType2 *, cv::Mat &);
+
+  void internal_stop_avoid_deadlock();
 };
 
 } // namespace hcam
