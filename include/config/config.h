@@ -8,7 +8,8 @@ namespace hcam {
 
 struct config {
   enum log_level_t { DEBUG, INFO, WARN, ERROR, FATAL };
-  log_level_t log_level;     //
+  log_level_t
+      log_level; //只输出log_level和比它更高的log。比如，log_level==INFO，那么DEBUG不会输出
   enum codec cam_pix_fmt;    //摄像头的像素格式
   uint32_t duration;         //每个视频文件的持续时间
   std::string save_location; //保存目录

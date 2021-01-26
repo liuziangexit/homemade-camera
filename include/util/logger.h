@@ -1,5 +1,6 @@
 #ifndef __HCAM_LOGGER_H__
 #define __HCAM_LOGGER_H__
+#include "config/config_manager.h"
 #include <iostream>
 #include <mutex>
 #include <sstream>
@@ -16,8 +17,12 @@ class logger {
   template <typename... ARGS>
   static void logger_impl(uint32_t level, ARGS &&...args) {
     // TODO 预分配空间
+    if (level < config_manager::get().log_level)
+      return;
     std::ostringstream fmt;
-    if (level == 1) {
+    if (level == 0) {
+      fmt << "[debug] ";
+    } else if (level == 1) {
       fmt << "[info] ";
     } else if (level == 2) {
       fmt << "[warn] ";
@@ -57,6 +62,10 @@ class logger {
   static void logger_impl() {}
 
 public:
+  template <typename... ARGS> static void debug(ARGS &&...args) {
+    logger_impl(0, std::forward<ARGS>(args)...);
+  }
+
   template <typename... ARGS> static void info(ARGS &&...args) {
     logger_impl(1, std::forward<ARGS>(args)...);
   }
