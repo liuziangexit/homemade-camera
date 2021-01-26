@@ -129,6 +129,7 @@ bool v4l_capture::setup_buffer() {
     }
   }
 
+  // FIXME 单独抽出来做个函数
   // enable stream mode
   int type = buf_req.type;
   if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
@@ -151,6 +152,7 @@ bool v4l_capture::enqueue_buffer(uint32_t idx) {
   if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
     return false;
   }
+  logger::debug("v4l_capture::enqueue_buffer <- ", idx);
   return true;
 }
 
@@ -169,6 +171,7 @@ int v4l_capture::dequeue_buffer() {
   if (ret < 0) {
     return -1;
   }
+  logger::debug("v4l_capture::dequeue_buffer -> ", buf.index);
   return buf.index;
 }
 
@@ -275,7 +278,7 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
   uint32_t current_read = checkpoint(3);
   if (last_read != 0) {
     // FIXME 如果buffer数不足，才打印
-    /*logger::info("read interval: ", current_read - last_read, "ms");*/
+    logger::info("read interval: ", current_read - last_read, "ms");
   }
   last_read = current_read;
 
@@ -323,10 +326,10 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
   }
 
   auto done_time = checkpoint(3);
-  /*logger::info("v4lcapture alloc:", dequeue_time - alloc_time,
+  logger::info("v4lcapture alloc:", dequeue_time - alloc_time,
                "ms, dequeue:", copy_time - dequeue_time,
                "ms, copy:", enqueue_time - copy_time,
-               "ms, enqueue:", done_time - enqueue_time, "ms");*/
+               "ms, enqueue:", done_time - enqueue_time, "ms");
 
   return std::pair<bool, std::shared_ptr<buffer>>(
       true, std::shared_ptr<buffer>(rv, [](buffer *p) { free(p); }));

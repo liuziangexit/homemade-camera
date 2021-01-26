@@ -19,12 +19,6 @@
 #include <time.h>
 #include <utility>
 
-#ifdef __linux__
-#define USE_V4L_CAPTURE
-#include "video/soft_jpg.h"
-#include "video/v4l_capture.h"
-#endif
-
 namespace hcam {
 
 capture::capture() : _config(config_manager::get()) {}
@@ -37,6 +31,7 @@ void capture::run() {
       throw std::logic_error("capture already running");
   }
   capture_thread = std::thread([this] { this->do_capture(this->_config); });
+  decode_thread = std::thread([this] { this->do_decode(this->_config); });
   write_thread = std::thread([this] { this->do_write(this->_config); });
 }
 
@@ -53,6 +48,10 @@ void capture::stop() {
   if (std::this_thread::get_id() != capture_thread.get_id()) {
     if (capture_thread.joinable())
       capture_thread.join();
+  }
+  if (std::this_thread::get_id() != decode_thread.get_id()) {
+    if (decode_thread.joinable())
+      decode_thread.join();
   }
   if (std::this_thread::get_id() != write_thread.get_id()) {
     if (write_thread.joinable())
@@ -77,9 +76,8 @@ void capture::do_capture(const config &config) {
     logger::error("VideoCapture open failed");
     return;
   }
-  soft_jpg jpg_decoder;
 
-  auto get_frame = [&jpg_decoder, &capture](frame_context &ctx) -> bool {
+  auto process = [&capture](frame_context &ctx) -> bool {
     ctx.capture_time = checkpoint(3);
     std::pair<bool, std::shared_ptr<v4l_capture::buffer>> packet =
         capture.read();
@@ -87,15 +85,8 @@ void capture::do_capture(const config &config) {
       logger::error("VideoCapture read failed");
       return false;
     }
-    ctx.decode_time = checkpoint(3);
-    std::pair<bool, cv::Mat> decoded = jpg_decoder.decode(
-        (unsigned char *)(packet.second->data), packet.second->length);
-    if (!decoded.first) {
-      logger::error("JPG decode failed");
-      return false;
-    }
-    ctx.frame = std::move(decoded.second);
-    ctx.decode_done_time = checkpoint(3);
+    ctx.captured_frame = std::move(packet.second);
+    ctx.capture_done_time = checkpoint(3);
     return true;
   };
 #else
@@ -108,16 +99,15 @@ void capture::do_capture(const config &config) {
       throw std::runtime_error("capture open failed");
   }
 
-  auto get_frame = [&capture](frame_context &ctx) -> bool {
+  auto process = [&capture](frame_context &ctx) -> bool {
     ctx.capture_time = checkpoint(3);
     cv::Mat mat;
     if (!capture.read(mat)) {
       logger::error("!VideoCapture read failed");
       return false;
     }
-    ctx.decode_time = checkpoint(3);
-    ctx.decode_done_time = ctx.decode_time;
-    ctx.frame = std::move(mat);
+    ctx.capture_done_time = checkpoint(3);
+    ctx.decoded_frame = std::move(mat);
     return true;
   };
 #endif
@@ -128,23 +118,84 @@ void capture::do_capture(const config &config) {
     }
 
     frame_context ctx;
-    if (!get_frame(ctx)) {
+    if (!process(ctx)) {
       break;
     }
 
-    std::unique_lock l(frames_mtx);
-    frame_queue.push(std::move(ctx));
-    if (frame_queue.size() > 10) {
+    std::unique_lock l(capture2decode_mtx);
+    capture2decode_queue.push(std::move(ctx));
+    if (capture2decode_queue.size() > 10) {
       //消费跟不上生产
-      logger::warn("frame_queue.size(): ", frame_queue.size());
+      logger::warn("capture2decode_queue.size(): ",
+                   capture2decode_queue.size());
     }
-    frames_cv.notify_one();
+    capture2decode_cv.notify_one();
   }
-  std::unique_lock l(frames_mtx);
+  std::unique_lock l(capture2decode_mtx);
   frame_context ctx;
   ctx.quit = true;
-  frame_queue.push(ctx);
-  frames_cv.notify_one();
+  capture2decode_queue.push(ctx);
+  capture2decode_cv.notify_one();
+  this->internal_stop_avoid_deadlock();
+}
+
+void capture::do_decode(const config &config) {
+#ifdef USE_V4L_CAPTURE
+  soft_jpg jpg_decoder;
+
+  auto process = [&jpg_decoder](frame_context &ctx) -> bool {
+    ctx.decode_time = checkpoint(3);
+    std::pair<bool, cv::Mat> decoded =
+        jpg_decoder.decode((unsigned char *)(ctx.captured_frame->data),
+                           ctx.captured_frame->length);
+    if (!decoded.first) {
+      logger::error("JPG decode failed");
+      return false;
+    }
+    ctx.decoded_frame = std::move(decoded.second);
+    ctx.decode_done_time = checkpoint(3);
+    return true;
+  };
+#else
+  auto process = [](frame_context &ctx) -> bool {
+    ctx.decode_time = checkpoint(3);
+    ctx.decode_done_time = ctx.decode_time;
+    return true;
+  };
+#endif
+
+  while (true) {
+    if (state == STOPPING) {
+      break;
+    }
+
+    std::unique_lock lc2d(capture2decode_mtx);
+    capture2decode_cv.wait(lc2d,
+                           [this] { return !capture2decode_queue.empty(); });
+    frame_context ctx = std::move(capture2decode_queue.front());
+    capture2decode_queue.pop();
+    if (ctx.quit) {
+      break;
+    }
+    lc2d.unlock();
+
+    if (!process(ctx)) {
+      break;
+    }
+
+    std::unique_lock ld2w(decode2write_mtx);
+    decode2write_queue.push(std::move(ctx));
+    if (decode2write_queue.size() > 10) {
+      //消费跟不上生产
+      logger::warn("decode2write_queue.size(): ", decode2write_queue.size());
+    }
+    decode2write_cv.notify_one();
+  }
+  std::unique_lock l(decode2write_mtx);
+  frame_context ctx;
+  ctx.quit = true;
+  decode2write_queue.push(ctx);
+  decode2write_cv.notify_one();
   this->internal_stop_avoid_deadlock();
 }
 
@@ -251,16 +302,16 @@ OPEN_WRITER:
       break;
     }
 
-    std::unique_lock l(frames_mtx);
-    frames_cv.wait(l, [this] { return !frame_queue.empty(); });
-    frame_context ctx = std::move(frame_queue.front());
-    frame_queue.pop();
+    std::unique_lock l(decode2write_mtx);
+    decode2write_cv.wait(l, [this] { return !decode2write_queue.empty(); });
+    frame_context ctx = std::move(decode2write_queue.front());
+    decode2write_queue.pop();
     if (ctx.quit) {
       break;
     }
     l.unlock();
 
-    cv::Mat &frame = ctx.frame;
+    cv::Mat &frame = ctx.decoded_frame;
 
     ctx.process_time = checkpoint(3);
     {
@@ -304,7 +355,10 @@ OPEN_WRITER:
     writer->write(frame);
     ctx.done_time = checkpoint(3);
 
-    frame_cost = ctx.decode_done_time - ctx.capture_time;
+    frame_cost = ctx.capture_done_time - ctx.capture_time;
+    if (ctx.decode_done_time - ctx.decode_time > frame_cost) {
+      frame_cost = ctx.decode_done_time - ctx.decode_time;
+    }
     if (ctx.done_time - ctx.process_time > frame_cost) {
       frame_cost = ctx.done_time - ctx.process_time;
     }
@@ -312,7 +366,8 @@ OPEN_WRITER:
     if (frame_cost > expect_frame_time) {
       logger::warn("low frame rate, expect ", expect_frame_time, "ms, actual ",
                    frame_cost, //
-                   "ms (capture:", ctx.decode_time - ctx.capture_time,
+                   "ms (capture:", ctx.capture_done_time - ctx.capture_time,
+                   "ms, inter-thread:", ctx.decode_time - ctx.capture_done_time,
                    "ms, decode:", ctx.decode_done_time - ctx.decode_time,
                    "ms, inter-thread:", ctx.process_time - ctx.decode_done_time,
                    "ms, process:", ctx.write_time - ctx.process_time,

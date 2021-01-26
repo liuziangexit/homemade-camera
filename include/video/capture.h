@@ -18,16 +18,19 @@
 #include <utility>
 #include <vector>
 
+#ifdef __linux__
+#define USE_V4L_CAPTURE
+#include "video/soft_jpg.h"
+#include "video/v4l_capture.h"
+#endif
+
 namespace hcam {
 
 class capture {
 public:
   capture();
-
   void run();
-
   void stop();
-
   ~capture();
 
 private:
@@ -36,10 +39,13 @@ private:
     frame_context(const frame_context &) = default;
     frame_context(frame_context &&) = default;
 
-    cv::Mat frame;
+#ifdef USE_V4L_CAPTURE
+    std::shared_ptr<v4l_capture::buffer> captured_frame;
+#endif
+    cv::Mat decoded_frame;
     //测性能
-    uint32_t capture_time, decode_time, decode_done_time, process_time,
-        write_time, done_time;
+    uint32_t capture_time, capture_done_time, decode_time, decode_done_time,
+        process_time, write_time, done_time;
     //通知write线程退出
     bool quit = false;
   };
@@ -47,11 +53,17 @@ private:
   enum { STOPPED, RUNNING, STOPPING };
   std::atomic<int> state = STOPPED;
   config _config;
-  // capture线程解码出来的帧，write线程会去这里拿
-  std::queue<frame_context> frame_queue;
-  std::mutex frames_mtx;
-  std::condition_variable frames_cv;
-  std::thread capture_thread, write_thread;
+
+  std::thread capture_thread;
+  std::queue<frame_context> capture2decode_queue;
+  std::mutex capture2decode_mtx;
+  std::condition_variable capture2decode_cv;
+  std::thread decode_thread;
+  std::queue<frame_context> decode2write_queue;
+  std::mutex decode2write_mtx;
+  std::condition_variable decode2write_cv;
+  std::thread write_thread;
+
   //帧速
   uint32_t frame_cost = 0;
 
@@ -78,12 +90,10 @@ private:
   }
 
   void do_capture(const config &);
-
+  void do_decode(const config &);
   void do_write(const config &);
-
   void render_text(int, const std::string &, int, std::optional<cv::Scalar>,
                    cv::freetype::FreeType2 *, cv::Mat &);
-
   void internal_stop_avoid_deadlock();
 };
 
