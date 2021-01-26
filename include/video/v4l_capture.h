@@ -36,7 +36,6 @@ private:
   int fd;
   buffer _buffer[V4L_BUFFER_CNT];
   bool first_frame;
-  int enq_idx = 0, deq_idx = 0;
 
   void init();
   bool set_fps(uint32_t);
@@ -44,12 +43,7 @@ private:
   bool set_fmt(graphic);
   bool setup_buffer();
   bool enqueue_buffer(uint32_t);
-  bool dequeue_buffer(uint32_t);
-  inline int next(int *val) {
-    auto ret = *val;
-    *val = (*val + 1) % V4L_BUFFER_CNT;
-    return ret;
-  }
+  int dequeue_buffer();
 
 public:
   v4l_capture();

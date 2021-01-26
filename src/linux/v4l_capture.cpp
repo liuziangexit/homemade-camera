@@ -147,9 +147,6 @@ bool v4l_capture::enqueue_buffer(uint32_t idx) {
   buf.memory = V4L2_MEMORY_MMAP;
   buf.index = idx;
 
-  // clear the buffer(unnecessary but it wont cost much time)
-  memset(_buffer[idx].data, 0, _buffer[idx].length);
-
   // Put the buffer in the incoming queue.
   if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
     return false;
@@ -157,19 +154,22 @@ bool v4l_capture::enqueue_buffer(uint32_t idx) {
   return true;
 }
 
-bool v4l_capture::dequeue_buffer(uint32_t idx) {
+int v4l_capture::dequeue_buffer() {
   struct v4l2_buffer buf;
   memset(&buf, 0, sizeof(buf));
 
   buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   buf.memory = V4L2_MEMORY_MMAP;
-  buf.index = idx;
 
   // The buffer's waiting in the outgoing queue.
-  if (ioctl(fd, VIDIOC_DQBUF, &buf) < 0) {
-    return false;
+  int ret = ioctl(fd, VIDIOC_DQBUF, &buf);
+  /*if (buf.flags & V4L2_BUF_FLAG_ERROR != 0) {
+  logger::error("v4l_capture::dequeue_buffer V4L2_BUF_FLAG_ERROR");
+   }*/
+  if (ret < 0) {
+    return -1;
   }
-  return true;
+  return buf.index;
 }
 
 v4l_capture::v4l_capture() { init(); }
@@ -283,8 +283,8 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
   // https://www.youtube.com/watch?v=qNgCGIBrK9A
   if (first_frame) {
     first_frame = false;
-    for (int i = 0; i < V4L_BUFFER_CNT - 1; i++) {
-      if (!enqueue_buffer(next(&enq_idx))) {
+    for (int i = 0; i < V4L_BUFFER_CNT; i++) {
+      if (!enqueue_buffer(i)) {
         logger::error("enqueue_buffer failed");
         close();
         return std::pair<bool, std::shared_ptr<buffer>>(
@@ -293,44 +293,40 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
     }
   }
 
-  auto enqueue_time = checkpoint(3);
-
-  // get ready for the next frame
-  if (!enqueue_buffer(next(&enq_idx))) {
-    logger::error("enqueue_buffer failed");
-    close();
-    return std::pair<bool, std::shared_ptr<buffer>>(false,
-                                                    std::shared_ptr<buffer>());
-  }
-
-  auto alloc_time = checkpoint(3);
-
   // allocate space for return
-  buffer *rv = (buffer *)malloc(sizeof(buffer) + _buffer[deq_idx].length);
+  auto alloc_time = checkpoint(3);
+  buffer *rv = (buffer *)malloc(sizeof(buffer) + _buffer[0].length);
   rv->data = (char *)rv + sizeof(struct buffer);
-  rv->length = _buffer[deq_idx].length;
-
-  auto dequeue_time = checkpoint(3);
+  rv->length = _buffer[0].length;
 
   // retrieve frame
-  if (!dequeue_buffer(deq_idx)) {
+  auto dequeue_time = checkpoint(3);
+  int buffer_index;
+  if ((buffer_index = dequeue_buffer()) < 0) {
     logger::error("dequeue_buffer failed");
     close();
     return std::pair<bool, std::shared_ptr<buffer>>(false,
                                                     std::shared_ptr<buffer>());
   }
 
-  auto copy_time = checkpoint(3);
   // copy to return value
-  memcpy(rv->data, this->_buffer[deq_idx].data, this->_buffer[deq_idx].length);
+  auto copy_time = checkpoint(3);
+  memcpy(rv->data, this->_buffer[buffer_index].data, this->_buffer[0].length);
+
+  // get ready for the next frame
+  auto enqueue_time = checkpoint(3);
+  if (!enqueue_buffer(buffer_index)) {
+    logger::error("enqueue_buffer failed");
+    close();
+    return std::pair<bool, std::shared_ptr<buffer>>(false,
+                                                    std::shared_ptr<buffer>());
+  }
+
   auto done_time = checkpoint(3);
-
-  next(&deq_idx);
-
-  /*logger::info("v4lcapture enqueue:", alloc_time - enqueue_time,
-               "ms, alloc:", dequeue_time - alloc_time,
+  /*logger::info("v4lcapture alloc:", dequeue_time - alloc_time,
                "ms, dequeue:", copy_time - dequeue_time,
-               "ms, copy:", done_time - copy_time, "ms");*/
+               "ms, copy:", enqueue_time - copy_time,
+               "ms, enqueue:", done_time - enqueue_time, "ms");*/
 
   return std::pair<bool, std::shared_ptr<buffer>>(
       true, std::shared_ptr<buffer>(rv, [](buffer *p) { free(p); }));
