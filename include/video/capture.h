@@ -22,7 +22,7 @@ namespace hcam {
 
 class capture {
 public:
-  capture(const config &);
+  capture();
 
   void run();
 

@@ -23,10 +23,12 @@ int main(int argc, char **argv) {
   /*web = new hcam::web("config.json");
   web->run();*/
 
-  hcam::config c("config.json");
-  cap = new hcam::capture(c);
+  cap = new hcam::capture();
   cap->run();
 
-  while (true)
-    std::this_thread::sleep_for(std::chrono::hours(8));
+  getchar();
+
+  raise(SIGINT);
+  /*  while (true)
+      std::this_thread::sleep_for(std::chrono::hours(8));*/
 }

@@ -40,7 +40,7 @@ public:
   std::mutex cvm;
   bool ioc_stopped;
 
-  web(const std::string &);
+  web();
   ~web();
   void run();
   void stop();

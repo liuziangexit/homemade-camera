@@ -1,6 +1,7 @@
 #include "web/service.h"
 #include "boost/beast.hpp"
 #include "config/config.h"
+#include "config/config_manager.h"
 #include "web/asio_http_session.h"
 #include "web/asio_listener.h"
 #include "web/asio_ws_session.h"
@@ -17,7 +18,7 @@
 
 namespace hcam {
 
-web::web(const std::string &config_file) : conf(config_file) {
+web::web() : conf(config_manager::get()) {
   // TODO frome config
   auto const address = net::ip::make_address("0.0.0.0");
   // auto const address = net::ip::make_address("127.0.0.1");

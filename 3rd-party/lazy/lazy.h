@@ -56,7 +56,7 @@ template <typename _Ty, typename _Alloc, typename... _ConstructorArgs>
 class lazy {
 public:
   using value_type =
-      typename std::remove_reference_t<typename std::remove_cv_t<_Ty>>;
+  typename std::remove_reference_t<typename std::remove_cv_t<_Ty>>;
   using allocator_type = _Alloc;
   using reference = value_type &;
   using const_reference = const value_type &;
@@ -124,7 +124,8 @@ public:
    std::bad_alloc will be thrown.
   */
   value_type &get_instance() {
-    value_type *instance = m_instance.load(std::memory_order::memory_order_acquire);
+    value_type *instance =
+        m_instance.load(std::memory_order::memory_order_acquire);
     if (!instance) {
       std::lock_guard<std::mutex> guard(m_lock);
       instance = m_instance.load(std::memory_order::memory_order_relaxed);
@@ -168,10 +169,15 @@ private:
 template <typename _Ty, typename... _ConstructorArgs>
 auto make_lazy(_ConstructorArgs &&... constructor_args) {
   return lazy<_Ty, std::allocator<_Ty>,
-              std::remove_reference_t<std::remove_cv_t<_ConstructorArgs>>...>(
+      std::remove_reference_t<std::remove_cv_t<_ConstructorArgs>>...>(
       std::allocator<_Ty>(),
       std::forward<_ConstructorArgs>(constructor_args)...);
 }
+
+template <typename _Ty, typename... _ConstructorArgs>
+using lazy_t =
+lazy<_Ty, std::allocator<_Ty>,
+    std::remove_reference_t<std::remove_cv_t<_ConstructorArgs>>...>;
 
 } // namespace liuziangexit_lazy
 #endif

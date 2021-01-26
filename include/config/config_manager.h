@@ -3,12 +3,16 @@
 
 #include "config.h"
 #include "lazy/lazy.h"
+#include <string>
 
 namespace hcam {
 
-// liuziangexit_lazy::lazy<config> config
-// auto  liuziangexit_lazy::make_lazy<typename _Ty>(_ConstructorArgs
-// &&constructor_args...) {}
+class config_manager {
+  static liuziangexit_lazy::lazy_t<config, std::string> c;
+
+public:
+  static config get() { return c.get_instance(); }
+};
 
 } // namespace hcam
 
