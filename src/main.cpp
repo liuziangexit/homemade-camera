@@ -26,9 +26,8 @@ int main(int argc, char **argv) {
   cap = new hcam::capture();
   cap->run();
 
-  getchar();
-
-  raise(SIGINT);
-  /*  while (true)
-      std::this_thread::sleep_for(std::chrono::hours(8));*/
+  /*getchar();
+  raise(SIGINT);*/
+  while (true)
+    std::this_thread::sleep_for(std::chrono::hours(8));
 }
