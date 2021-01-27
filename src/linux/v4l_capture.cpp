@@ -168,7 +168,7 @@ int v4l_capture::dequeue_buffer() {
 
   do {
     ret = ioctl(fd, VIDIOC_DQBUF, &buf);
-  } while (-1 == r && EINTR == errno);
+  } while (-1 == ret && EINTR == errno);
 
   /*if (buf.flags & V4L2_BUF_FLAG_ERROR != 0) {
   logger::error("v4l_capture::dequeue_buffer V4L2_BUF_FLAG_ERROR");
