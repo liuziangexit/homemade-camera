@@ -153,6 +153,7 @@ void capture::do_decode(const config &config) {
       return false;
     }
     ctx.decoded_frame = std::move(decoded.second);
+    ctx.captured_frame.reset();
     ctx.decode_done_time = checkpoint(3);
     return true;
   };
