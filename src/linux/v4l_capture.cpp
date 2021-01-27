@@ -317,6 +317,12 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
                                                     std::shared_ptr<buffer>());
   }
 
+  /*
+   * 这里的memcpy特别慢，按照目前的分析，原因是...
+   * 1)这内存是摄像头硬件里的内存，被我们mmap进了程序地址空间，所以实际上当我们访问它的时候，访问的是摄像头硬件，这肯定很慢
+   * 2)因为这内存不属于主存，所以没有被CPU的cache缓存，所以很慢
+   */
+
   // copy to return value
   auto copy_time = checkpoint(3);
   memcpy(rv->data, this->_buffer[buffer_index].data, this->_buffer[0].length);
