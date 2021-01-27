@@ -219,23 +219,17 @@ void capture::do_write(const config &config) {
   }
   freetype->loadFontData("Helvetica.ttc", 0);
 
-  //不知道为什么，在idea里面调试的时候，如果触发SIGINT，writer们从来不能正常destruct，先不管
-  std::thread prepare_writer_thread, destruct_thread;
-  std::unique_ptr<cv::VideoWriter> writer, next_writer;
-  std::string writer_filename, next_writer_filename;
-  std::atomic<bool> next_writer_mut;
-  bool first_time = true;
-  auto prepare_writer = [config, frame_size,
-                         fps](time_t date,
-                              std::unique_ptr<cv::VideoWriter> &writer,
-                              std::string &filename) {
-    filename = make_filename(config.save_location,
-                             codec_file_format(config.output_codec), date);
-    writer = std::make_unique<cv::VideoWriter>();
+  cv::VideoWriter writer;
+  auto prepare_writer = [config, frame_size, fps](time_t date,
+                                                  cv::VideoWriter &writer,
+                                                  std::string &out_filename) {
+    std::string filename = make_filename(
+        config.save_location, codec_file_format(config.output_codec), date);
 
     for (int tried = 0; tried < open_writer_retry; tried++) {
-      if (writer->open(filename, codec_fourcc(config.output_codec), fps,
-                       frame_size)) {
+      if (writer.open(filename, codec_fourcc(config.output_codec), fps,
+                      frame_size)) {
+        out_filename = filename;
         return true;
       } else {
         logger::error("VideoWriter open ", filename, " failed ", tried + 1);
@@ -245,58 +239,17 @@ void capture::do_write(const config &config) {
   };
 
 OPEN_WRITER:
-  if (first_time) {
-    // first time!
-    time_t tm;
-    time(&tm);
-    if (!prepare_writer(tm, writer, writer_filename)) {
-      logger::error("prepare_writer failed");
-      this->stop();
-    }
-    first_time = false;
-  } else {
-    {
-      bool expect = false;
-      if (!next_writer_mut.compare_exchange_strong(expect, true)) {
-        logger::error("next_writer_mut.compare_exchange_strong failed");
-        this->stop();
-      }
-    }
-    writer = std::move(next_writer);
-    writer_filename = std::move(next_writer_filename);
-    next_writer_mut.store(false);
+  time_t tm;
+  time(&tm);
+  std::string filename;
+  if (!prepare_writer(tm, writer, filename)) {
+    logger::error("prepare_writer failed");
+    this->stop();
   }
 
-  // prepare next writer asynchronous
-  {
-    time_t tm;
-    time(&tm);
-    tm += config.duration;
-    if (prepare_writer_thread.joinable())
-      prepare_writer_thread.join();
-    prepare_writer_thread =
-        std::thread([this, tm, &next_writer, &next_writer_mut, prepare_writer,
-                     &next_writer_filename] {
-          {
-            bool expect = false;
-            if (!next_writer_mut.compare_exchange_strong(expect, true)) {
-              {
-                logger::error("next_writer_mut.compare_exchange_strong failed");
-                internal_stop_avoid_deadlock();
-              }
-            }
-          }
-          if (!prepare_writer(tm, next_writer, next_writer_filename)) {
-            logger::error("prepare_writer failed");
-            internal_stop_avoid_deadlock();
-          }
-          next_writer_mut.store(false);
-        });
-  }
-
-  auto task_begin = checkpoint(3);
-  logger::info("video file change to ", writer_filename);
-  logger::info(" writer backend:", writer->getBackendName(),
+  uint64 task_begin = 0;
+  logger::info("video file change to ", filename);
+  logger::info(" writer backend:", writer.getBackendName(),
                " codec:", codec_to_string(config.output_codec), " fps:", fps,
                " resolution:", frame_size);
 
@@ -314,6 +267,9 @@ OPEN_WRITER:
     }
     l.unlock();
 
+    if (task_begin == 0) {
+      task_begin = ctx.capture_done_time;
+    }
     cv::Mat &frame = ctx.decoded_frame;
 
     ctx.process_time = checkpoint(3);
@@ -353,7 +309,7 @@ OPEN_WRITER:
     }
 
     ctx.write_time = checkpoint(3);
-    writer->write(frame);
+    writer.write(frame);
     ctx.done_time = checkpoint(3);
 
     frame_cost = ctx.capture_done_time - ctx.capture_time;
@@ -379,22 +335,10 @@ OPEN_WRITER:
 
     //到了预定的时间，换文件
     // FIXME linux的mono时间是不会往回的吧？确认一下
-    if (ctx.done_time - task_begin >= config.duration * 1000) {
-      auto writer_p = writer.release();
-      if (destruct_thread.joinable())
-        destruct_thread.join();
-      destruct_thread = std::thread([writer_p] {
-        // destruct时候会开始做一些文件的写入工作，如果文件很大，会花上许多秒或者更久，那么工作队列里的东西就开始堆积了
-        // 所以我们在另一个线程做destruct
-        delete writer_p;
-      });
+    if (ctx.capture_done_time - task_begin >= config.duration * 1000) {
       goto OPEN_WRITER;
     }
   }
-  if (destruct_thread.joinable())
-    destruct_thread.join();
-  if (prepare_writer_thread.joinable())
-    prepare_writer_thread.join();
 }
 
 void capture::render_text(int pos, const std::string &text, int font_height,
