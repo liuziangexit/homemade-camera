@@ -67,6 +67,10 @@ private:
   std::condition_variable decode2write_cv;
   std::thread write_thread;
 
+  bool paused = false;
+  std::mutex pause_mtx;
+  std::condition_variable pause_cv;
+
   //帧速
   uint32_t frame_cost = 0;
 
@@ -98,6 +102,9 @@ private:
   void render_text(int, const std::string &, int, std::optional<cv::Scalar>,
                    cv::freetype::FreeType2 *, cv::Mat &);
   void internal_stop_avoid_deadlock();
+  bool pause_others();
+  void resume_others();
+  void wait_pause();
 };
 
 } // namespace hcam

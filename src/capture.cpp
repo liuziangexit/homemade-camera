@@ -65,6 +65,37 @@ void capture::internal_stop_avoid_deadlock() {
   std::thread([this] { stop(); }).detach();
 }
 
+#define WARN_QUEUE_CNT 3
+#define PAUSE_QUEUE_CNT 100
+
+bool capture::pause_others() {
+  std::unique_lock l(pause_mtx);
+  if (paused)
+    return false;
+  paused = true;
+  logger::warn("pause others!");
+  return true;
+}
+
+void capture::resume_others() {
+  std::unique_lock l(pause_mtx);
+  paused = false;
+  pause_cv.notify_all();
+  logger::warn("resume others!");
+}
+
+void capture::wait_pause() {
+  std::unique_lock l(pause_mtx);
+  bool pause_requested = false;
+  if (paused) {
+    pause_requested = true;
+    logger::warn("wait pause!");
+  }
+  pause_cv.wait(l, [this] { return !paused; });
+  if (pause_requested)
+    logger::warn("resumed!");
+}
+
 void capture::do_capture(const config &config) {
 #ifdef USE_V4L_CAPTURE
   v4l_capture capture;
@@ -119,6 +150,8 @@ void capture::do_capture(const config &config) {
       break;
     }
 
+    wait_pause();
+
     frame_context ctx;
     if (!process(ctx)) {
       break;
@@ -126,11 +159,6 @@ void capture::do_capture(const config &config) {
 
     std::unique_lock l(capture2decode_mtx);
     capture2decode_queue.push(std::move(ctx));
-    if (capture2decode_queue.size() > 10) {
-      //消费跟不上生产
-      logger::warn("capture2decode_queue.size(): ",
-                   capture2decode_queue.size());
-    }
     capture2decode_cv.notify_one();
   }
   std::unique_lock l(capture2decode_mtx);
@@ -167,7 +195,11 @@ void capture::do_decode(const config &config) {
   };
 #endif
 
+  bool paused_by_me = false;
   while (true) {
+    if (!paused_by_me)
+      wait_pause();
+
     std::unique_lock lc2d(capture2decode_mtx);
     capture2decode_cv.wait(lc2d,
                            [this] { return !capture2decode_queue.empty(); });
@@ -176,7 +208,23 @@ void capture::do_decode(const config &config) {
     if (ctx.quit) {
       break;
     }
+    auto capture2decode_queue_size = capture2decode_queue.size();
+    if (capture2decode_queue_size > WARN_QUEUE_CNT) {
+      logger::warn("capture2decode_queue size: ", capture2decode_queue_size);
+    }
     lc2d.unlock();
+
+    if (capture2decode_queue_size > PAUSE_QUEUE_CNT) {
+      if (!paused_by_me) {
+        if (pause_others())
+          paused_by_me = true;
+      }
+    } else if (capture2decode_queue_size == 0) {
+      if (paused_by_me) {
+        resume_others();
+        paused_by_me = false;
+      }
+    }
 
     if (!process(ctx)) {
       break;
@@ -184,10 +232,6 @@ void capture::do_decode(const config &config) {
 
     std::unique_lock ld2w(decode2write_mtx);
     decode2write_queue.push(std::move(ctx));
-    if (decode2write_queue.size() > 10) {
-      //消费跟不上生产
-      logger::warn("decode2write_queue.size(): ", decode2write_queue.size());
-    }
     decode2write_cv.notify_one();
   }
   std::unique_lock l(decode2write_mtx);
@@ -249,7 +293,11 @@ OPEN_WRITER:
                " codec:", codec_to_string(config.output_codec), " fps:", fps,
                " resolution:", frame_size);
 
+  bool paused_by_me = false;
   while (true) {
+    if (!paused_by_me)
+      wait_pause();
+
     std::unique_lock l(decode2write_mtx);
     decode2write_cv.wait(l, [this] { return !decode2write_queue.empty(); });
     frame_context ctx = std::move(decode2write_queue.front());
@@ -257,7 +305,23 @@ OPEN_WRITER:
     if (ctx.quit) {
       break;
     }
+    auto decode2write_queue_size = decode2write_queue.size();
+    if (decode2write_queue_size > WARN_QUEUE_CNT) {
+      logger::warn("decode2write_queue size: ", decode2write_queue_size);
+    }
     l.unlock();
+
+    if (decode2write_queue_size > PAUSE_QUEUE_CNT) {
+      if (!paused_by_me) {
+        if (pause_others())
+          paused_by_me = true;
+      }
+    } else if (decode2write_queue_size == 0) {
+      if (paused_by_me) {
+        resume_others();
+        paused_by_me = false;
+      }
+    }
 
     if (task_begin == 0) {
       task_begin = ctx.capture_done_time;
