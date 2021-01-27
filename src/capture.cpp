@@ -168,10 +168,6 @@ void capture::do_decode(const config &config) {
 #endif
 
   while (true) {
-    if (state == STOPPING) {
-      break;
-    }
-
     std::unique_lock lc2d(capture2decode_mtx);
     capture2decode_cv.wait(lc2d,
                            [this] { return !capture2decode_queue.empty(); });
@@ -254,10 +250,6 @@ OPEN_WRITER:
                " resolution:", frame_size);
 
   while (true) {
-    if (state == STOPPING) {
-      break;
-    }
-
     std::unique_lock l(decode2write_mtx);
     decode2write_cv.wait(l, [this] { return !decode2write_queue.empty(); });
     frame_context ctx = std::move(decode2write_queue.front());
