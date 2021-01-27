@@ -164,7 +164,12 @@ int v4l_capture::dequeue_buffer() {
   buf.memory = V4L2_MEMORY_MMAP;
 
   // The buffer's waiting in the outgoing queue.
-  int ret = ioctl(fd, VIDIOC_DQBUF, &buf);
+  int ret;
+
+  do {
+    ret = ioctl(fd, VIDIOC_DQBUF, &buf);
+  } while (-1 == r && EINTR == errno);
+
   /*if (buf.flags & V4L2_BUF_FLAG_ERROR != 0) {
   logger::error("v4l_capture::dequeue_buffer V4L2_BUF_FLAG_ERROR");
    }*/
