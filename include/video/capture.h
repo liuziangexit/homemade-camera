@@ -15,6 +15,7 @@
 #include <queue>
 #include <string>
 #include <thread>
+#include <time.h>
 #include <utility>
 #include <vector>
 
@@ -39,6 +40,8 @@ private:
     frame_context(const frame_context &) = default;
     frame_context(frame_context &&) = default;
 
+    //捕获帧的时间
+    time_t frame_time;
 #ifdef USE_V4L_CAPTURE
     std::shared_ptr<v4l_capture::buffer> captured_frame;
 #endif

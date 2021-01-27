@@ -101,6 +101,7 @@ void capture::do_capture(const config &config) {
 
   auto process = [&capture](frame_context &ctx) -> bool {
     ctx.capture_time = checkpoint(3);
+    time(&ctx.frame_time);
     cv::Mat mat;
     if (!capture.read(mat)) {
       logger::error("!VideoCapture read failed");
@@ -317,9 +318,7 @@ OPEN_WRITER:
     ctx.process_time = checkpoint(3);
     {
       //在指定位置渲染时间
-      time_t tm;
-      time(&tm);
-      auto localt = localtime(&tm);
+      auto localt = localtime(&ctx.frame_time);
       std::ostringstream fmt(std::ios::app);
       fmt << localt->tm_year + 1900 << '/' << localt->tm_mon + 1 << '/'
           << localt->tm_mday << " " << localt->tm_hour << ':' << localt->tm_min
