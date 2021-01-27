@@ -1,2 +1,2 @@
-rm -f nohup.log
+rm -f nohup.out
 nohup ./bin/homecam &

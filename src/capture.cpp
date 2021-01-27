@@ -73,6 +73,7 @@ bool capture::pause_others() {
   if (paused)
     return false;
   paused = true;
+  pause_time = checkpoint(3);
   logger::warn("pause others!");
   return true;
 }
@@ -81,7 +82,8 @@ void capture::resume_others() {
   std::unique_lock l(pause_mtx);
   paused = false;
   pause_cv.notify_all();
-  logger::warn("resume others!");
+  logger::warn("resume others! paused time: ", checkpoint(3) - pause_time,
+               "ms");
 }
 
 void capture::wait_pause() {

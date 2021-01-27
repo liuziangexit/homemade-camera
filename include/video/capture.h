@@ -67,6 +67,7 @@ private:
   std::condition_variable decode2write_cv;
   std::thread write_thread;
 
+  uint32_t pause_time;
   bool paused = false;
   std::mutex pause_mtx;
   std::condition_variable pause_cv;
