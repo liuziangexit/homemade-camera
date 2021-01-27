@@ -283,7 +283,7 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
   uint32_t current_read = checkpoint(3);
   if (last_read != 0) {
     // FIXME 如果buffer数不足，才打印
-    logger::info("read interval: ", current_read - last_read, "ms");
+    logger::debug("read interval: ", current_read - last_read, "ms");
   }
   last_read = current_read;
 
@@ -331,10 +331,10 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
   }
 
   auto done_time = checkpoint(3);
-  logger::info("v4lcapture alloc:", dequeue_time - alloc_time,
-               "ms, dequeue:", copy_time - dequeue_time,
-               "ms, copy:", enqueue_time - copy_time,
-               "ms, enqueue:", done_time - enqueue_time, "ms");
+  logger::debug("v4lcapture alloc:", dequeue_time - alloc_time,
+                "ms, dequeue:", copy_time - dequeue_time,
+                "ms, copy:", enqueue_time - copy_time,
+                "ms, enqueue:", done_time - enqueue_time, "ms");
 
   return std::pair<bool, std::shared_ptr<buffer>>(
       true, std::shared_ptr<buffer>(rv, [](buffer *p) { free(p); }));
