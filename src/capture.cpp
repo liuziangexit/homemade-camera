@@ -79,6 +79,7 @@ void capture::do_capture(const config &config) {
 
   auto process = [&capture](frame_context &ctx) -> bool {
     ctx.capture_time = checkpoint(3);
+    time(&ctx.frame_time);
     std::pair<bool, std::shared_ptr<v4l_capture::buffer>> packet =
         capture.read();
     if (!packet.first) {
