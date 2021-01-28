@@ -35,7 +35,10 @@ OK-OPENCV里的那个copy frame的修改应该放到外面去做，至少要检�
 OK-ssl握手应该在基类做
 
 -http转ws
+-http和ws的handler
+-定web api
 -web界面
+-web前端功能实现
 -mmap的v4l方式memcpy花时间太久的问题
 -web下载录像
 -自动删除旧录像
