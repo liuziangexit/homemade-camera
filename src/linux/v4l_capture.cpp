@@ -225,16 +225,20 @@ std::vector<v4l_capture::graphic> v4l_capture::graphics(codec pix_fmt) {
 }
 
 int v4l_capture::open(const std::string &device, v4l_capture::graphic g) {
+  auto fail = [this](const char *error_message, int ret) -> int {
+    logger::error(error_message);
+    close();
+    return ret;
+  };
+
   // open device
   if ((fd = ::open(device.c_str(), O_RDWR)) < 0) {
-    close();
-    return -1;
+    return fail("v4l_capture open device failed", -1);
   }
 
   // check device capabilities
   if (!check_cap(V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE)) {
-    close();
-    return -2;
+    return fail("v4l_capture device capabilities failed", -2);
   }
 
   // check if the specified graphic will working
@@ -250,30 +254,27 @@ int v4l_capture::open(const std::string &device, v4l_capture::graphic g) {
   }
 
   if (std::find(gs.begin(), gs.end(), g) == gs.end()) {
-    logger::error("specified graphic is not applicable on this device");
-    close();
-    return -3;
+    return fail(
+        "v4l_capture specified graphic is not applicable on this device", -3);
   }
 
   // set format
   if (!set_fmt(g)) {
-    logger::error("setfmt failed");
-    close();
-    return -4;
+    return fail("v4l_capture set fmt failed", -4);
   }
 
   // fps
   if (!set_fps(g.fps)) {
-    logger::error("setfps failed");
-    close();
-    return -5;
+    return fail("v4l_capture set fps failed", -5);
   }
 
   // allocate video memory for frame
   if (!setup_buffer()) {
-    logger::error("setup buffer failed");
-    close();
-    return -6;
+    return fail("v4l_capture setup buffer failed", -6);
+  }
+
+  if (!stream_on()) {
+    return fail("v4l_capture stream on failed", -7);
   }
 
   logger::info("device been successfully opened");
