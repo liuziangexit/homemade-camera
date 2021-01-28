@@ -66,7 +66,7 @@ void capture::internal_stop_avoid_deadlock() {
 }
 
 #define WARN_QUEUE_CNT 3
-#define PAUSE_QUEUE_CNT 100
+#define PAUSE_QUEUE_CNT 60
 
 bool capture::pause_others() {
   std::unique_lock l(pause_mtx);
@@ -160,6 +160,9 @@ void capture::do_capture(const config &config) {
     }
 
     std::unique_lock l(capture2decode_mtx);
+    if (capture2decode_queue.size() > PAUSE_QUEUE_CNT) {
+      continue;
+    }
     capture2decode_queue.push(std::move(ctx));
     capture2decode_cv.notify_one();
   }
@@ -216,7 +219,7 @@ void capture::do_decode(const config &config) {
     }
     lc2d.unlock();
 
-    if (capture2decode_queue_size > PAUSE_QUEUE_CNT) {
+    if (capture2decode_queue_size >= PAUSE_QUEUE_CNT) {
       if (!paused_by_me) {
         if (pause_others())
           paused_by_me = true;
@@ -233,6 +236,9 @@ void capture::do_decode(const config &config) {
     }
 
     std::unique_lock ld2w(decode2write_mtx);
+    if (decode2write_queue.size() > PAUSE_QUEUE_CNT) {
+      continue;
+    }
     decode2write_queue.push(std::move(ctx));
     decode2write_cv.notify_one();
   }
@@ -313,7 +319,7 @@ OPEN_WRITER:
     }
     l.unlock();
 
-    if (decode2write_queue_size > PAUSE_QUEUE_CNT) {
+    if (decode2write_queue_size >= PAUSE_QUEUE_CNT) {
       if (!paused_by_me) {
         if (pause_others())
           paused_by_me = true;
