@@ -36,7 +36,7 @@ OK-OPENCV里的那个copy frame的修改应该放到外面去做，至少要检�
 -ssl握手应该在基类做
 -http转ws
 -web界面
--web播放录像
+-mmap的v4l方式memcpy花时间太久的问题
 -web下载录像
 -自动删除旧录像
 -检查warning
