@@ -34,13 +34,13 @@ OK-树莓派上达到720p 30帧
 OK-OPENCV里的那个copy frame的修改应该放到外面去做，至少要检测现在是不是在用omxh264
 OK-ssl握手应该在基类做
 
--http转ws 
+-http转ws
 -http和ws的handler
 -定web api
 -web界面
 -web前端功能实现
 -mmap的v4l方式memcpy花时间太久的问题
--web下载录像
+-web下载录像（这个应该还蛮简单，只是用标准的html控件去做就行了吧，可能服务端要支持分块http
 -自动删除旧录像
 -检查warning
 -测试线程池的完美转发
