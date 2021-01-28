@@ -367,7 +367,21 @@ OPEN_WRITER:
     }
 
     ctx.write_time = checkpoint(3);
-    writer.write(frame);
+    try {
+      writer.write(frame);
+    } catch (const cv::Exception &ex) {
+      logger::fatal("writer.write failed");
+      internal_stop_avoid_deadlock();
+      break;
+    } catch (const std::exception &ex) {
+      logger::fatal("writer.write failed");
+      internal_stop_avoid_deadlock();
+      break;
+    } catch (...) {
+      logger::fatal("writer.write failed");
+      internal_stop_avoid_deadlock();
+      break;
+    }
     ctx.done_time = checkpoint(3);
 
     frame_cost = ctx.capture_done_time - ctx.capture_time;
