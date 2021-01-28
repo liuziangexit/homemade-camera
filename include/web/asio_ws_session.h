@@ -57,39 +57,15 @@ public:
 
   // Start the asynchronous operation
   void on_run() {
-    // Set TCP timeout.
-    // TODO load from configmanager
-    beast::get_lowest_layer(this->stream_)
-        .expires_after(std::chrono::seconds(30));
-
-    if constexpr (SSL) {
-      // Perform the SSL handshake
-      this->stream_.next_layer().async_handshake(
-          ssl::stream_base::server,
-          [this, shared_this = this->shared_from_this()](beast::error_code ec) {
-            this->on_handshake(ec);
-          });
-    } else {
-      // WS handshake
-      this->on_handshake(beast::error_code());
-    }
+    this->ssl_handshake([this](beast::error_code e) { on_handshake(e); });
   }
 
   // Websocket handshake
   void on_handshake(beast::error_code ec) {
-    if constexpr (SSL) {
-      if (ec) {
-        hcam::logger::debug(this->remote_,
-                            " SSL handshake error: ", ec.message());
-        this->close();
-        return;
-      } else {
-        hcam::logger::debug(this->remote_, " SSL handshake OK");
-      }
-    } else {
-      if (ec) {
-        throw std::runtime_error("should never happen");
-      }
+    if (ec) {
+      hcam::logger::debug(this->remote_, " handshake error: ", ec.message());
+      this->close();
+      return;
     }
 
     // Turn off the timeout on the tcp_stream, because

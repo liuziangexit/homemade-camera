@@ -34,5 +34,6 @@ bin
 .vscode/settings.json
 *.mov
 cmake-build-debug
-.idea/.gitignore
 cmake-build-release
+.idea/.gitignore
+3rd-party/libjpeg-turbo/build

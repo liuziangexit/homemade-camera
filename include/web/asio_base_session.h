@@ -6,6 +6,7 @@
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
+#include <boost/beast/core/error.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/system/error_code.hpp>
 #include <functional>
@@ -39,30 +40,37 @@ private:
   // session自杀的时候，需要把自己在service里的引用消掉
   std::function<bool()> unregister_;
 
+  void set_tcp_timeout() {
+    // TODO load from configmanager
+    beast::get_lowest_layer(this->stream_)
+        .expires_after(std::chrono::seconds(30));
+  }
+
 public:
   // ssl
   asio_base_session(tcp::socket &&socket, ssl::context &ssl_ctx,
                     const std::function<bool()> &unregister)
       : stream_(std::move(socket), ssl_ctx), remote_(socket.remote_endpoint()),
-        unregister_(unregister) {}
+        unregister_(unregister) {
+    set_tcp_timeout();
+  }
 
   // tcp
   explicit asio_base_session(tcp::socket &&socket,
                              const std::function<bool()> &unregister)
       : stream_(std::move(socket)),
         remote_(beast::get_lowest_layer(stream_).socket().remote_endpoint()),
-        unregister_(unregister) {}
+        unregister_(unregister) {
+    set_tcp_timeout();
+  }
 
   asio_base_session(const asio_base_session &) = delete;
 
   virtual ~asio_base_session() {
-//#ifdef DEBUG
-#if 1
     if (this->unregister_()) {
-      logger::fatal("wocao");
+      logger::fatal("asio_base_session destruct failed");
       abort();
     }
-#endif
     hcam::logger::debug(this->remote_, " asio_base_session destruct");
   }
 
@@ -77,6 +85,28 @@ public:
     }
     beast::get_lowest_layer(stream_).close();
     hcam::logger::debug(this->remote_, " asio_base_session close: ok");
+  }
+
+protected:
+  template <typename CALLBACK> void ssl_handshake(const CALLBACK &callback) {
+    /*void ssl_handshake(std::function<void(beast::error_code)> callback) {*/
+    if constexpr (SSL) {
+      this->stream_.async_handshake(
+          ssl::stream_base::server,
+          [this, callback,
+           shared_this = this->shared_from_this()](beast::error_code ec) {
+            if (ec) {
+              hcam::logger::debug(this->remote_,
+                                  " SSL handshake error: ", ec.message());
+            } else {
+              hcam::logger::debug(this->remote_, " SSL handshake OK");
+            }
+            callback(ec);
+          });
+    } else {
+      auto callback_copy = callback;
+      callback_copy(beast::error_code());
+    }
   }
 };
 
