@@ -34,14 +34,14 @@ using session_map_t =
     tbb::concurrent_hash_map<tcp::endpoint, std::shared_ptr<void>,
                              endpoint_compare>;
 
-class web {
+class web_service {
 public:
   std::condition_variable cv;
   std::mutex cvm;
   bool ioc_stopped;
 
-  web();
-  ~web();
+  web_service();
+  ~web_service();
   void run();
   void stop();
 
@@ -49,7 +49,6 @@ private:
   void create_session(tcp::socket &&);
 
 private:
-  config conf;
   std::shared_ptr<asio_listener> listener;
   net::io_context *ioc;
   session_map_t sessions;

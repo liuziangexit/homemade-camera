@@ -1,4 +1,4 @@
-#include "web/service.h"
+#include "web/web_service.h"
 #include "boost/beast.hpp"
 #include "config/config.h"
 #include "config/config_manager.h"
@@ -18,12 +18,10 @@
 
 namespace hcam {
 
-web::web() : conf(config_manager::get()) {
-  // TODO frome config
-  auto const address = net::ip::make_address("0.0.0.0");
-  // auto const address = net::ip::make_address("127.0.0.1");
-  auto const port = static_cast<unsigned short>(atoi("8080"));
-  auto const threads = std::max<int>(1, atoi("2"));
+web_service::web_service() {
+  const auto address = net::ip::make_address(config_manager::get().web_addr);
+  const unsigned short port = config_manager::get().web_port;
+  const auto threads = config_manager::get().web_thread_count;
 
   // The io_context is required for all I/O
   this->ioc = new net::io_context(threads);
@@ -31,15 +29,15 @@ web::web() : conf(config_manager::get()) {
   // Create and launch a listening port
   this->listener = std::make_shared<asio_listener>(
       *ioc, tcp::endpoint{address, port},
-      std::bind(&web::create_session, this, std::placeholders::_1));
+      std::bind(&web_service::create_session, this, std::placeholders::_1));
 }
 
-web::~web() {
+web_service::~web_service() {
   stop();
   delete ioc;
 }
 
-void web::run() {
+void web_service::run() {
   ioc_stopped = false;
   listener->run();
   std::thread([this] {
@@ -52,7 +50,7 @@ void web::run() {
   }).detach();
 }
 
-void web::stop() {
+void web_service::stop() {
   logger::info("shutting down web service...");
   listener->stop();
   //遍历map，干掉session们
@@ -86,7 +84,7 @@ void web::stop() {
   logger::info("stop ok!");
 }
 
-void web::create_session(tcp::socket &&sock) {
+void web_service::create_session(tcp::socket &&sock) {
   auto endpoint = sock.remote_endpoint();
 
   //创建session对象

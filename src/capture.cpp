@@ -412,7 +412,6 @@ OPEN_WRITER:
     }
 
     //到了预定的时间，换文件
-    // FIXME linux的mono时间是不会往回的吧？确认一下
     if (ctx.capture_done_time - task_begin >= config.duration * 1000) {
       goto OPEN_WRITER;
     }

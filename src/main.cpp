@@ -1,27 +1,27 @@
 #include "util/logger.h"
 #include "video/capture.h"
-//#include "web/service.h"
+#include "web/web_service.h"
 #include <opencv2/core/utility.hpp>
 #include <signal.h>
 #include <thread>
 
-// hcam::web *web;
+hcam::web_service *web;
 hcam::capture *cap;
 
 void signal_handler(int signum) {
   hcam::logger::info("signal ", signum, " received, quitting...");
-  // delete web;
+  delete web;
   delete cap;
   exit(signum);
 }
 
 int main(int argc, char **argv) {
-  // FIXME 可配置　
-  cv::setNumThreads(4);
+  cv::setNumThreads(hcam::config_manager::get().video_thread_count);
   signal(SIGINT, signal_handler);
   signal(SIGTERM, signal_handler);
-  /*web = new hcam::web("config.json");
-  web->run();*/
+
+  web = new hcam::web_service();
+  web->run();
 
   cap = new hcam::capture();
   cap->run();

@@ -10,13 +10,15 @@ struct config {
   enum log_level_t { DEBUG, INFO, WARN, ERROR, FATAL };
   log_level_t
       log_level; //只输出log_level和比它更高的log。比如，log_level==INFO，那么DEBUG不会输出
-  enum codec cam_pix_fmt;    //摄像头的像素格式
-  uint32_t duration;         //每个视频文件的持续时间
-  std::string save_location; //保存目录
-  enum codec output_codec;   //视频文件编码格式
-  std::string device;        //摄像头设备挂载点
-  cv::Size resolution;       //分辨率
-  int fps;                   //帧率
+  uint32_t video_thread_count; //线程数
+  uint32_t web_thread_count;   //线程数
+  enum codec cam_pix_fmt;      //摄像头的像素格式
+  uint32_t duration;           //每个视频文件的持续时间
+  std::string save_location;   //保存目录
+  enum codec output_codec;     //视频文件编码格式
+  std::string device;          //摄像头设备挂载点
+  cv::Size resolution;         //分辨率
+  int fps;                     //帧率
   enum timestamp_pos_t {
     UPPER_RIGHT,
     UPPER_LEFT,
@@ -29,6 +31,7 @@ struct config {
   enum display_fps_t { NEVER, WARN_ONLY, ALWAYS };
   display_fps_t display_fps; //帧率显示模式 0-NEVER 1-WARNING ONLY 2-ALWAYS
   int font_height;           //视频时间戳字体大小
+  std::string web_addr;      // web服务地址
   int web_port;              // web服务端口
   int tcp_timeout;           // web服务tcp超时时间（秒）
 

@@ -1,5 +1,7 @@
 {
   "log-level": 0,
+  "video-thread-count": 4,
+  "web-thread-count": 1,
   "camera-pixel-format": "MJPG",
   "output-codec": "H264",
   "duration": 60,
@@ -10,6 +12,7 @@
   "timestamp-pos": 3,
   "display-fps": 0,
   "font-height": 30,
+  "web-addr": "0.0.0.0",
   "web-port": 8080,
   "tcp-timeout": 10
 }

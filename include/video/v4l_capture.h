@@ -42,6 +42,7 @@ private:
   bool check_cap(int32_t);
   bool set_fmt(graphic);
   bool setup_buffer();
+  bool stream_on();
   bool enqueue_buffer(uint32_t);
   int dequeue_buffer();
 

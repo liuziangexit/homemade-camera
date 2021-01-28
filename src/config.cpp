@@ -38,6 +38,8 @@ bool config::read(const std::string &filename) {
     js = json::parse(raw);
 
     this->log_level = (log_level_t)js["log-level"].get<int>();
+    this->video_thread_count = js["video-thread-count"].get<int>();
+    this->web_thread_count = js["web-thread-count"].get<int>();
     this->cam_pix_fmt =
         codec_parse(js["camera-pixel-format"].get<std::string>());
     this->duration = js["duration"].get<uint32_t>();
@@ -61,6 +63,7 @@ bool config::read(const std::string &filename) {
     this->timestamp_pos = (timestamp_pos_t)js["timestamp-pos"].get<int>();
     this->display_fps = (display_fps_t)js["display-fps"].get<int>();
     this->font_height = js["font-height"].get<int>();
+    this->web_addr = js["web-addr"].get<std::string>();
     this->web_port = js["web-port"].get<int>();
     this->tcp_timeout = js["tcp-timeout"].get<int>();
   } catch (const std::exception &ex) {

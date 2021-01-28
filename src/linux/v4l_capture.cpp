@@ -20,6 +20,8 @@
 #include <vector>
 #include <video/codec.h>
 
+#define BUFFER_TYPE V4L2_BUF_TYPE_VIDEO_CAPTURE
+
 namespace hcam {
 
 void v4l_capture::init() {
@@ -31,7 +33,7 @@ void v4l_capture::init() {
 bool v4l_capture::set_fps(uint32_t value) {
   v4l2_streamparm streamparm;
   memset(&streamparm, 0, sizeof(v4l2_streamparm));
-  streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  streamparm.type = BUFFER_TYPE;
   if (ioctl(fd, VIDIOC_G_PARM, &streamparm) != 0) {
     logger::error("VIDIOC_G_PARM failed");
     return false;
@@ -69,7 +71,7 @@ bool v4l_capture::check_cap(int32_t flags) {
 
 bool v4l_capture::set_fmt(graphic g) {
   struct v4l2_format format;
-  format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  format.type = BUFFER_TYPE;
   format.fmt.pix.pixelformat = codec_v4l2_pix_fmt(g.pix_fmt);
   format.fmt.pix.width = g.width;
   format.fmt.pix.height = g.height;
@@ -84,7 +86,7 @@ bool v4l_capture::set_fmt(graphic g) {
 
 bool v4l_capture::setup_buffer() {
   struct v4l2_requestbuffers buf_req;
-  buf_req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  buf_req.type = BUFFER_TYPE;
   buf_req.memory = V4L2_MEMORY_MMAP;
   buf_req.count = V4L_BUFFER_CNT;
 
@@ -129,14 +131,16 @@ bool v4l_capture::setup_buffer() {
     }
   }
 
-  // FIXME 单独抽出来做个函数
+  return true;
+}
+
+bool v4l_capture::stream_on() {
   // enable stream mode
-  int type = buf_req.type;
+  int type = BUFFER_TYPE;
   if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
     logger::error("stream on failed");
     return false;
   }
-
   return true;
 }
 
@@ -144,7 +148,7 @@ bool v4l_capture::enqueue_buffer(uint32_t idx) {
   struct v4l2_buffer buf;
   memset(&buf, 0, sizeof(buf));
 
-  buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  buf.type = BUFFER_TYPE;
   buf.memory = V4L2_MEMORY_MMAP;
   buf.index = idx;
 
@@ -160,7 +164,7 @@ int v4l_capture::dequeue_buffer() {
   struct v4l2_buffer buf;
   memset(&buf, 0, sizeof(buf));
 
-  buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  buf.type = BUFFER_TYPE;
   buf.memory = V4L2_MEMORY_MMAP;
 
   // The buffer's waiting in the outgoing queue.
@@ -282,7 +286,7 @@ uint32_t last_read = 0;
 std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
   uint32_t current_read = checkpoint(3);
   if (last_read != 0) {
-    // FIXME 如果buffer数不足，才打印
+    // TODO 如果buffer数不足，才打印
     logger::debug("read interval: ", current_read - last_read, "ms");
   }
   last_read = current_read;
