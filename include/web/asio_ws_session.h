@@ -41,7 +41,7 @@ public:
             std::forward<ARGS>(args)...) {}
 
   ~asio_ws_session() {
-    hcam::logger::info(this->remote_, " asio_ws_session destruct");
+    hcam::logger::debug(this->remote_, " asio_ws_session destruct");
   }
 
   // Get on the correct executor
@@ -79,12 +79,12 @@ public:
   void on_handshake(beast::error_code ec) {
     if constexpr (SSL) {
       if (ec) {
-        hcam::logger::error(this->remote_,
-                                   " SSL handshake error: ", ec.message());
+        hcam::logger::debug(this->remote_,
+                            " SSL handshake error: ", ec.message());
         this->close();
         return;
       } else {
-        hcam::logger::info(this->remote_, " SSL handshake OK");
+        hcam::logger::debug(this->remote_, " SSL handshake OK");
       }
     } else {
       if (ec) {
@@ -115,12 +115,12 @@ public:
 
   void on_accept(beast::error_code ec) {
     if (ec) {
-      hcam::logger::error(this->remote_,
-                                 "Websocket handshake failed: ", ec.message());
+      hcam::logger::debug(this->remote_,
+                          "Websocket handshake failed: ", ec.message());
       this->close();
       return;
     }
-    hcam::logger::info(this->remote_, " Websocket handshake OK");
+    hcam::logger::debug(this->remote_, " Websocket handshake OK");
 
     // Read a message
     do_read();
@@ -140,18 +140,18 @@ public:
 
     // This indicates that the session was closed
     if (ec == websocket::error::closed) {
-      hcam::logger::info(this->remote_, " Websocket closed");
+      hcam::logger::debug(this->remote_, " Websocket closed");
       this->close();
       return;
     }
 
     if (ec) {
-      hcam::logger::error(this->remote_,
-                                 " Websocket read failed: ", ec.message());
+      hcam::logger::debug(this->remote_,
+                          " Websocket read failed: ", ec.message());
       this->close();
       return;
     } else {
-      hcam::logger::info(this->remote_, " Websocket read OK");
+      hcam::logger::debug(this->remote_, " Websocket read OK");
     }
 
     // Echo the message
@@ -168,12 +168,12 @@ public:
     // boost::ignore_unused(bytes_transferred);
 
     if (ec) {
-      hcam::logger::info(this->remote_,
-                                " Websocket write failed: ", ec.message());
+      hcam::logger::debug(this->remote_,
+                          " Websocket write failed: ", ec.message());
       this->close();
       return;
     } else {
-      hcam::logger::info(this->remote_, " Websocket write OK");
+      hcam::logger::debug(this->remote_, " Websocket write OK");
     }
 
     // Clear the buffer
@@ -184,7 +184,7 @@ public:
   }
 
   virtual void close() override {
-    hcam::logger::info(this->remote_, " websocket closed");
+    hcam::logger::debug(this->remote_, " websocket closed");
     asio_base_session<
         SSL, websocket::stream<typename stream<SSL>::type, true>>::close();
   }

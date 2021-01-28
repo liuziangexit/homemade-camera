@@ -36,12 +36,12 @@ void capture::run() {
 }
 
 void capture::stop() {
-  logger::info("stopping capture");
+  logger::debug("stopping capture");
   {
     int expect = RUNNING;
     if (!state.compare_exchange_strong(expect, STOPPING)) {
-      logger::info("stop failed, expect state ", RUNNING, ", actual state ",
-                   expect);
+      logger::debug("stop failed, expect state ", RUNNING, ", actual state ",
+                    expect);
       return;
     }
   }
@@ -297,9 +297,9 @@ OPEN_WRITER:
 
   uint64 task_begin = 0;
   logger::info("video file change to ", filename);
-  logger::info(" writer backend:", writer.getBackendName(),
-               " codec:", codec_to_string(config.output_codec), " fps:", fps,
-               " resolution:", frame_size);
+  logger::debug(" writer backend:", writer.getBackendName(),
+                " codec:", codec_to_string(config.output_codec), " fps:", fps,
+                " resolution:", frame_size);
 
   bool paused_by_me = false;
   while (true) {
@@ -408,7 +408,7 @@ OPEN_WRITER:
                    "ms, process:", ctx.write_time - ctx.process_time,
                    "ms, write:", ctx.done_time - ctx.write_time, "ms)");
     } else {
-      logger::info("cost ", frame_cost, "ms");
+      logger::debug("cost ", frame_cost, "ms");
     }
 
     //到了预定的时间，换文件

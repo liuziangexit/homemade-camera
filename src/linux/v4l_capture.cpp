@@ -49,8 +49,8 @@ bool v4l_capture::set_fps(uint32_t value) {
     logger::error("VIDIOC_S_PARM failed");
     return false;
   }
-  logger::info("fps are now set to ",
-               streamparm.parm.capture.timeperframe.denominator);
+  logger::debug("fps are now set to ",
+                streamparm.parm.capture.timeperframe.denominator);
   return true;
 }
 

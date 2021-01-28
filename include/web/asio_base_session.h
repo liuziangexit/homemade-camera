@@ -63,20 +63,20 @@ public:
       abort();
     }
 #endif
-    hcam::logger::info(this->remote_, " asio_base_session destruct");
+    hcam::logger::debug(this->remote_, " asio_base_session destruct");
   }
 
   virtual void run() { throw std::exception(); }
 
   virtual void close() {
-    hcam::logger::info(this->remote_, " asio_base_session close: begin");
+    hcam::logger::debug(this->remote_, " asio_base_session close: begin");
     if (!this->unregister_()) {
-      hcam::logger::info(
+      hcam::logger::debug(
           this->remote_,
           " asio_base_session close: \"this\" has been closed before");
     }
     beast::get_lowest_layer(stream_).close();
-    hcam::logger::info(this->remote_, " asio_base_session close: ok");
+    hcam::logger::debug(this->remote_, " asio_base_session close: ok");
   }
 };
 

@@ -42,7 +42,7 @@ void web_service::run() {
   listener->run();
   std::thread([this] {
     ioc->run();
-    logger::info("ioc run finished!");
+    logger::debug("ioc run finished!");
     cvm.lock();
     cv.notify_one();
     ioc_stopped = true;
@@ -69,14 +69,14 @@ void web_service::stop() {
         p = static_cast<TYPE *>(row->second.get());
         ref = row->second;
         sessions.erase(row);
-        logger::info(endpoint, " has been removed from session map");
+        logger::debug(endpoint, " has been removed from session map");
       }
     }
     if (p)
       p->close();
   }
   //等待session全部被杀之后，ioc的停止
-  logger::info("waiting ioc");
+  logger::debug("waiting ioc");
   std::unique_lock<std::mutex> guard(cvm);
   while (!ioc_stopped) {
     cv.wait(guard);
@@ -99,7 +99,7 @@ void web_service::create_session(tcp::socket &&sock) {
       fmt << endpoint.address() << ":" << endpoint.port();
       throw std::runtime_error(fmt.str());
     }
-    hcam::logger::info(endpoint, " session->unregister_ ok");
+    hcam::logger::debug(endpoint, " session->unregister_ ok");
     return true;
   };
   auto session = std::make_shared<TYPE>(std::move(sock), unregister);

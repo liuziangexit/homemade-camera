@@ -37,7 +37,7 @@ public:
       : ioc_(ioc), endpoint_(endpoint), create_session_(create_session),
         acceptor_(net::make_strand(ioc)) {}
 
-  ~asio_listener() { hcam::logger::info("asio_listener destruct"); }
+  ~asio_listener() { hcam::logger::debug("asio_listener destruct"); }
 
   // Start accepting incoming connections
   void run() {
@@ -74,7 +74,7 @@ public:
     try {
       acceptor_.close();
     } catch (const std::exception &ex) {
-      hcam::logger::error("listener quitting: ", ex.what());
+      hcam::logger::debug("listener stop failed: ", ex.what());
     }
   }
 
@@ -88,12 +88,12 @@ private:
 
   void on_accept(beast::error_code ec, tcp::socket socket) {
     if (ec) {
-      hcam::logger::error("asio accept fail: ", ec.message());
+      hcam::logger::debug("asio accept fail: ", ec.message());
       if (ec == boost::asio::error::operation_aborted) {
         return;
       }
     } else {
-      hcam::logger::info(socket.remote_endpoint(), " TCP handshake OK");
+      hcam::logger::debug(socket.remote_endpoint(), " TCP handshake OK");
       // Create the session and run it
       this->create_session_(std::move(socket));
     }
