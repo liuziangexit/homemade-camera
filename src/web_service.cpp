@@ -38,6 +38,7 @@ web_service::~web_service() {
 }
 
 void web_service::run() {
+  logger::info("starting web service...");
   ioc_stopped = false;
   listener->run();
   std::thread([this] {
