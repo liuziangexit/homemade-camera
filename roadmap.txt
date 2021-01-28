@@ -31,9 +31,8 @@ OK-可配置帧率显示模式
 OK-实际上目前各个组件已经达到了要求的性能指标，可以完成720p 30fps的视频处理，但是omx h264的编码器会随机卡住几秒，这个很烦恼。看看能不能解决，不能解决的话，保证这种现象出现的时候文件名没有错，并且文件要写完再换下一个
 OK-因为硬盘跟不上
 OK-树莓派上达到720p 30帧
+OK-OPENCV里的那个copy frame的修改应该放到外面去做，至少要检测现在是不是在用omxh264
 
--0x80001009的问题(https://android.googlesource.com/platform/frameworks/native/+/kitkat-release/include/media/openmax/OMX_Core.h
--OPENCV里的那个copy frame的修改应该放到外面去做，至少要检测现在是不是在用omxh264
 -ssl握手应该在基类做
 -http转ws
 -web界面
