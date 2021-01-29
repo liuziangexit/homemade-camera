@@ -2,9 +2,6 @@
 #include "boost/beast.hpp"
 #include "config/config.h"
 #include "config/config_manager.h"
-#include "web/asio_http_session.h"
-#include "web/asio_listener.h"
-#include "web/asio_ws_session.h"
 #include <condition_variable>
 #include <memory>
 #include <mutex>
@@ -15,6 +12,13 @@
 #include <tbb/concurrent_hash_map.h>
 #include <thread>
 #include <utility>
+
+namespace beast = boost::beast;         // from <boost/beast.hpp>
+namespace http = beast::http;           // from <boost/beast/http.hpp>
+namespace websocket = beast::websocket; // from <boost/beast/websocket.hpp>
+namespace net = boost::asio;            // from <boost/asio.hpp>
+namespace ssl = boost::asio::ssl;       // from <boost/asio/ssl.hpp>
+using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
 namespace hcam {
 
@@ -114,6 +118,24 @@ void web_service::create_session(tcp::socket &&sock) {
     throw std::runtime_error("tbb concurrent map insert failed");
   //开始运行session!
   ((SESSION_TYPE *)session.get())->run();
+}
+
+template <typename CALLBACK>
+bool web_service::modify_session(tcp::endpoint key,
+                                 CALLBACK callback) noexcept {
+  //这个在session自杀的时候被session调用
+  session_map_t::accessor row;
+  if (!sessions.find(row, key)) {
+    return false;
+  }
+  void *session = row->second.get();
+  void *replacement = callback(session);
+  if (!replacement) {
+    logger::fatal("web_service::modify_session callback returns NULL");
+    abort();
+  }
+  row->second.reset(replacement);
+  return true;
 }
 
 } // namespace hcam

@@ -45,7 +45,10 @@ public:
   void run();
   void stop();
 
-private:
+  //将会把session map里的session换成callback返回的session
+  // void* callback(void*)
+  template <typename CALLBACK>
+  bool modify_session(tcp::endpoint key, CALLBACK callback) noexcept;
   template <typename SESSION_TYPE> void create_session(tcp::socket &&);
 
 private:
