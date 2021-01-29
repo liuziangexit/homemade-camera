@@ -1,6 +1,7 @@
 #ifndef __HOMECAM_ASIO_WS_SESSION_H_
 #define __HOMECAM_ASIO_WS_SESSION_H_
 #include "asio_base_session.h"
+#include "asio_http_session.h"
 #include "boost/beast.hpp"
 #include "config/config.h"
 #include "util/logger.h"

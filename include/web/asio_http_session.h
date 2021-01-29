@@ -1,6 +1,7 @@
 #ifndef __HOMECAM_ASIO_HTTP_SESSION_H_
 #define __HOMECAM_ASIO_HTTP_SESSION_H_
 #include "asio_base_session.h"
+#include "asio_ws_session.h"
 #include "boost/beast.hpp"
 #include "config/config.h"
 #include "util/logger.h"
@@ -104,13 +105,20 @@ public:
       hcam::logger::debug(this->remote_, " http read OK");
     }
 
-    // TODO ...
     // handle request
+
+    // handle websocket upgrade request
+    auto upgrade_header = req_.base().find("Upgrade");
+    if (upgrade_header != req_.base().end()) {
+      if (upgrade_header->value() == "websocket") {
+        logger::info("websocket upgrade!");
+      }
+    }
     http::response<http::string_body> res{http::status::ok, req_.version()};
-    res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+    res.set(http::field::server, "homemade-camera");
     res.set(http::field::content_type, "text/html");
-    res.keep_alive(req_.keep_alive());
-    res.body() = "naive!";
+    res.keep_alive(false);
+    res.body() = "It works!";
     res.prepare_payload();
     send(std::move(res));
   }
