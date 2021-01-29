@@ -29,7 +29,8 @@ web_service::web_service() {
   // Create and launch a listening port
   this->listener = std::make_shared<asio_listener>(
       *ioc, tcp::endpoint{address, port},
-      std::bind(&web_service::create_session, this, std::placeholders::_1));
+      std::bind(&web_service::create_session<TYPE>, this,
+                std::placeholders::_1));
 }
 
 web_service::~web_service() {
@@ -85,6 +86,7 @@ void web_service::stop() {
   logger::info("stop ok!");
 }
 
+template <typename SESSION_TYPE>
 void web_service::create_session(tcp::socket &&sock) {
   auto endpoint = sock.remote_endpoint();
 
@@ -103,15 +105,15 @@ void web_service::create_session(tcp::socket &&sock) {
     hcam::logger::debug(endpoint, " session->unregister_ ok");
     return true;
   };
-  auto session = std::make_shared<TYPE>(std::move(sock), unregister);
+  std::shared_ptr<void> session;
+  session.reset(new SESSION_TYPE(std::move(sock), unregister));
 
   //做一个引用计数
-  auto session_ref = session;
-  session_map_t::value_type kv{endpoint, session_ref};
+  session_map_t::value_type kv{endpoint, session};
   if (!sessions.insert(kv))
     throw std::runtime_error("tbb concurrent map insert failed");
   //开始运行session!
-  session->run();
+  ((SESSION_TYPE *)session.get())->run();
 }
 
 } // namespace hcam

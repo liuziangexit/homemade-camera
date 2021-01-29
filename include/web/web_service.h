@@ -25,16 +25,16 @@ struct endpoint_compare {
   }
 };
 
-//这个只是临时性的
-using TYPE = //
-    asio_http_session<false>;
-// asio_ws_session<false>;
-
 using session_map_t =
     tbb::concurrent_hash_map<tcp::endpoint, std::shared_ptr<void>,
                              endpoint_compare>;
 
 class web_service {
+  //这个只是临时性的
+  using TYPE = //
+      asio_http_session<false>;
+  // asio_ws_session<false>;
+
 public:
   std::condition_variable cv;
   std::mutex cvm;
@@ -46,7 +46,7 @@ public:
   void stop();
 
 private:
-  void create_session(tcp::socket &&);
+  template <typename SESSION_TYPE> void create_session(tcp::socket &&);
 
 private:
   std::shared_ptr<asio_listener> listener;

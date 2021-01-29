@@ -39,6 +39,7 @@ private:
   //我们会在web service里保留每个session的一个引用计数
   // session自杀的时候，需要把自己在service里的引用消掉
   std::function<bool()> unregister_;
+  bool ssl_handshaked = false;
 
   void set_tcp_timeout() {
     // TODO load from configmanager
@@ -63,6 +64,8 @@ public:
         unregister_(unregister) {
     set_tcp_timeout();
   }
+
+  asio_base_session(asio_base_session &&) = default;
 
   asio_base_session(const asio_base_session &) = delete;
 
@@ -89,20 +92,22 @@ public:
 
 protected:
   template <typename CALLBACK> void ssl_handshake(const CALLBACK &callback) {
-    /*void ssl_handshake(std::function<void(beast::error_code)> callback) {*/
     if constexpr (SSL) {
-      this->stream_.async_handshake(
-          ssl::stream_base::server,
-          [this, callback,
-           shared_this = this->shared_from_this()](beast::error_code ec) {
-            if (ec) {
-              hcam::logger::debug(this->remote_,
-                                  " SSL handshake error: ", ec.message());
-            } else {
-              hcam::logger::debug(this->remote_, " SSL handshake OK");
-            }
-            callback(ec);
-          });
+      if (!ssl_handshaked) {
+        this->stream_.async_handshake(
+            ssl::stream_base::server,
+            [this, callback,
+             shared_this = this->shared_from_this()](beast::error_code ec) {
+              if (ec) {
+                hcam::logger::debug(this->remote_,
+                                    " SSL handshake error: ", ec.message());
+              } else {
+                ssl_handshaked = true;
+                hcam::logger::debug(this->remote_, " SSL handshake OK");
+              }
+              callback(ec);
+            });
+      }
     } else {
       auto callback_copy = callback;
       callback_copy(beast::error_code());
