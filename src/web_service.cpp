@@ -134,14 +134,12 @@ bool web_service::modify_session(
   }
   void *session = row->second.get();
   auto ret = callback(session);
-  if (!ret.first) {
+  if (!ret) {
     logger::fatal(
         "web_service::modify_session: no replacement returned by callback");
     abort();
   }
-  if (ret.first != row->second.get()) {
-    row->second.reset(ret.first, ret.second);
-  }
+  row->second = ret;
   return true;
 }
 

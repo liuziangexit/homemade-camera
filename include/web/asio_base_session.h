@@ -10,6 +10,7 @@
 #include <boost/beast/ssl.hpp>
 #include <boost/system/error_code.hpp>
 #include <functional>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -32,23 +33,23 @@ template <bool SSL, typename STREAM>
 class asio_base_session
     : public std::enable_shared_from_this<asio_base_session<SSL, STREAM>> {
 protected:
-  STREAM stream_;
+  std::unique_ptr<STREAM> stream_;
   const beast::tcp_stream::endpoint_type remote_;
   using modify_session_callback_type =
-      std::function<std::pair<void *, std::function<void(void *)>>(void *)>;
+      std::function<std::shared_ptr<void>(void *)>;
   std::function<bool(tcp::endpoint, modify_session_callback_type)>
       modify_session_;
-
-private:
   //我们会在web service里保留每个session的一个引用计数
   // session自杀的时候，需要把自己在service里的引用消掉
   std::function<bool()> unregister_;
   bool ssl_handshaked_ = false;
+  //表示此对象已被move走
+  bool empty = false;
 
+private:
   void set_tcp_timeout() {
     // TODO load from configmanager
-    beast::get_lowest_layer(this->stream_)
-        .expires_after(std::chrono::seconds(30));
+    beast::get_lowest_layer(*stream_).expires_after(std::chrono::seconds(30));
   }
 
 public:
@@ -58,8 +59,8 @@ public:
       std::function<bool()> unregister,
       std::function<bool(tcp::endpoint, modify_session_callback_type)>
           modify_session)
-      : stream_(std::move(socket), ssl_ctx), remote_(socket.remote_endpoint()),
-        unregister_(std::move(unregister)),
+      : stream_(std::make_unique<STREAM>(std::move(socket), ssl_ctx)),
+        remote_(socket.remote_endpoint()), unregister_(std::move(unregister)),
         modify_session_(std::move(modify_session)) {
     set_tcp_timeout();
   }
@@ -69,21 +70,21 @@ public:
       tcp::socket &&socket, std::function<bool()> unregister,
       std::function<bool(tcp::endpoint, modify_session_callback_type)>
           modify_session)
-      : stream_(std::move(socket)),
-        remote_(beast::get_lowest_layer(stream_).socket().remote_endpoint()),
+      : stream_(std::make_unique<STREAM>(std::move(socket))),
+        remote_(beast::get_lowest_layer(*stream_).socket().remote_endpoint()),
         unregister_(std::move(unregister)),
         modify_session_(std::move(modify_session)) {
     set_tcp_timeout();
   }
 
-  asio_base_session(asio_base_session &&) noexcept = default;
-
   asio_base_session(const asio_base_session &) = delete;
 
   virtual ~asio_base_session() {
-    if (this->unregister_()) {
-      logger::fatal("asio_base_session destruct failed");
-      abort();
+    if (!empty) {
+      if (this->unregister_()) {
+        logger::fatal("asio_base_session destruct failed");
+        abort();
+      }
     }
     hcam::logger::debug(this->remote_, " asio_base_session destruct");
   }
@@ -97,11 +98,20 @@ public:
           this->remote_,
           " asio_base_session close: \"this\" has been closed before");
     }
-    beast::get_lowest_layer(stream_).close();
+    beast::get_lowest_layer(*stream_).close();
     hcam::logger::debug(this->remote_, " asio_base_session close: ok");
   }
 
 protected:
+  asio_base_session(
+      beast::tcp_stream::endpoint_type remote, std::function<bool()> unregister,
+      std::function<bool(tcp::endpoint, modify_session_callback_type)>
+          modify_session,
+      bool ssl_handshaked)
+      : remote_(remote), unregister_(std::move(unregister)),
+        modify_session_(std::move(modify_session)),
+        ssl_handshaked_(ssl_handshaked) {}
+
   template <typename CALLBACK> void ssl_handshake(const CALLBACK &callback) {
     if constexpr (SSL) {
       if (!ssl_handshaked_) {

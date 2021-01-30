@@ -12,6 +12,7 @@
 #include <boost/beast/ssl.hpp>
 #include <boost/system/error_code.hpp>
 #include <functional>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -32,6 +33,7 @@ class asio_http_session
   http::request<http::string_body> req_;
 
 public:
+  using base_type = asio_base_session<SSL, typename stream<SSL>::type>;
   template <typename... ARGS>
   asio_http_session(ARGS &&...args)
       : asio_base_session<SSL, typename stream<SSL>::type>(
@@ -50,7 +52,7 @@ public:
     // thread-safe by default.
 
     net::dispatch(
-        this->stream_.get_executor(),
+        this->stream_->get_executor(),
         [this, shared_this = this->shared_from_this()]() { this->on_run(); });
   }
 
@@ -79,11 +81,11 @@ public:
     buffer_.consume(buffer_.size());
 
     // Set the timeout.
-    beast::get_lowest_layer(this->stream_)
+    beast::get_lowest_layer(*this->stream_)
         .expires_after(std::chrono::seconds(30));
 
     // Read a request
-    http::async_read(this->stream_, buffer_, req_,
+    http::async_read(*this->stream_, buffer_, req_,
                      [this, shared_this = this->shared_from_this()](
                          beast::error_code ec, std::size_t bytes_transferred) {
                        this->on_read(ec, bytes_transferred);
@@ -113,20 +115,33 @@ public:
         upgrade_header->value() == "websocket") {
       logger::debug("client request websocket upgrade!");
 
-      auto upgrade =
-          [this](
-              void *current) -> std::pair<void *, std::function<void(void *)>> {
+      auto upgrade = [this](void *current) -> std::shared_ptr<void> {
         assert((void *)this == current);
-        return std::pair<void *, std::function<void(void *)>>{
-            this, [this](void *p) {
-              auto typed_p = (decltype(this))p;
-              delete typed_p;
-            }};
+
+        // FIXME 底下如果抛了个异常，就会漏内存
+        auto typed_ws_session = new asio_ws_session<SSL>(
+            this->remote_, std::move(this->unregister_),
+            std::move(this->modify_session_), this->ssl_handshaked_);
+        std::shared_ptr<void> ws_session(typed_ws_session);
+        if constexpr (SSL) {
+          // TODO 把this的ssl layer给move assign过去
+          typed_ws_session->stream_ = std::make_unique<
+              websocket::stream<typename stream<true>::type, true>>();
+        } else {
+          typed_ws_session->stream_ = std::make_unique<
+              websocket::stream<typename stream<SSL>::type, true>>(
+              beast::get_lowest_layer(*this->stream_).release_socket());
+        }
+        typed_ws_session->handshake_req_ = req_;
+        typed_ws_session->run();
+        this->empty = true;
+        return ws_session;
       };
 
       if (this->modify_session_(this->remote_, upgrade)) {
         logger::debug("http session replaced by ws session, ws handshake "
                       "one the way");
+        return;
       } else {
         logger::fatal(
             "modify_session returns false, that indicates the session can "
@@ -154,7 +169,7 @@ public:
     try {
       // Write the response
       http::async_write(
-          this->stream_, *response,
+          *this->stream_, *response,
           [this, shared_this, response,
            deleter](beast::error_code ec, std::size_t bytes_transferred) {
             this->on_write(deleter, response->need_eof(), ec,

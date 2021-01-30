@@ -43,7 +43,7 @@ public:
 
   //将会把session map里的session换成callback返回的session
   using modify_session_callback_type =
-      std::function<std::pair<void *, std::function<void(void *)>>(void *)>;
+      std::function<std::shared_ptr<void>(void *)>;
   bool modify_session(tcp::endpoint key,
                       modify_session_callback_type callback) noexcept;
   template <typename SESSION_TYPE> void create_session(tcp::socket &&);
