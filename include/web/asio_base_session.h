@@ -34,12 +34,16 @@ class asio_base_session
 protected:
   STREAM stream_;
   const beast::tcp_stream::endpoint_type remote_;
+  using modify_session_callback_type =
+      std::function<std::pair<void *, std::function<void(void *)>>(void *)>;
+  std::function<bool(tcp::endpoint, modify_session_callback_type)>
+      modify_session_;
 
 private:
   //我们会在web service里保留每个session的一个引用计数
   // session自杀的时候，需要把自己在service里的引用消掉
   std::function<bool()> unregister_;
-  bool ssl_handshaked = false;
+  bool ssl_handshaked_ = false;
 
   void set_tcp_timeout() {
     // TODO load from configmanager
@@ -49,23 +53,30 @@ private:
 
 public:
   // ssl
-  asio_base_session(tcp::socket &&socket, ssl::context &ssl_ctx,
-                    const std::function<bool()> &unregister)
+  asio_base_session(
+      tcp::socket &&socket, ssl::context &ssl_ctx,
+      std::function<bool()> unregister,
+      std::function<bool(tcp::endpoint, modify_session_callback_type)>
+          modify_session)
       : stream_(std::move(socket), ssl_ctx), remote_(socket.remote_endpoint()),
-        unregister_(unregister) {
+        unregister_(std::move(unregister)),
+        modify_session_(std::move(modify_session)) {
     set_tcp_timeout();
   }
 
   // tcp
-  explicit asio_base_session(tcp::socket &&socket,
-                             const std::function<bool()> &unregister)
+  asio_base_session(
+      tcp::socket &&socket, std::function<bool()> unregister,
+      std::function<bool(tcp::endpoint, modify_session_callback_type)>
+          modify_session)
       : stream_(std::move(socket)),
         remote_(beast::get_lowest_layer(stream_).socket().remote_endpoint()),
-        unregister_(unregister) {
+        unregister_(std::move(unregister)),
+        modify_session_(std::move(modify_session)) {
     set_tcp_timeout();
   }
 
-  asio_base_session(asio_base_session &&) = default;
+  asio_base_session(asio_base_session &&) noexcept = default;
 
   asio_base_session(const asio_base_session &) = delete;
 
@@ -93,7 +104,7 @@ public:
 protected:
   template <typename CALLBACK> void ssl_handshake(const CALLBACK &callback) {
     if constexpr (SSL) {
-      if (!ssl_handshaked) {
+      if (!ssl_handshaked_) {
         this->stream_.async_handshake(
             ssl::stream_base::server,
             [this, callback,
@@ -102,7 +113,7 @@ protected:
                 hcam::logger::debug(this->remote_,
                                     " SSL handshake error: ", ec.message());
               } else {
-                ssl_handshaked = true;
+                ssl_handshaked_ = true;
                 hcam::logger::debug(this->remote_, " SSL handshake OK");
               }
               callback(ec);

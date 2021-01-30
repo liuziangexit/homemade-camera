@@ -3,6 +3,7 @@
 #include "config/config.h"
 #include "config/config_manager.h"
 #include <condition_variable>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -94,7 +95,7 @@ template <typename SESSION_TYPE>
 void web_service::create_session(tcp::socket &&sock) {
   auto endpoint = sock.remote_endpoint();
 
-  //创建session对象
+  //创建session对象的回调
   auto unregister = [this, endpoint]() -> bool {
     //这个在session自杀的时候被session调用
     session_map_t::accessor row;
@@ -110,7 +111,11 @@ void web_service::create_session(tcp::socket &&sock) {
     return true;
   };
   std::shared_ptr<void> session;
-  session.reset(new SESSION_TYPE(std::move(sock), unregister));
+  session.reset(new SESSION_TYPE(
+      std::move(sock), unregister,
+      std::function<bool(tcp::endpoint, modify_session_callback_type)>{
+          [this](tcp::endpoint key, modify_session_callback_type callback)
+              -> bool { return modify_session(key, std::move(callback)); }}));
 
   //做一个引用计数
   session_map_t::value_type kv{endpoint, session};
@@ -120,21 +125,23 @@ void web_service::create_session(tcp::socket &&sock) {
   ((SESSION_TYPE *)session.get())->run();
 }
 
-template <typename CALLBACK>
-bool web_service::modify_session(tcp::endpoint key,
-                                 CALLBACK callback) noexcept {
+bool web_service::modify_session(
+    tcp::endpoint key, modify_session_callback_type callback) noexcept {
   //这个在session自杀的时候被session调用
   session_map_t::accessor row;
   if (!sessions.find(row, key)) {
     return false;
   }
   void *session = row->second.get();
-  void *replacement = callback(session);
-  if (!replacement) {
-    logger::fatal("web_service::modify_session callback returns NULL");
+  auto ret = callback(session);
+  if (!ret.first) {
+    logger::fatal(
+        "web_service::modify_session: no replacement returned by callback");
     abort();
   }
-  row->second.reset(replacement);
+  if (ret.first != row->second.get()) {
+    row->second.reset(ret.first, ret.second);
+  }
   return true;
 }
 

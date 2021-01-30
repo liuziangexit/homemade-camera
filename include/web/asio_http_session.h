@@ -109,9 +109,29 @@ public:
 
     // handle websocket upgrade request
     auto upgrade_header = req_.base().find("Upgrade");
-    if (upgrade_header != req_.base().end()) {
-      if (upgrade_header->value() == "websocket") {
-        logger::info("websocket upgrade!");
+    if (upgrade_header != req_.base().end() &&
+        upgrade_header->value() == "websocket") {
+      logger::debug("client request websocket upgrade!");
+
+      auto upgrade =
+          [this](
+              void *current) -> std::pair<void *, std::function<void(void *)>> {
+        assert((void *)this == current);
+        return std::pair<void *, std::function<void(void *)>>{
+            this, [this](void *p) {
+              auto typed_p = (decltype(this))p;
+              delete typed_p;
+            }};
+      };
+
+      if (this->modify_session_(this->remote_, upgrade)) {
+        logger::debug("http session replaced by ws session, ws handshake "
+                      "one the way");
+      } else {
+        logger::fatal(
+            "modify_session returns false, that indicates the session can "
+            "not find itself from the session pool! what?");
+        abort();
       }
     }
     http::response<http::string_body> res{http::status::ok, req_.version()};
