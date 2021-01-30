@@ -34,8 +34,9 @@ OK-树莓派上达到720p 30帧
 OK-OPENCV里的那个copy frame的修改应该放到外面去做，至少要检测现在是不是在用omxh264
 OK-ssl握手应该在基类做
 
--http转ws
--http和ws的handler
+ok-http转ws
+ok-http的handler
+-测试ssl连接
 -定web api
 -web界面
 -web前端功能实现
