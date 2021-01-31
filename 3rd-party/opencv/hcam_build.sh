@@ -1,9 +1,9 @@
-export LD_LIBRARY_PATH="$LD_LIBRARY_PATH ../ffmpeg/ffinstall/lib/ /opt/vc/lib/"
-export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:../ffmpeg/ffinstall/lib/pkgconfig:../vc/pkgconfig"
-export PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR:../ffmpeg/ffinstall/lib/:/opt/vc/lib/"
+#export LD_LIBRARY_PATH="$LD_LIBRARY_PATH ../ffmpeg/ffinstall/lib/ /opt/vc/lib/"
+export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:../ffmpeg/ffinstall/lib/pkgconfig:../vc/pkgconfig:../freetype/install/lib/pkgconfig"
+#export PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR:../ffmpeg/ffinstall/lib/:/opt/vc/lib/"
 
 cmake --enable-nonfree --enable-pic --enable-shared \
-  -DWITH_FFMPEG=ON -DWITH_AVFOUNDATION=OFF \
+  -DWITH_FFMPEG=ON -DWITH_AVFOUNDATION=OFF -DBUILD_opencv_freetype=ON \
   -DBUILD_TESTS=OFF -DBUILD_PREF_TESTS=OFF -DBUILD_EXAMPLES=OFF -DBUILD_opencv_apps=OFF \
   -DWITH_CUDA=OFF \
   -DBUILD_opencv_calib3d=OFF -DBUILD_opencv_dnn=OFF -DBUILD_opencv_features2d=OFF \
