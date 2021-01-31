@@ -9,3 +9,4 @@ opencv_contrib               offical-4.5.1
 raspi                        2020-12-02-raspios-buster-armhf-lite
 libjpeg-turbo                2.0.90
 openssl                      system
+vc                           system

@@ -76,6 +76,8 @@ endif()
 
 #==================================
 
+set(FFMPEG_LIBRARIES "-L/opt/vc/lib ${FFMPEG_LIBRARIES}")
+
 if(HAVE_FFMPEG AND NOT HAVE_FFMPEG_WRAPPER AND NOT OPENCV_FFMPEG_SKIP_BUILD_CHECK)
   try_compile(__VALID_FFMPEG
       "${OpenCV_BINARY_DIR}"

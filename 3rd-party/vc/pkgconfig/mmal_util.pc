@@ -1,0 +1,11 @@
+prefix=/opt/vc
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: MMAL
+Description: Multi-Media Abstraction Layer library for RPi
+Version: 1
+Requires: vcsm
+Libs: -L${libdir} -lmmal_util
+Cflags: -I${includedir}
