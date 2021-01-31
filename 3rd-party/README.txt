@@ -12,3 +12,6 @@ openssl                      system
 vc                           system
 freetype                     2.10.4
 harfbuzz                     2.7.4
+
+编译顺序:
+freetype, harfbuzz, ffmpeg, opencv
