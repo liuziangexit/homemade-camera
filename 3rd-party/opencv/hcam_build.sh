@@ -1,5 +1,5 @@
 #export LD_LIBRARY_PATH="$LD_LIBRARY_PATH ../ffmpeg/ffinstall/lib/ /opt/vc/lib/"
-export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:../ffmpeg/ffinstall/lib/pkgconfig:../vc/pkgconfig:../freetype/install/lib/pkgconfig"
+export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:../ffmpeg/ffinstall/lib/pkgconfig:../vc/pkgconfig:../freetype/install/lib/pkgconfig:../harfbuzz/install/lib/arm-linux-gnueabihf/pkgconfig"
 #export PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR:../ffmpeg/ffinstall/lib/:/opt/vc/lib/"
 
 cmake --enable-nonfree --enable-pic --enable-shared \
