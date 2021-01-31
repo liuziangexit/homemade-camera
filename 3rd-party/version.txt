@@ -10,3 +10,5 @@ raspi                        2020-12-02-raspios-buster-armhf-lite
 libjpeg-turbo                2.0.90
 openssl                      system
 vc                           system
+freetype                     2.10.4
+harfbuzz                     2.7.4
