@@ -130,7 +130,7 @@ public:
         }
         typed_ws_session->handshake_req_ = req_;
         typed_ws_session->run();
-        this->empty = true;
+        this->moved = true;
         return ws_session;
       };
 

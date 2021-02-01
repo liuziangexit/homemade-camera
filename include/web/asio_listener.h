@@ -93,6 +93,7 @@ private:
         return;
       }
     } else {
+      hcam::logger::info(socket.remote_endpoint(), " session created");
       hcam::logger::debug(socket.remote_endpoint(), " TCP handshake OK");
       // Create the session and run it
       this->create_session_(std::move(socket));

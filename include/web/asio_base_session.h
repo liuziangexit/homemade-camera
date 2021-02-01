@@ -47,7 +47,7 @@ protected:
   std::function<bool()> unregister_;
   bool ssl_established_ = false;
   //表示此对象已被move走
-  bool empty = false;
+  bool moved = false;
   //使close只会被工作一次并且线程安全
   bool closed = false;
   std::mutex close_mutex;
@@ -112,6 +112,10 @@ public:
     logger::debug(this->remote_, " TCP closed");
     // unref
     this->unregister_();
+
+    if (!moved) {
+      logger::info(this->remote_, " session closed");
+    }
   }
 
 protected:
