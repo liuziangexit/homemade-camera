@@ -124,12 +124,12 @@ public:
             std::move(this->modify_session_), this->ssl_handshaked_);
         std::shared_ptr<void> ws_session(typed_ws_session);
         if constexpr (SSL) {
-          /* // TODO 把this的ssl layer给move assign过去
-           typed_ws_session->stream_ = std::make_unique<
-               websocket::stream<typename stream<true>::type, true>>();*/
+          typed_ws_session->stream_ = std::make_unique<
+              websocket::stream<typename stream<true>::type, true>>(
+              std::move(*this->stream_));
         } else {
           typed_ws_session->stream_ = std::make_unique<
-              websocket::stream<typename stream<SSL>::type, true>>(
+              websocket::stream<typename stream<false>::type, true>>(
               beast::get_lowest_layer(*this->stream_).release_socket());
         }
         typed_ws_session->handshake_req_ = req_;

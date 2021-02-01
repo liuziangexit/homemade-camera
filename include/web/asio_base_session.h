@@ -50,8 +50,8 @@ protected:
 
 private:
   void set_tcp_timeout() {
-    // TODO load from configmanager
-    beast::get_lowest_layer(*stream_).expires_after(std::chrono::seconds(30));
+    beast::get_lowest_layer(*stream_).expires_after(
+        std::chrono::seconds(config_manager::get().tcp_timeout));
   }
 
 public:
@@ -131,10 +131,11 @@ protected:
                   }
                   callback(ec);
                 });
+      } else {
+        callback(beast::error_code());
       }
     } else {
-      auto callback_copy = callback;
-      callback_copy(beast::error_code());
+      callback(beast::error_code());
     }
   }
 };
