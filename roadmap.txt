@@ -35,8 +35,8 @@ OK-OPENCV里的那个copy frame的修改应该放到外面去做，至少要检�
 OK-ssl握手应该在基类做
 ok-http转ws
 ok-http的handler
+ok-测试ssl连接
 
--测试ssl连接
 -定web api
 -web界面
 -web前端功能实现
