@@ -78,7 +78,8 @@ void web_service::stop() {
         p = static_cast<TYPE *>(row->second.get());
         ref = row->second;
         sessions.erase(row);
-        logger::debug(endpoint, " has been removed from session map");
+        logger::debug(endpoint,
+                      " has been removed from session map due to stop request");
       }
     }
     if (p)
@@ -90,7 +91,7 @@ void web_service::stop() {
   while (!ioc_stopped) {
     cv.wait(guard);
   }
-  logger::info("stop ok!");
+  logger::info("web service stopped");
 }
 
 template <typename SESSION_TYPE>
@@ -102,6 +103,7 @@ void web_service::create_session(tcp::socket &&sock) {
     //这个在session自杀的时候被session调用
     session_map_t::accessor row;
     if (!sessions.find(row, endpoint)) {
+      std::ostringstream fmt(" session->unregister_ session not found");
       return false;
     }
     if (!sessions.erase(row)) {

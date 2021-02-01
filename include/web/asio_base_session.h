@@ -12,6 +12,7 @@
 #include <boost/system/error_code.hpp>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -44,9 +45,12 @@ protected:
   //我们会在web service里保留每个session的一个引用计数
   // session自杀的时候，需要把自己在service里的引用消掉
   std::function<bool()> unregister_;
-  bool ssl_handshaked_ = false;
+  bool ssl_established_ = false;
   //表示此对象已被move走
   bool empty = false;
+  //使close只会被工作一次并且线程安全
+  bool closed = false;
+  std::mutex close_mutex;
 
 private:
   void set_tcp_timeout() {
@@ -83,24 +87,31 @@ public:
   asio_base_session(const asio_base_session &) = delete;
 
   virtual ~asio_base_session() {
-    if (!empty) {
-      if (this->unregister_()) {
-        logger::fatal("asio_base_session destruct failed");
-        abort();
-      }
-    }
     hcam::logger::debug(this->remote_, " asio_base_session destructed");
   }
 
   virtual void run() { throw std::exception(); }
 
+  //重载这函数时，记得锁close_mutex
   virtual void close() {
-    if (!this->unregister_()) {
-      /*      hcam::logger::debug(
-                this->remote_,
-                " asio_base_session close: \"this\" has been closed before");*/
+    // shutdown SSL
+    if (SSL) {
+      if (ssl_established_) {
+        //我也不知道为什么，这里有的时候会卡死，一直在等待read调用，干脆不shutdown
+        // ssl了
+        /*  try {
+            find_layer<stream<true>::type>(*this->stream_.get()).shutdown();
+          } catch (const boost::system::system_error &e) {
+            logger::debug(this->remote_, " shutdown SSL failed: ", e.what());
+          }
+          logger::debug(this->remote_, " SSL shutdown");*/
+      }
     }
+    // close TCP
     beast::get_lowest_layer(*stream_).close();
+    logger::debug(this->remote_, " TCP closed");
+    // unref
+    this->unregister_();
   }
 
 protected:
@@ -108,14 +119,14 @@ protected:
       beast::tcp_stream::endpoint_type remote, std::function<bool()> unregister,
       std::function<bool(tcp::endpoint, modify_session_callback_type)>
           modify_session,
-      bool ssl_handshaked)
+      bool ssl_established)
       : remote_(remote), unregister_(std::move(unregister)),
         modify_session_(std::move(modify_session)),
-        ssl_handshaked_(ssl_handshaked) {}
+        ssl_established_(ssl_established) {}
 
   template <typename CALLBACK> void ssl_handshake(CALLBACK callback) {
     if constexpr (SSL) {
-      if (!ssl_handshaked_) {
+      if (!ssl_established_) {
         hcam::logger::debug(this->remote_, " SSL handshake begin");
         find_layer<stream<true>::type>(*this->stream_.get())
             .async_handshake(
@@ -126,7 +137,7 @@ protected:
                     hcam::logger::debug(this->remote_,
                                         " SSL handshake error: ", ec.message());
                   } else {
-                    ssl_handshaked_ = true;
+                    ssl_established_ = true;
                     hcam::logger::debug(this->remote_, " SSL handshake OK");
                   }
                   callback(ec);

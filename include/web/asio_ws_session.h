@@ -79,8 +79,13 @@ public:
     beast::get_lowest_layer(*this->stream_).expires_never();
 
     // Set suggested timeout settings for the websocket
-    this->stream_->set_option(
-        websocket::stream_base::timeout::suggested(beast::role_type::server));
+    websocket::stream_base::timeout timeout =
+        websocket::stream_base::timeout::suggested(beast::role_type::server);
+    timeout.handshake_timeout = std::chrono::seconds(10);
+    timeout.keep_alive_pings = false;
+    timeout.idle_timeout =
+        std::chrono::seconds(config_manager::get().tcp_timeout);
+    this->stream_->set_option(timeout);
 
     // Set a decorator to change the Server of the handshake
     this->stream_->set_option(
@@ -185,8 +190,22 @@ public:
   }
 
   virtual void close() override {
+    std::lock_guard l(this->close_mutex);
+    if (this->closed)
+      return;
+
+    // close websocket
+    try {
+      this->stream_->close(boost::beast::websocket::normal);
+    } catch (const beast::system_error &e) {
+      logger::debug(this->remote_, " close WebSocket failed: ", e.what());
+    }
+    logger::debug(this->remote_, " WebSocket closed");
+    // call base class
     asio_base_session<
         SSL, websocket::stream<typename stream<SSL>::type, true>>::close();
+
+    this->closed = true;
   }
 };
 

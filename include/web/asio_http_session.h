@@ -80,10 +80,6 @@ public:
     // Clear the buffer
     buffer_.consume(buffer_.size());
 
-    // Set the timeout.
-    beast::get_lowest_layer(*this->stream_)
-        .expires_after(std::chrono::seconds(30));
-
     // Read a request
     http::async_read(*this->stream_, buffer_, req_,
                      [this, shared_this = this->shared_from_this()](
@@ -121,7 +117,7 @@ public:
         // FIXME 底下如果抛了个异常，就会漏内存
         auto typed_ws_session = new asio_ws_session<SSL>(
             this->remote_, std::move(this->unregister_),
-            std::move(this->modify_session_), this->ssl_handshaked_);
+            std::move(this->modify_session_), this->ssl_established_);
         std::shared_ptr<void> ws_session(typed_ws_session);
         if constexpr (SSL) {
           typed_ws_session->stream_ = std::make_unique<
@@ -154,7 +150,7 @@ public:
     http::response<http::string_body> res{http::status::ok, req_.version()};
     res.set(http::field::server, "homemade-camera");
     res.set(http::field::content_type, "text/html");
-    res.keep_alive(false);
+    res.keep_alive(req_.keep_alive());
     res.body() = "It works!";
     res.prepare_payload();
     send(std::move(res));
@@ -210,7 +206,14 @@ public:
   }
 
   virtual void close() override {
+    std::lock_guard l(this->close_mutex);
+    if (this->closed)
+      return;
+
+    logger::debug(this->remote_, " unreferenced");
     asio_base_session<SSL, typename stream<SSL>::type>::close();
+
+    this->closed = true;
   }
 };
 
