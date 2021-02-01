@@ -84,7 +84,7 @@ public:
     timeout.handshake_timeout = std::chrono::seconds(10);
     timeout.keep_alive_pings = false;
     timeout.idle_timeout =
-        std::chrono::seconds(config_manager::get().tcp_timeout);
+        std::chrono::seconds(config_manager::get().idle_timeout);
     this->stream_->set_option(timeout);
 
     // Set a decorator to change the Server of the handshake

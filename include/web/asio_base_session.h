@@ -55,7 +55,7 @@ protected:
 private:
   void set_tcp_timeout() {
     beast::get_lowest_layer(*stream_).expires_after(
-        std::chrono::seconds(config_manager::get().tcp_timeout));
+        std::chrono::seconds(config_manager::get().idle_timeout));
   }
 
 public:
@@ -67,8 +67,8 @@ public:
           modify_session)
       : stream_(std::make_unique<STREAM>(std::move(socket), ssl_ctx)),
         remote_(beast::get_lowest_layer(*stream_).socket().remote_endpoint()),
-        unregister_(std::move(unregister)),
-        modify_session_(std::move(modify_session)) {
+        modify_session_(std::move(modify_session)),
+        unregister_(std::move(unregister)) {
     set_tcp_timeout();
   }
 
@@ -120,9 +120,8 @@ protected:
       std::function<bool(tcp::endpoint, modify_session_callback_type)>
           modify_session,
       bool ssl_established)
-      : remote_(remote), unregister_(std::move(unregister)),
-        modify_session_(std::move(modify_session)),
-        ssl_established_(ssl_established) {}
+      : remote_(remote), modify_session_(std::move(modify_session)),
+        unregister_(std::move(unregister)), ssl_established_(ssl_established) {}
 
   template <typename CALLBACK> void ssl_handshake(CALLBACK callback) {
     if constexpr (SSL) {

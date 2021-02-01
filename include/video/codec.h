@@ -13,7 +13,9 @@ namespace hcam {
 
 enum codec { RAW, H264, H265, MPEG2, MPEG4, MJPEG, YUV420 };
 
-static std::string codec_file_format(codec c) {
+static inline std::string codec_file_format(codec c) {
+  // suppress unused function warning
+  (void)codec_file_format;
   if (c == YUV420)
     return "yuv";
   if (c == MJPEG)
@@ -31,7 +33,9 @@ static std::string codec_file_format(codec c) {
   throw std::invalid_argument("");
 }
 
-static int codec_fourcc(codec c) {
+static inline int codec_fourcc(codec c) {
+  // suppress unused function warning
+  (void)codec_fourcc;
   if (c == YUV420)
     throw std::invalid_argument("");
   if (c == MJPEG)
@@ -59,7 +63,9 @@ static int codec_v4l2_pix_fmt(codec c) {
 }
 #endif
 
-static std::string codec_to_string(codec c) {
+static inline std::string codec_to_string(codec c) {
+  // suppress unused function warning
+  (void)codec_to_string;
   if (YUV420 == c)
     return "YUV";
   if (MJPEG == c)
@@ -77,7 +83,9 @@ static std::string codec_to_string(codec c) {
   throw std::invalid_argument("");
 }
 
-static codec codec_parse(std::string s) {
+static inline codec codec_parse(std::string s) {
+  // suppress unused function warning
+  (void)codec_parse;
   std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
     // TODO verify it is ASCII
     return std::tolower(c);

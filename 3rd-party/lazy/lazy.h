@@ -84,10 +84,10 @@ public:
   template <typename... _DeductionTrigger>
   constexpr explicit lazy(const allocator_type &alloc,
                           _DeductionTrigger &&... args)
-      : m_allocator(alloc), //
+      : m_instance(nullptr),
+        m_allocator(alloc),
         m_constructor_arguments(
-            std::make_tuple(std::forward<_DeductionTrigger>(args)...)),
-        m_instance(nullptr) {}
+            std::make_tuple(std::forward<_DeductionTrigger>(args)...)) {}
 
   lazy(const lazy &) = delete;
 

@@ -65,7 +65,7 @@ bool config::read(const std::string &filename) {
     this->font_height = js["font-height"].get<int>();
     this->web_addr = js["web-addr"].get<std::string>();
     this->web_port = js["web-port"].get<int>();
-    this->tcp_timeout = js["tcp-timeout"].get<int>();
+    this->idle_timeout = js["idle-timeout"].get<int>();
   } catch (const std::exception &ex) {
     logger::error(ex.what());
     return false;
@@ -93,7 +93,7 @@ bool config::write(const std::string &filename) {
       {"timestamp_pos", this->timestamp_pos},
       {"font-height", this->font_height},
       {"web-port", this->web_port},
-      {"tcp-timeout", this->tcp_timeout} //
+      {"idle-timeout", this->idle_timeout} //
   };
 
   std::string raw = js.dump(4);

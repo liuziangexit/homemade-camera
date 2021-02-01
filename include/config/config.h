@@ -33,7 +33,7 @@ struct config {
   int font_height;           //视频时间戳字体大小
   std::string web_addr;      // web服务地址
   int web_port;              // web服务端口
-  int tcp_timeout;           // web服务tcp超时时间（秒）
+  int idle_timeout;          // web服务连接闲置超时时间（秒）
 
   friend typename liuziangexit_lazy::lazy_t<config, std::string>;
 

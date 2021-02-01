@@ -14,5 +14,5 @@
   "font-height": 30,
   "web-addr": "0.0.0.0",
   "web-port": 8080,
-  "tcp-timeout": 10
+  "idle-timeout": 10
 }
