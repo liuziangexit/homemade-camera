@@ -60,7 +60,6 @@ include_directories(homecam 3rd-party/libjpeg-turbo/install/include)
 
 include_directories(homecam ./include ./3rd-party)
 
-#FIXME 这里实际上要判断是否是raspi
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     include_directories(homecam 3rd-party/raspberrypi 3rd-party/ilclient)
     find_library(ILCLIENT_LIBRARY ilclient HINTS 3rd-party/ilclient)
