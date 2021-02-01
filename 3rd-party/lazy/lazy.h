@@ -56,7 +56,7 @@ template <typename _Ty, typename _Alloc, typename... _ConstructorArgs>
 class lazy {
 public:
   using value_type =
-  typename std::remove_reference_t<typename std::remove_cv_t<_Ty>>;
+      typename std::remove_reference_t<typename std::remove_cv_t<_Ty>>;
   using allocator_type = _Alloc;
   using reference = value_type &;
   using const_reference = const value_type &;
@@ -83,9 +83,9 @@ public:
   */
   template <typename... _DeductionTrigger>
   constexpr explicit lazy(const allocator_type &alloc,
-                          _DeductionTrigger &&... args)
-      : m_instance(nullptr),
-        m_allocator(alloc),
+                          _DeductionTrigger &&...args)
+      : m_instance(nullptr), //
+        m_allocator(alloc),  //
         m_constructor_arguments(
             std::make_tuple(std::forward<_DeductionTrigger>(args)...)) {}
 
@@ -135,7 +135,7 @@ public:
         try {
           // invoke constructor
           detail::function_call(
-              [instance](auto &&... args) {
+              [instance](auto &&...args) {
                 new (instance) value_type( //
                     std::forward<decltype(args)>(args)...);
               },
@@ -167,17 +167,17 @@ private:
 };
 
 template <typename _Ty, typename... _ConstructorArgs>
-auto make_lazy(_ConstructorArgs &&... constructor_args) {
+auto make_lazy(_ConstructorArgs &&...constructor_args) {
   return lazy<_Ty, std::allocator<_Ty>,
-      std::remove_reference_t<std::remove_cv_t<_ConstructorArgs>>...>(
+              std::remove_reference_t<std::remove_cv_t<_ConstructorArgs>>...>(
       std::allocator<_Ty>(),
       std::forward<_ConstructorArgs>(constructor_args)...);
 }
 
 template <typename _Ty, typename... _ConstructorArgs>
 using lazy_t =
-lazy<_Ty, std::allocator<_Ty>,
-    std::remove_reference_t<std::remove_cv_t<_ConstructorArgs>>...>;
+    lazy<_Ty, std::allocator<_Ty>,
+         std::remove_reference_t<std::remove_cv_t<_ConstructorArgs>>...>;
 
 } // namespace liuziangexit_lazy
 #endif
