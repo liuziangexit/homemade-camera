@@ -13,4 +13,4 @@ cmake --enable-nonfree --enable-pic --enable-shared \
   -D CMAKE_BUILD_TYPE=RELEASE -DCMAKE_INSTALL_PREFIX:PATH="$(pwd)/install" -D ENABLE_NEON=ON -D ENABLE_VFPV3=ON \
   -S. -Bbuild
 cd build
-make -j4
+make install -j4

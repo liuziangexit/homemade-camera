@@ -30,30 +30,20 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(homecam Threads::Threads)
 endif ()
 
-find_package(OpenCV REQUIRED)
+find_package(OpenCV REQUIRED HINTS 3rd-party/opencv/install)
 include_directories(homecam ${OPENCV_INCLUDE_DIRS})
 target_link_libraries(homecam ${OpenCV_LIBS})
 find_package(OpenSSL REQUIRED)
 target_link_libraries(homecam ${OPENSSL_LIBRARIES})
 include_directories(homecam ${OPENSSL_INCLUDE_DIR})
 
-
-#add_subdirectory(3rd-party/oneTBB)
-#find_package(TBB REQUIRED PATHS 3rd-party/oneTBB)
-find_package(TBB REQUIRED)
+find_package(TBB REQUIRED HINTS 3rd-party/oneTBB/install)
 target_link_libraries(homecam TBB::tbb)
 include_directories(homecam ${TBB_INCLUDE_DIR})
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    find_library(TURBOJPEG_LIBRARY turbojpeg HINTS 3rd-party/libjpeg-turbo/build)
-    target_link_libraries(homecam ${TURBOJPEG_LIBRARY})
-    include_directories(homecam 3rd-party/libjpeg-turbo)
-else ()
-    #FIXME 这里不要写死
-    find_library(TURBOJPEG_LIBRARY turbojpeg HINTS /opt/libjpeg-turbo/lib32/)
-    target_link_libraries(homecam ${TURBOJPEG_LIBRARY})
-    include_directories(homecam /opt/libjpeg-turbo/include/)
-endif ()
+find_library(TURBOJPEG_LIBRARY turbojpeg HINTS 3rd-party/libjpeg-turbo/install/lib)
+target_link_libraries(homecam ${TURBOJPEG_LIBRARY})
+include_directories(homecam 3rd-party/libjpeg-turbo/install/include)
 
 include_directories(homecam ./include ./3rd-party)
 
