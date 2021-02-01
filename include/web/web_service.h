@@ -26,7 +26,7 @@ struct endpoint_compare {
 };
 
 class web_service {
-  using TYPE = asio_http_session<true>;
+  using TYPE = asio_http_session<false>;
   using session_map_t =
       tbb::concurrent_hash_map<tcp::endpoint, std::shared_ptr<void>,
                                endpoint_compare>;
@@ -46,7 +46,8 @@ public:
       std::function<std::shared_ptr<void>(void *)>;
   bool modify_session(tcp::endpoint key,
                       modify_session_callback_type callback) noexcept;
-  template <typename SESSION_TYPE> void create_session(tcp::socket &&);
+  template <typename SESSION_TYPE>
+  void create_session(tcp::socket &&, beast::tcp_stream::endpoint_type remote);
 
 private:
   std::shared_ptr<asio_listener> listener;

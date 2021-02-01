@@ -36,8 +36,8 @@ web_service::web_service() {
   // Create and launch a listening port
   this->listener = std::make_shared<asio_listener>(
       *ioc, tcp::endpoint{address, port},
-      std::bind(&web_service::create_session<TYPE>, this,
-                std::placeholders::_1));
+      std::bind(&web_service::create_session<TYPE>, this, std::placeholders::_1,
+                std::placeholders::_2));
 }
 
 web_service::~web_service() {
@@ -95,8 +95,9 @@ void web_service::stop() {
 }
 
 template <typename SESSION_TYPE>
-void web_service::create_session(tcp::socket &&sock) {
-  auto endpoint = sock.remote_endpoint();
+void web_service::create_session(tcp::socket &&sock,
+                                 beast::tcp_stream::endpoint_type remote) {
+  auto endpoint = remote;
 
   //创建session对象的回调
   auto unregister = [this, endpoint]() -> bool {
@@ -119,13 +120,13 @@ void web_service::create_session(tcp::socket &&sock) {
     ssl::context ssl_ctx{ssl::context::tlsv12};
     load_server_certificate(ssl_ctx);
     session.reset(new SESSION_TYPE(
-        std::move(sock), ssl_ctx, unregister,
+        std::move(sock), remote, ssl_ctx, unregister,
         std::function<bool(tcp::endpoint, modify_session_callback_type)>{
             [this](tcp::endpoint key, modify_session_callback_type callback)
                 -> bool { return modify_session(key, std::move(callback)); }}));
   } else {
     session.reset(new SESSION_TYPE(
-        std::move(sock), unregister,
+        std::move(sock), remote, unregister,
         std::function<bool(tcp::endpoint, modify_session_callback_type)>{
             [this](tcp::endpoint key, modify_session_callback_type callback)
                 -> bool { return modify_session(key, std::move(callback)); }}));

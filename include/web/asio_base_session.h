@@ -61,26 +61,25 @@ private:
 public:
   // ssl
   asio_base_session(
-      tcp::socket &&socket, ssl::context &ssl_ctx,
-      std::function<bool()> unregister,
+      tcp::socket &&socket, beast::tcp_stream::endpoint_type remote,
+      ssl::context &ssl_ctx, std::function<bool()> unregister,
       std::function<bool(tcp::endpoint, modify_session_callback_type)>
           modify_session)
       : stream_(std::make_unique<STREAM>(std::move(socket), ssl_ctx)),
-        remote_(beast::get_lowest_layer(*stream_).socket().remote_endpoint()),
-        modify_session_(std::move(modify_session)),
+        remote_(remote), modify_session_(std::move(modify_session)),
         unregister_(std::move(unregister)) {
     set_tcp_timeout();
   }
 
   // tcp
   asio_base_session(
-      tcp::socket &&socket, std::function<bool()> unregister,
+      tcp::socket &&socket, beast::tcp_stream::endpoint_type remote,
+      std::function<bool()> unregister,
       std::function<bool(tcp::endpoint, modify_session_callback_type)>
           modify_session)
-      : stream_(std::make_unique<STREAM>(std::move(socket))),
-        remote_(beast::get_lowest_layer(*stream_).socket().remote_endpoint()),
-        unregister_(std::move(unregister)),
-        modify_session_(std::move(modify_session)) {
+      : stream_(std::make_unique<STREAM>(std::move(socket))), remote_(remote),
+        modify_session_(std::move(modify_session)),
+        unregister_(std::move(unregister)) {
     set_tcp_timeout();
   }
 

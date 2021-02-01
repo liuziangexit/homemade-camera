@@ -28,12 +28,15 @@ namespace hcam {
 class asio_listener : public std::enable_shared_from_this<asio_listener> {
   net::io_context &ioc_;
   tcp::endpoint endpoint_;
-  std::function<void(tcp::socket &&)> create_session_;
+  std::function<void(tcp::socket &&, beast::tcp_stream::endpoint_type remote)>
+      create_session_;
   tcp::acceptor acceptor_;
 
 public:
   asio_listener(net::io_context &ioc, tcp::endpoint endpoint,
-                const std::function<void(tcp::socket &&)> &create_session)
+                const std::function<void(
+                    tcp::socket &&, beast::tcp_stream::endpoint_type remote)>
+                    &create_session)
       : ioc_(ioc), endpoint_(endpoint), create_session_(create_session),
         acceptor_(net::make_strand(ioc)) {}
 
@@ -93,10 +96,17 @@ private:
         return;
       }
     } else {
-      hcam::logger::info(socket.remote_endpoint(), " session created");
-      hcam::logger::debug(socket.remote_endpoint(), " TCP handshake OK");
+      beast::tcp_stream::endpoint_type remote;
+      try {
+        remote = socket.remote_endpoint();
+      } catch (const beast::system_error &e) {
+        hcam::logger::info("session create failed, ", e.what());
+        return;
+      }
+      hcam::logger::info(remote, " session created");
+      hcam::logger::debug(remote, " TCP handshake OK");
       // Create the session and run it
-      this->create_session_(std::move(socket));
+      this->create_session_(std::move(socket), remote);
     }
 
     // Accept another connection
