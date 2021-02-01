@@ -28,6 +28,19 @@ add_executable(homecam ${SRCS})
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     find_package(Threads REQUIRED)
     target_link_libraries(homecam Threads::Threads)
+
+    FIND_LIBRARY(GCCLIBATOMIC_LIBRARY NAMES atomic atomic.so.1 libatomic.so.1
+            HINTS
+            /usr/local/lib64
+            /usr/local/lib
+            /opt/local/lib64
+            /opt/local/lib
+            /usr/lib64
+            /usr/lib
+            /lib64
+            /lib
+            )
+    target_link_libraries(homecam ${GCCLIBATOMIC_LIBRARY})
 endif ()
 
 find_package(OpenCV REQUIRED HINTS 3rd-party/opencv/install)
