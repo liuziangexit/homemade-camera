@@ -2,6 +2,7 @@
 #define __HOMECAM_ASIO_BASE_SESSION_H_
 #include "boost/beast.hpp"
 #include "config/config.h"
+#include "find_layer.h"
 #include "util/logger.h"
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/strand.hpp>
@@ -33,6 +34,7 @@ template <bool SSL, typename STREAM>
 class asio_base_session
     : public std::enable_shared_from_this<asio_base_session<SSL, STREAM>> {
 protected:
+  //注意，这个stream和remote的声明顺序是有讲究的，看构造函数那里...我们必须先初始化stream再初始化remote，而初始化顺序就是声明顺序
   std::unique_ptr<STREAM> stream_;
   const beast::tcp_stream::endpoint_type remote_;
   using modify_session_callback_type =
@@ -60,7 +62,8 @@ public:
       std::function<bool(tcp::endpoint, modify_session_callback_type)>
           modify_session)
       : stream_(std::make_unique<STREAM>(std::move(socket), ssl_ctx)),
-        remote_(socket.remote_endpoint()), unregister_(std::move(unregister)),
+        remote_(beast::get_lowest_layer(*stream_).socket().remote_endpoint()),
+        unregister_(std::move(unregister)),
         modify_session_(std::move(modify_session)) {
     set_tcp_timeout();
   }
@@ -86,20 +89,18 @@ public:
         abort();
       }
     }
-    hcam::logger::debug(this->remote_, " asio_base_session destruct");
+    hcam::logger::debug(this->remote_, " asio_base_session destructed");
   }
 
   virtual void run() { throw std::exception(); }
 
   virtual void close() {
-    hcam::logger::debug(this->remote_, " asio_base_session close: begin");
     if (!this->unregister_()) {
-      hcam::logger::debug(
-          this->remote_,
-          " asio_base_session close: \"this\" has been closed before");
+      /*      hcam::logger::debug(
+                this->remote_,
+                " asio_base_session close: \"this\" has been closed before");*/
     }
     beast::get_lowest_layer(*stream_).close();
-    hcam::logger::debug(this->remote_, " asio_base_session close: ok");
   }
 
 protected:
@@ -112,22 +113,24 @@ protected:
         modify_session_(std::move(modify_session)),
         ssl_handshaked_(ssl_handshaked) {}
 
-  template <typename CALLBACK> void ssl_handshake(const CALLBACK &callback) {
+  template <typename CALLBACK> void ssl_handshake(CALLBACK callback) {
     if constexpr (SSL) {
       if (!ssl_handshaked_) {
-        this->stream_.async_handshake(
-            ssl::stream_base::server,
-            [this, callback,
-             shared_this = this->shared_from_this()](beast::error_code ec) {
-              if (ec) {
-                hcam::logger::debug(this->remote_,
-                                    " SSL handshake error: ", ec.message());
-              } else {
-                ssl_handshaked_ = true;
-                hcam::logger::debug(this->remote_, " SSL handshake OK");
-              }
-              callback(ec);
-            });
+        hcam::logger::debug(this->remote_, " SSL handshake begin");
+        find_layer<stream<true>::type>(*this->stream_.get())
+            .async_handshake(
+                ssl::stream_base::server,
+                [this, callback,
+                 shared_this = this->shared_from_this()](beast::error_code ec) {
+                  if (ec) {
+                    hcam::logger::debug(this->remote_,
+                                        " SSL handshake error: ", ec.message());
+                  } else {
+                    ssl_handshaked_ = true;
+                    hcam::logger::debug(this->remote_, " SSL handshake OK");
+                  }
+                  callback(ec);
+                });
       }
     } else {
       auto callback_copy = callback;

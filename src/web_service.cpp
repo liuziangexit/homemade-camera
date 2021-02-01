@@ -2,6 +2,8 @@
 #include "boost/beast.hpp"
 #include "config/config.h"
 #include "config/config_manager.h"
+#include "web/ssl_context_manager.h"
+#include <boost/asio/ssl/context.hpp>
 #include <condition_variable>
 #include <functional>
 #include <memory>
@@ -111,11 +113,21 @@ void web_service::create_session(tcp::socket &&sock) {
     return true;
   };
   std::shared_ptr<void> session;
-  session.reset(new SESSION_TYPE(
-      std::move(sock), unregister,
-      std::function<bool(tcp::endpoint, modify_session_callback_type)>{
-          [this](tcp::endpoint key, modify_session_callback_type callback)
-              -> bool { return modify_session(key, std::move(callback)); }}));
+  if constexpr (SESSION_TYPE::ssl_enabled::value) {
+    ssl::context ssl_ctx{ssl::context::tlsv12};
+    load_server_certificate(ssl_ctx);
+    session.reset(new SESSION_TYPE(
+        std::move(sock), ssl_ctx, unregister,
+        std::function<bool(tcp::endpoint, modify_session_callback_type)>{
+            [this](tcp::endpoint key, modify_session_callback_type callback)
+                -> bool { return modify_session(key, std::move(callback)); }}));
+  } else {
+    session.reset(new SESSION_TYPE(
+        std::move(sock), unregister,
+        std::function<bool(tcp::endpoint, modify_session_callback_type)>{
+            [this](tcp::endpoint key, modify_session_callback_type callback)
+                -> bool { return modify_session(key, std::move(callback)); }}));
+  }
 
   //做一个引用计数
   session_map_t::value_type kv{endpoint, session};

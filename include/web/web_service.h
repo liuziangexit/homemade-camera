@@ -26,7 +26,7 @@ struct endpoint_compare {
 };
 
 class web_service {
-  using TYPE = asio_http_session<false>;
+  using TYPE = asio_http_session<true>;
   using session_map_t =
       tbb::concurrent_hash_map<tcp::endpoint, std::shared_ptr<void>,
                                endpoint_compare>;

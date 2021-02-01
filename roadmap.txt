@@ -45,10 +45,11 @@ ok-http的handler
 -自动删除旧录像
 -检查warning
 -测试线程池的完美转发
+-给代码加上头部版权注释
 
 -------------------V1.0
 
--port到Mac上
+OK-port到Mac上
 -守护进程
 -web直播
 

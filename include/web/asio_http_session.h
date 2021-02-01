@@ -34,13 +34,14 @@ class asio_http_session
 
 public:
   using base_type = asio_base_session<SSL, typename stream<SSL>::type>;
+  using ssl_enabled = std::bool_constant<SSL>;
   template <typename... ARGS>
   asio_http_session(ARGS &&...args)
       : asio_base_session<SSL, typename stream<SSL>::type>(
             std::forward<ARGS>(args)...) {}
 
   ~asio_http_session() {
-    hcam::logger::debug(this->remote_, " asio_http_session destruct");
+    hcam::logger::debug(this->remote_, " asio_http_session destructed");
   }
 
   // Get on the correct executor
@@ -64,7 +65,6 @@ public:
   // previous layer handshake ok
   void on_handshake(beast::error_code ec) {
     if (ec) {
-      hcam::logger::debug(this->remote_, " handshake error: ", ec.message());
       this->close();
       return;
     }
@@ -100,11 +100,11 @@ public:
     }
 
     if (ec) {
-      hcam::logger::debug(this->remote_, " http read failed: ", ec.message());
+      hcam::logger::debug(this->remote_, " HTTP read failed: ", ec.message());
       this->close();
       return;
     } else {
-      hcam::logger::debug(this->remote_, " http read OK");
+      hcam::logger::debug(this->remote_, " HTTP read OK");
     }
 
     // handle request
@@ -113,7 +113,7 @@ public:
     auto upgrade_header = req_.base().find("Upgrade");
     if (upgrade_header != req_.base().end() &&
         upgrade_header->value() == "websocket") {
-      logger::debug("client request websocket upgrade!");
+      logger::debug(this->remote_, " client request WebSocket upgrade!");
 
       auto upgrade = [this](void *current) -> std::shared_ptr<void> {
         assert((void *)this == current);
@@ -124,9 +124,9 @@ public:
             std::move(this->modify_session_), this->ssl_handshaked_);
         std::shared_ptr<void> ws_session(typed_ws_session);
         if constexpr (SSL) {
-          // TODO 把this的ssl layer给move assign过去
-          typed_ws_session->stream_ = std::make_unique<
-              websocket::stream<typename stream<true>::type, true>>();
+          /* // TODO 把this的ssl layer给move assign过去
+           typed_ws_session->stream_ = std::make_unique<
+               websocket::stream<typename stream<true>::type, true>>();*/
         } else {
           typed_ws_session->stream_ = std::make_unique<
               websocket::stream<typename stream<SSL>::type, true>>(
@@ -139,8 +139,10 @@ public:
       };
 
       if (this->modify_session_(this->remote_, upgrade)) {
-        logger::debug("http session replaced by ws session, ws handshake "
-                      "one the way");
+        logger::debug(
+            this->remote_,
+            " HTTP session replaced by ws session, WebSocket handshake "
+            "one the way");
         return;
       } else {
         logger::fatal(
@@ -189,11 +191,11 @@ public:
     deleter();
 
     if (ec) {
-      hcam::logger::debug(this->remote_, " http write failed: ", ec.message());
+      hcam::logger::debug(this->remote_, " HTTP write failed: ", ec.message());
       this->close();
       return;
     } else {
-      hcam::logger::debug(this->remote_, " http write OK");
+      hcam::logger::debug(this->remote_, " HTTP write OK");
     }
 
     //也许是因为"Connection: close"或者什么其他原因
@@ -208,7 +210,6 @@ public:
   }
 
   virtual void close() override {
-    hcam::logger::debug(this->remote_, " http closed");
     asio_base_session<SSL, typename stream<SSL>::type>::close();
   }
 };
