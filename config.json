@@ -1,7 +1,7 @@
 {
   "log-level": 0,
   "video-thread-count": 4,
-  "web-thread-count": 1,
+  "web-thread-count": 2,
   "camera-pixel-format": "MJPG",
   "output-codec": "H264",
   "duration": 60,
