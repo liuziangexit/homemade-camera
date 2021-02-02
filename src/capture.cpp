@@ -11,6 +11,7 @@
 #include <memory>
 #include <opencv2/core.hpp>
 #include <opencv2/freetype.hpp>
+#include <opencv2/highgui.hpp>
 #include <opencv2/videoio.hpp>
 #include <optional>
 #include <sstream>
@@ -143,7 +144,9 @@ void capture::do_capture(const config &config) {
       return false;
     }
     ctx.capture_done_time = checkpoint(3);
-    ctx.decoded_frame = std::move(mat);
+    // FIXME 这里有奇怪的问题，鬼知道咋回事
+    cv::normalize(mat, ctx.decoded_frame, 0, 255, cv::NORM_MINMAX, CV_8U);
+    /*ctx.decoded_frame = std::move(mat);*/
 
     /* FIXME
      * 这个地方应该想办法拿到opencv拿到的原始jpg，而不是在这重新encode一个jpg
@@ -153,6 +156,9 @@ void capture::do_capture(const config &config) {
     this->web_service_p            //
         ->get_livestream_instace() //
         .send_frame_to_all(out.data(), out.size());
+    /*FILE *fp = fopen("out.jpg", "wb");
+    fwrite(out.data(), 1, out.size(), fp);
+    fclose(fp);*/
 
     return true;
   };

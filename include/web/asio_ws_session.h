@@ -342,9 +342,9 @@ public:
   static void send_frame(void *session, unsigned char *frame, uint32_t len) {
     auto *this_ = (asio_ws_session<SSL> *)session;
 
-    //发消息头
+    /*//发消息头
     static const unsigned char head[] = "FRAME";
-    this_->write(head, strlen((const char *)head), false, false);
+    this_->write(head, strlen((const char *)head), false, false);*/
     //发帧
     std::shared_ptr<void> frame_copy(new unsigned char[len], [](void *p) {
       delete static_cast<unsigned char *>(p);
