@@ -92,7 +92,8 @@ private:
   void on_accept(beast::error_code ec, tcp::socket socket) {
     if (ec) {
       hcam::logger::debug("asio accept fail: ", ec.message());
-      if (ec == boost::asio::error::operation_aborted) {
+      if (ec == boost::asio::error::operation_aborted ||
+          ec == boost::asio::error::bad_descriptor) {
         return;
       }
     } else {
