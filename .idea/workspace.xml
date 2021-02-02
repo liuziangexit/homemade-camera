@@ -13,10 +13,37 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="21271e3d-5f88-4df0-a1fc-dd8c3ac770b2" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/web/css/bootstrap-grid.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/css/bootstrap-grid.css.map" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/css/bootstrap-grid.min.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/css/bootstrap-grid.min.css.map" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/css/bootstrap-reboot.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/css/bootstrap-reboot.css.map" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/css/bootstrap-reboot.min.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/css/bootstrap-reboot.min.css.map" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/css/bootstrap.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/css/bootstrap.css.map" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/css/bootstrap.min.css.map" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/css/dashboard.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/js/Chart.min.js.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/js/bootstrap.bundle.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/js/bootstrap.bundle.js.map" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/js/bootstrap.bundle.min.js.map" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/js/bootstrap.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/js/bootstrap.js.map" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/js/bootstrap.min.js.map" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/js/dashboard.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/js/feather.min.js.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/js/jquery.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/js/jquery.min.map" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/js/jquery.slim.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/js/jquery.slim.min.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/web/js/jquery.slim.min.map" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/soft_jpg.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/soft_jpg.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/web/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web_api.txt" beforeDir="false" afterPath="$PROJECT_DIR$/web_api.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -40,18 +67,22 @@
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="cf.advertisement.text.overridden" value="true" />
     <property name="cf.first.check.clang-format" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/include/web" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/web/js" />
     <property name="nodejs_package_manager_path" value="npm" />
     <property name="restartRequiresConfirmation" value="false" />
     <property name="settings.editor.selected.configurable" value="CMakeSettings" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/include/web" />
-      <recent name="$PROJECT_DIR$/3rd-party/freetype" />
-      <recent name="$PROJECT_DIR$/3rd-party/harfbuzz" />
-      <recent name="$PROJECT_DIR$/3rd-party/vc/pkgconfig" />
+      <recent name="$PROJECT_DIR$/web/js" />
+      <recent name="$PROJECT_DIR$/web/css" />
+      <recent name="$PROJECT_DIR$/web" />
       <recent name="$PROJECT_DIR$/src" />
+      <recent name="$PROJECT_DIR$/include/web" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/web/js" />
+      <recent name="$PROJECT_DIR$/web/css" />
     </key>
   </component>
   <component name="RunManager">
@@ -97,7 +128,7 @@
       <workItem from="1612012231630" duration="6917000" />
       <workItem from="1612071331777" duration="8161000" />
       <workItem from="1612149630099" duration="2661000" />
-      <workItem from="1612164090010" duration="17845000" />
+      <workItem from="1612164090010" duration="22343000" />
     </task>
     <servers />
   </component>
@@ -128,6 +159,13 @@
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/include/web/file_loader.h</url>
+          <line>31</line>
+          <option name="timeStamp" value="56" />
+        </line-breakpoint>
+      </breakpoints>
       <default-breakpoints>
         <breakpoint type="python-exception">
           <properties notifyOnTerminate="true" exception="BaseException">
