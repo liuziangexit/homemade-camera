@@ -7,6 +7,7 @@
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
+#include <boost/beast/core/buffers_to_string.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/beast/websocket/ssl.hpp>
@@ -35,6 +36,7 @@ class asio_ws_session
   friend class hcam::asio_http_session<SSL>;
   beast::flat_buffer buffer_;
   std::optional<http::request<http::string_body>> handshake_req_;
+  std::mutex write_mut;
 
 public:
   using base_type =
@@ -161,19 +163,85 @@ public:
       hcam::logger::debug(this->remote_, " WebSocket read OK");
     }
 
-    // Echo the message
-    this->stream_->text(this->stream_->got_text());
-    this->write(buffer_, false);
+    auto reply = [this](const unsigned char *msg) {
+      this->write(msg, strlen((const char *)msg), false, false);
+    };
+
+    // handle
+    if (!this->stream_->got_text()) {
+      static const unsigned char msg[] = "can not handle binary message";
+      reply(msg);
+      this->close();
+      return;
+    }
+
+    std::string txt = beast::buffers_to_string(buffer_.cdata());
+    if (txt == "STREAM_ON") {
+      static const unsigned char msg[] = "STREAM ON?";
+      reply(msg);
+    } else if (txt == "STREAM_OFF") {
+      static const unsigned char msg[] = "STREAM OFF?";
+      reply(msg);
+    } else {
+      static const unsigned char msg[] = "unknown request";
+      reply(msg);
+      this->close();
+      return;
+    }
 
     read();
   }
 
-  template <typename BUFFER> void write(BUFFER &&buf, bool binary) {
-    auto shared_buf =
-        std::make_shared<std::decay_t<BUFFER>>(std::forward<BUFFER>(buf));
+  template <typename BUFFER,
+            typename = typename std::enable_if<
+                !std::is_same_v<std::decay_t<BUFFER>, std::shared_ptr<void>>,
+                int>::type>
+  void write(BUFFER &&buf, bool binary) {
+    //加锁是为了binary设置不要乱掉（想想如果不加锁，多个线程同时调这个方法会怎么样，对吧）
+    std::lock_guard l(write_mut);
+    this->stream_->binary(binary);
     this->stream_->async_write(
-        shared_buf->data(),
-        [this, shared_buf, shared_this = this->shared_from_this()](
+        buf, [this, shared_this = this->shared_from_this()](
+                 beast::error_code ec, std::size_t bytes_transferred) {
+          this->on_write(ec, bytes_transferred);
+        });
+  }
+
+  void write(const unsigned char *src, uint32_t len, bool binary,
+             bool copy = true) {
+    //加锁是为了binary设置不要乱掉（想想如果不加锁，多个线程同时调这个方法会怎么样，对吧）
+    std::lock_guard l(write_mut);
+    this->stream_->binary(binary);
+    if (copy) {
+      std::shared_ptr<void> shared_buf(new unsigned char[len], [](void *p) {
+        // FIXME 确认一下delete是编译时候根据类型去做的，还是运行时的信息
+        delete static_cast<unsigned char *>(p);
+      });
+      memcpy(shared_buf.get(), src, len);
+      this->stream_->async_write(
+          net::buffer(shared_buf.get(), len),
+          [this, shared_this = this->shared_from_this()](
+              beast::error_code ec, std::size_t bytes_transferred) {
+            this->on_write(ec, bytes_transferred);
+          });
+    } else {
+      this->stream_->async_write(
+          net::buffer(src, len),
+          [this, shared_this = this->shared_from_this()](
+              beast::error_code ec, std::size_t bytes_transferred) {
+            this->on_write(ec, bytes_transferred);
+          });
+    }
+  }
+
+  //认为src是unsigned char*
+  void write(std::shared_ptr<void> src, uint32_t len, bool binary) {
+    //加锁是为了binary设置不要乱掉（想想如果不加锁，多个线程同时调这个方法会怎么样，对吧）
+    std::lock_guard l(write_mut);
+    this->stream_->binary(binary);
+    this->stream_->async_write(
+        net::buffer((const unsigned char *)src.get(), len),
+        [this, src, shared_this = this->shared_from_this()](
             beast::error_code ec, std::size_t bytes_transferred) {
           this->on_write(ec, bytes_transferred);
         });
@@ -208,6 +276,21 @@ public:
         SSL, websocket::stream<typename stream<SSL>::type, true>>::close();
 
     this->closed = true;
+  }
+
+public:
+  static void send_frame(void *session, unsigned char *frame, uint32_t len) {
+    auto *this_ = (asio_ws_session<SSL> *)session;
+
+    //发消息头
+    static const unsigned char head[] = "FRAME";
+    this_->write(head, strlen((const char *)head), false, false);
+    //发帧
+    std::shared_ptr<void> frame_copy(new unsigned char[len], [](void *p) {
+      delete static_cast<unsigned char *>(p);
+    });
+    memcpy(frame_copy.get(), frame, len);
+    this_->write(frame_copy, len, true);
   }
 };
 

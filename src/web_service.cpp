@@ -25,7 +25,9 @@ using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
 namespace hcam {
 
-web_service::web_service() {
+web_service::web_service()
+    : livestream_instance(
+          &asio_ws_session<HCAM_WEB_SERVICE_SSL_ENABLED>::send_frame) {
   const auto address = net::ip::make_address(config_manager::get().web_addr);
   const unsigned short port = config_manager::get().web_port;
   const auto threads = config_manager::get().web_thread_count;
@@ -156,6 +158,11 @@ bool web_service::modify_session(
   }
   row->second = ret;
   return true;
+}
+
+livestream<HCAM_WEB_SERVICE_SSL_ENABLED> &
+web_service::get_livestream_instace() {
+  return livestream_instance;
 }
 
 } // namespace hcam
