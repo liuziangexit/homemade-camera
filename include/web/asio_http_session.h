@@ -4,6 +4,7 @@
 #include "asio_ws_session.h"
 #include "boost/beast.hpp"
 #include "config/config.h"
+#include "file_loader.h"
 #include "util/logger.h"
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/dispatch.hpp>
@@ -147,13 +148,12 @@ public:
         abort();
       }
     }
-    http::response<http::string_body> res{http::status::ok, req_.version()};
-    res.set(http::field::server, "homemade-camera");
-    res.set(http::field::content_type, "text/html");
-    res.keep_alive(req_.keep_alive());
-    res.body() = "It works!";
-    res.prepare_payload();
-    send(std::move(res));
+
+    handle_request(beast::string_view(config_manager::get().web_root),
+                   std::move(req_), [this](auto &&response) {
+                     response.set(http::field::server, "homemade-camera");
+                     this->send(std::move(response));
+                   });
   }
 
   template <bool isRequest, class Body, class Fields>

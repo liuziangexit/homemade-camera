@@ -65,6 +65,7 @@ bool config::read(const std::string &filename) {
     this->font_height = js["font-height"].get<int>();
     this->web_addr = js["web-addr"].get<std::string>();
     this->web_port = js["web-port"].get<int>();
+    this->web_root = js["web-root"].get<std::string>();
     this->idle_timeout = js["idle-timeout"].get<int>();
   } catch (const std::exception &ex) {
     logger::error(ex.what());
