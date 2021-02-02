@@ -1,53 +1,29 @@
-/* globals Chart:false, feather:false */
+function changeCanvasSize(canvas, denominator, numerator) {
+    // Make it visually fill the positioned parent
+    canvas.style.height = (canvas.offsetWidth * numerator / denominator) + "px";
+    // ...then set the internal size to match
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+}
+
+function startLivestream(canvas) {
+    if (!canvas.getContext) {
+        alert("浏览器不完整支持canvas的功能，无法进行直播");
+        return;
+    }
+
+    changeCanvasSize(canvas, 16, 9);
+
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
+    ctx.fillStyle = "rgba(20,50,150,0.3)";
+    ctx.fillRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
+}
 
 (function () {
-  'use strict'
+    'use strict'
+    feather.replace();
 
-  feather.replace()
-
-  // Graphs
-  var ctx = document.getElementById('myChart')
-  // eslint-disable-next-line no-unused-vars
-  var myChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: [
-        'Sunday',
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday'
-      ],
-      datasets: [{
-        data: [
-          15339,
-          21345,
-          18483,
-          24003,
-          23489,
-          24092,
-          12034
-        ],
-        lineTension: 0,
-        backgroundColor: 'transparent',
-        borderColor: '#007bff',
-        borderWidth: 4,
-        pointBackgroundColor: '#007bff'
-      }]
-    },
-    options: {
-      scales: {
-        yAxes: [{
-          ticks: {
-            beginAtZero: false
-          }
-        }]
-      },
-      legend: {
-        display: false
-      }
-    }
-  })
-})()
+    // LiveStream
+    startLivestream(document.getElementById("hcam-live"));
+})();
