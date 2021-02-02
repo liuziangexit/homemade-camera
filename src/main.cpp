@@ -23,11 +23,12 @@ int main(int argc, char **argv) {
   web = new hcam::web_service();
   web->run();
 
-  cap = new hcam::capture();
+  cap = new hcam::capture(web);
   cap->run();
 
   /*getchar();
   raise(SIGINT);*/
-  while (true)
-    std::this_thread::sleep_for(std::chrono::hours(8));
+  while (true) {
+    std::this_thread::sleep_for(std::chrono::hours::max());
+  }
 }
