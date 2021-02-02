@@ -121,12 +121,12 @@ void capture::do_capture(const config &config) {
       return false;
     }
     ctx.captured_frame = std::move(packet.second);
-    ctx.capture_done_time = checkpoint(3);
-
+    ctx.send_time = checkpoint(3);
     this->web_service_p            //
         ->get_livestream_instace() //
         .send_frame_to_all((unsigned char *)(ctx.captured_frame->data),
                            ctx.captured_frame->length);
+    ctx.send_done_time = checkpoint(3);
 
     return true;
   };
@@ -148,7 +148,6 @@ void capture::do_capture(const config &config) {
       logger::error("!VideoCapture read failed");
       return false;
     }
-    ctx.capture_done_time = checkpoint(3);
     // FIXME 这里有奇怪的问题，鬼知道咋回事
     cv::normalize(mat, ctx.decoded_frame, 0, 255, cv::NORM_MINMAX, CV_8U);
     /*ctx.decoded_frame = std::move(mat);*/
@@ -158,9 +157,11 @@ void capture::do_capture(const config &config) {
      */
     std::vector<unsigned char> out;
     cv::imencode(".jpg", ctx.decoded_frame, out);
+    ctx.send_time = checkpoint(3);
     this->web_service_p            //
         ->get_livestream_instace() //
         .send_frame_to_all(out.data(), out.size());
+    ctx.send_done_time = checkpoint(3);
 
     return true;
   };
@@ -351,7 +352,7 @@ OPEN_WRITER:
     }
 
     if (task_begin == 0) {
-      task_begin = ctx.capture_done_time;
+      task_begin = ctx.send_time;
     }
     cv::Mat &frame = ctx.decoded_frame;
 
@@ -409,7 +410,7 @@ OPEN_WRITER:
     }
     ctx.done_time = checkpoint(3);
 
-    frame_cost = ctx.capture_done_time - ctx.capture_time;
+    frame_cost = ctx.send_time - ctx.capture_time;
     if (ctx.decode_done_time - ctx.decode_time > frame_cost) {
       frame_cost = ctx.decode_done_time - ctx.decode_time;
     }
@@ -420,8 +421,9 @@ OPEN_WRITER:
     if (frame_cost > expect_frame_time) {
       logger::warn("low frame rate, expect ", expect_frame_time, "ms, actual ",
                    frame_cost, //
-                   "ms (capture:", ctx.capture_done_time - ctx.capture_time,
-                   "ms, inter-thread:", ctx.decode_time - ctx.capture_done_time,
+                   "ms (capture:", ctx.send_time - ctx.capture_time,
+                   "ms, send:", ctx.send_done_time - ctx.send_time,
+                   "ms, inter-thread:", ctx.decode_time - ctx.send_done_time,
                    "ms, decode:", ctx.decode_done_time - ctx.decode_time,
                    "ms, inter-thread:", ctx.process_time - ctx.decode_done_time,
                    "ms, process:", ctx.write_time - ctx.process_time,
@@ -431,7 +433,7 @@ OPEN_WRITER:
     }
 
     //到了预定的时间，换文件
-    if (ctx.capture_done_time - task_begin >= config.duration * 1000) {
+    if (ctx.send_time - task_begin >= config.duration * 1000) {
       goto OPEN_WRITER;
     }
   }

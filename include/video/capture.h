@@ -53,8 +53,8 @@ private:
 #endif
     cv::Mat decoded_frame;
     //测性能
-    uint32_t capture_time, capture_done_time, decode_time, decode_done_time,
-        process_time, write_time, done_time;
+    uint32_t capture_time, send_time, send_done_time, decode_time,
+        decode_done_time, process_time, write_time, done_time;
     //通知write线程退出
     bool quit = false;
   };
