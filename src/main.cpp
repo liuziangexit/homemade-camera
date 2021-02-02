@@ -28,7 +28,5 @@ int main(int argc, char **argv) {
 
   /*getchar();
   raise(SIGINT);*/
-  while (true) {
-    std::this_thread::sleep_for(std::chrono::hours::max());
-  }
+  std::this_thread::sleep_for(std::chrono::hours::max());
 }
