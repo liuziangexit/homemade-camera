@@ -130,10 +130,10 @@ public:
     }
 
     // Read a message
-    do_read();
+    read();
   }
 
-  void do_read() {
+  void read() {
     // Read a message into our buffer
     this->stream_->async_read(
         buffer_, [this, shared_this = this->shared_from_this()](
@@ -168,6 +168,19 @@ public:
             beast::error_code ec, std::size_t bytes_transferred) {
           this->on_write(ec, bytes_transferred);
         });
+
+    read();
+  }
+
+  template <typename BUFFER> void write(BUFFER &&buf) {
+    auto shared_buf =
+        std::make_shared<std::decay_t<BUFFER>>(std::forward<BUFFER>(buf));
+    this->stream_->async_write(
+        shared_buf->data(),
+        [this, shared_buf, shared_this = this->shared_from_this()](
+            beast::error_code ec, std::size_t bytes_transferred) {
+          this->on_write(ec, bytes_transferred);
+        });
   }
 
   void on_write(beast::error_code ec, std::size_t bytes_transferred) {
@@ -177,16 +190,9 @@ public:
       hcam::logger::debug(this->remote_,
                           " Websocket write failed: ", ec.message());
       this->close();
-      return;
     } else {
       hcam::logger::debug(this->remote_, " WebSocket write OK");
     }
-
-    // Clear the buffer
-    buffer_.consume(buffer_.size());
-
-    // Do another read
-    do_read();
   }
 
   virtual void close() override {

@@ -71,10 +71,10 @@ public:
     }
 
     // post read req
-    this->do_read();
+    this->read();
   }
 
-  void do_read() {
+  void read() {
     // Make the request empty before reading,
     // otherwise the operation behavior is undefined.
     req_ = {};
@@ -152,12 +152,14 @@ public:
     handle_request(beast::string_view(config_manager::get().web_root),
                    std::move(req_), [this](auto &&response) {
                      response.set(http::field::server, "homemade-camera");
-                     this->send(std::move(response));
+                     this->write(std::move(response));
                    });
+
+    read();
   }
 
   template <bool isRequest, class Body, class Fields>
-  void send(http::message<isRequest, Body, Fields> &&msg) {
+  void write(http::message<isRequest, Body, Fields> &&msg) {
     http::message<isRequest, Body, Fields> *response =
         new http::message<isRequest, Body, Fields>(std::move(msg));
 
@@ -200,9 +202,6 @@ public:
       this->close();
       return;
     }
-
-    // Do another read
-    do_read();
   }
 
   virtual void close() override {
