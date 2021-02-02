@@ -30,5 +30,9 @@ int main(int argc, char **argv) {
 
   /*getchar();
   raise(SIGINT);*/
-  std::this_thread::sleep_for(std::chrono::hours::max());
+  // FIXME 卧槽，这就是UB吗？
+  // std::this_thread::sleep_for(std::chrono::hours::max());
+  while (true) {
+    std::this_thread::sleep_for(std::chrono::hours(1));
+  }
 }
