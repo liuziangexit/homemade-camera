@@ -135,6 +135,7 @@ public:
 
   void read() {
     // Read a message into our buffer
+    buffer_.consume(buffer_.size());
     this->stream_->async_read(
         buffer_, [this, shared_this = this->shared_from_this()](
                      beast::error_code ec, std::size_t bytes_transferred) {
@@ -162,17 +163,12 @@ public:
 
     // Echo the message
     this->stream_->text(this->stream_->got_text());
-    this->stream_->async_write(
-        buffer_.data(),
-        [this, shared_this = this->shared_from_this()](
-            beast::error_code ec, std::size_t bytes_transferred) {
-          this->on_write(ec, bytes_transferred);
-        });
+    this->write(buffer_, false);
 
     read();
   }
 
-  template <typename BUFFER> void write(BUFFER &&buf) {
+  template <typename BUFFER> void write(BUFFER &&buf, bool binary) {
     auto shared_buf =
         std::make_shared<std::decay_t<BUFFER>>(std::forward<BUFFER>(buf));
     this->stream_->async_write(
