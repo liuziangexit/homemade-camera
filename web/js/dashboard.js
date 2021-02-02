@@ -1,4 +1,4 @@
-var livestreamScale = {
+var canvasScale = {
     denominator: 16,
     numerator: 9
 }
