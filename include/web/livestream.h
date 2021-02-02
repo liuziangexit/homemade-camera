@@ -1,6 +1,7 @@
 #ifndef __HOMECAM_LIVESTREAM_H_
 #define __HOMECAM_LIVESTREAM_H_
 #include "boost/beast.hpp"
+#include "util/logger.h"
 #include <boost/beast/core.hpp>
 #include <functional>
 #include <memory>
@@ -44,6 +45,7 @@ public:
     typename session_map_t::value_type kv{ep, session};
     return subscribed.insert(kv);
   }
+
   bool remove(tcp::endpoint ep) {
     typename session_map_t::accessor row;
     if (!subscribed.find(row, ep)) {
@@ -58,9 +60,9 @@ public:
   }
 
   void send_frame_to_all(unsigned char *frame, uint32_t len) {
-    std::vector<tcp::endpoint> keys(this->sessions.size());
-    for (typename session_map_t::iterator it = this->sessions.begin();
-         it != this->sessions.end(); ++it) {
+    std::vector<tcp::endpoint> keys(this->subscribed.size());
+    for (typename session_map_t::iterator it = this->subscribed.begin();
+         it != this->subscribed.end(); ++it) {
       keys.push_back(it->first);
     }
     for (const auto &endpoint : keys) {
@@ -69,6 +71,7 @@ public:
         send_frame_(row->second.get(), frame, len);
       }
     }
+    logger::debug("send frame to ", keys.size(), " clients");
   }
 };
 } // namespace hcam

@@ -21,7 +21,8 @@
 
 namespace hcam {
 
-capture::capture() : _config(config_manager::get()) {}
+capture::capture(web_service *s)
+    : web_service_p(s), _config(config_manager::get()) {}
 capture::~capture() { stop(); }
 
 void capture::run() {
@@ -133,7 +134,7 @@ void capture::do_capture(const config &config) {
       throw std::runtime_error("capture open failed");
   }
 
-  auto process = [&capture](frame_context &ctx) -> bool {
+  auto process = [&capture, this](frame_context &ctx) -> bool {
     ctx.capture_time = checkpoint(3);
     time(&ctx.frame_time);
     cv::Mat mat;
@@ -143,6 +144,16 @@ void capture::do_capture(const config &config) {
     }
     ctx.capture_done_time = checkpoint(3);
     ctx.decoded_frame = std::move(mat);
+
+    /* FIXME
+     * 这个地方应该想办法拿到opencv拿到的原始jpg，而不是在这重新encode一个jpg
+     */
+    std::vector<unsigned char> out;
+    cv::imencode(".jpg", ctx.decoded_frame, out);
+    this->web_service_p            //
+        ->get_livestream_instace() //
+        .send_frame_to_all(out.data(), out.size());
+
     return true;
   };
 #endif

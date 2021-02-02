@@ -37,6 +37,9 @@ class asio_ws_session
   friend class hcam::asio_http_session<SSL>;
   beast::flat_buffer buffer_;
   std::optional<http::request<http::string_body>> handshake_req_;
+
+  std::atomic<bool> is_writing = false;
+  std::condition_variable write_cv;
   std::mutex write_mut;
 
 public:
@@ -85,7 +88,7 @@ public:
     websocket::stream_base::timeout timeout =
         websocket::stream_base::timeout::suggested(beast::role_type::server);
     timeout.handshake_timeout = std::chrono::seconds(10);
-    timeout.keep_alive_pings = false;
+    timeout.keep_alive_pings = true;
     timeout.idle_timeout =
         std::chrono::seconds(config_manager::get().idle_timeout);
     this->stream_->set_option(timeout);
@@ -165,7 +168,7 @@ public:
     }
 
     auto reply = [this](const char *msg) {
-      this->write(msg, strlen(msg), false, false);
+      this->write(msg, strlen(msg), false, false, true);
     };
 
     // handle
@@ -203,25 +206,45 @@ public:
             typename = typename std::enable_if<
                 !std::is_same_v<std::decay_t<BUFFER>, std::shared_ptr<void>>,
                 int>::type>
-  void write(BUFFER &&buf, bool binary) {
-    //加锁是为了binary设置不要乱掉（想想如果不加锁，多个线程同时调这个方法会怎么样，对吧）
-    std::lock_guard l(write_mut);
+  bool write(BUFFER &&buf, bool binary, bool wait_on_busy = false) {
+    std::unique_lock l(write_mut);
+    write_cv.wait(
+        l, [this, wait_on_busy] { return !wait_on_busy || !is_writing; });
+    if (is_writing)
+      return false;
+    is_writing = true;
+    l.unlock();
+
     this->stream_->binary(binary);
     this->stream_->async_write(
         buf, [this, shared_this = this->shared_from_this()](
                  beast::error_code ec, std::size_t bytes_transferred) {
+          std::unique_lock l(write_mut);
+          assert(is_writing);
+          is_writing = false;
+          write_cv.notify_one();
+          l.unlock();
           this->on_write(ec, bytes_transferred);
         });
+
+    return true;
   }
 
-  void write(const char *src, uint32_t len, bool binary, bool copy = true) {
-    write((const unsigned char *)src, len, binary, copy);
+  bool write(const char *src, uint32_t len, bool binary, bool copy = true,
+             bool wait_on_busy = false) {
+    return write((const unsigned char *)src, len, binary, copy, wait_on_busy);
   }
 
-  void write(const unsigned char *src, uint32_t len, bool binary,
-             bool copy = true) {
-    //加锁是为了binary设置不要乱掉（想想如果不加锁，多个线程同时调这个方法会怎么样，对吧）
-    std::lock_guard l(write_mut);
+  bool write(const unsigned char *src, uint32_t len, bool binary,
+             bool copy = true, bool wait_on_busy = false) {
+    std::unique_lock l(write_mut);
+    write_cv.wait(
+        l, [this, wait_on_busy] { return !wait_on_busy || !is_writing; });
+    if (is_writing)
+      return false;
+    is_writing = true;
+    l.unlock();
+
     this->stream_->binary(binary);
     if (copy) {
       std::shared_ptr<void> shared_buf(new unsigned char[len], [](void *p) {
@@ -233,6 +256,11 @@ public:
           net::buffer(shared_buf.get(), len),
           [this, shared_this = this->shared_from_this()](
               beast::error_code ec, std::size_t bytes_transferred) {
+            std::unique_lock l(write_mut);
+            assert(is_writing);
+            is_writing = false;
+            write_cv.notify_one();
+            l.unlock();
             this->on_write(ec, bytes_transferred);
           });
     } else {
@@ -240,22 +268,41 @@ public:
           net::buffer(src, len),
           [this, shared_this = this->shared_from_this()](
               beast::error_code ec, std::size_t bytes_transferred) {
+            std::unique_lock l(write_mut);
+            assert(is_writing);
+            is_writing = false;
+            write_cv.notify_one();
+            l.unlock();
             this->on_write(ec, bytes_transferred);
           });
     }
+    return true;
   }
 
   //认为src是unsigned char*
-  void write(std::shared_ptr<void> src, uint32_t len, bool binary) {
-    //加锁是为了binary设置不要乱掉（想想如果不加锁，多个线程同时调这个方法会怎么样，对吧）
-    std::lock_guard l(write_mut);
+  bool write(std::shared_ptr<void> src, uint32_t len, bool binary,
+             bool wait_on_busy = false) {
+    std::unique_lock l(write_mut);
+    write_cv.wait(
+        l, [this, wait_on_busy] { return !wait_on_busy || !is_writing; });
+    if (is_writing)
+      return false;
+    is_writing = true;
+    l.unlock();
+
     this->stream_->binary(binary);
     this->stream_->async_write(
         net::buffer((const unsigned char *)src.get(), len),
         [this, src, shared_this = this->shared_from_this()](
             beast::error_code ec, std::size_t bytes_transferred) {
+          std::unique_lock l(write_mut);
+          assert(is_writing);
+          is_writing = false;
+          write_cv.notify_one();
+          l.unlock();
           this->on_write(ec, bytes_transferred);
         });
+    return true;
   }
 
   void on_write(beast::error_code ec, std::size_t bytes_transferred) {

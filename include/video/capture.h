@@ -4,6 +4,7 @@
 #include "codec.h"
 #include "config/config.h"
 #include "util/string_util.h"
+#include "web/web_service.h"
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -23,16 +24,21 @@
 #define USE_V4L_CAPTURE
 #include "video/soft_jpg.h"
 #include "video/v4l_capture.h"
+#else
+#include <opencv2/imgcodecs.hpp>
 #endif
 
 namespace hcam {
 
 class capture {
 public:
-  capture();
+  capture(web_service *);
   void run();
   void stop();
   ~capture();
+
+  // TODO 看看有没有更好的办法
+  web_service *web_service_p;
 
 private:
   struct frame_context {
