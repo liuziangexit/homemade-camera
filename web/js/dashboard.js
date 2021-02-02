@@ -21,7 +21,7 @@ function draw() {
 
     var ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
-    ctx.fillStyle = "rgba(180,180,180,1)";
+    ctx.fillStyle = "rgba(0,0,0,1)";
     ctx.fillRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
 
     /*ctx.beginPath();
@@ -38,7 +38,7 @@ function draw() {
 
     switch (state) {
         case "connect": {
-            ctx.fillStyle = "black";
+            ctx.fillStyle = "white";
             ctx.font = "20px sans-serif";
             ctx.textBaseline = 'middle';
             ctx.textAlign = "center";
@@ -46,7 +46,7 @@ function draw() {
         }
             break;
         case "load": {
-            ctx.fillStyle = "black";
+            ctx.fillStyle = "white";
             ctx.font = "20px sans-serif";
             ctx.textBaseline = 'middle';
             ctx.textAlign = "center";
@@ -58,7 +58,7 @@ function draw() {
         }
             break;
         case "close": {
-            ctx.fillStyle = "black";
+            ctx.fillStyle = "white";
             ctx.font = "20px sans-serif";
             ctx.textBaseline = 'middle';
             ctx.textAlign = "center";
