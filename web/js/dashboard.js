@@ -10,7 +10,7 @@ var frame = new Image();
 
 function changeCanvasSize() {
     // Make it visually fill the positioned parent
-    canvas.style.height = (canvas.offsetWidth * livestreamScale.numerator / livestreamScale.denominator) + "px";
+    canvas.style.height = (canvas.offsetWidth * canvasScale.numerator / canvasScale.denominator) + "px";
     // ...then set the internal size to match
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
@@ -54,7 +54,7 @@ function draw() {
         }
             break;
         case "play": {
-            ctx.drawImage(frame, 0, 0);
+            ctx.drawImage(frame, 0, 0, canvas.offsetWidth, canvas.offsetHeight);
         }
             break;
         case "close": {
@@ -76,21 +76,15 @@ function messageHandler(msg) {
         // binary
         console.log("frame received");
         frame.src = URL.createObjectURL(msg.data);
-        frame.onload = () => draw();
-
-        /*var reader = new FileReader();
-        reader.onloadend = () => {
-            var uri = 'data:image/jpeg;base64,' + reader.result;
-            frame = new Image();
-            /!*frame.src = uri;*!/
-            /!*frame.onload = () => draw();*!/
+        frame.onload = () => {
+            canvasScale.numerator = frame.height;
+            canvasScale.denominator = frame.width;
+            draw();
         }
-        reader.readAsDataURL(msg.data);*/
     } else {
         // text
         console.log(msg.data);
     }
-
 }
 
 function startLivestream() {

@@ -130,7 +130,7 @@ public:
               beast::get_lowest_layer(*this->stream_).release_socket());
         }
         typed_ws_session->handshake_req_ = req_;
-        typed_ws_session->livestream = this->livestream;
+        typed_ws_session->livestream_ = this->livestream_;
         typed_ws_session->run();
         this->moved = true;
         return ws_session;

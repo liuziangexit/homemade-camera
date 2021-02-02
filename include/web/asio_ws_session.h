@@ -13,6 +13,7 @@
 #include <boost/beast/websocket.hpp>
 #include <boost/beast/websocket/ssl.hpp>
 #include <boost/system/error_code.hpp>
+#include <condition_variable>
 #include <functional>
 #include <optional>
 #include <stdexcept>
@@ -180,14 +181,14 @@ public:
 
     std::string txt = beast::buffers_to_string(buffer_.cdata());
     if (txt == "STREAM_ON") {
-      if (!this->livestream->add(this->remote_, this->shared_from_this())) {
+      if (!this->livestream_->add(this->remote_, this->shared_from_this())) {
         reply("livestream add failed");
         this->close();
       } else {
         reply("ok");
       }
     } else if (txt == "STREAM_OFF") {
-      if (!this->livestream->remove(this->remote_)) {
+      if (!this->livestream_->remove(this->remote_)) {
         reply("livestream remove failed");
         this->close();
       } else {
@@ -322,7 +323,7 @@ public:
     if (this->closed)
       return;
 
-    this->livestream->remove(this->remote_);
+    this->livestream_->remove(this->remote_);
 
     // close websocket
     try {

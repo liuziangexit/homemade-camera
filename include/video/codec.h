@@ -56,7 +56,7 @@ static inline int codec_fourcc(codec c) {
 #ifdef __linux__
 static int codec_v4l2_pix_fmt(codec c) {
   // suppress unused function warning
-  (void)codec_to_string;
+  (void)codec_v4l2_pix_fmt;
   if (c == YUV420)
     return V4L2_PIX_FMT_YUV420;
   if (c == MJPEG)

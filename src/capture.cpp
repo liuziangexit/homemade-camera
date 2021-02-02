@@ -11,7 +11,6 @@
 #include <memory>
 #include <opencv2/core.hpp>
 #include <opencv2/freetype.hpp>
-#include <opencv2/highgui.hpp>
 #include <opencv2/videoio.hpp>
 #include <optional>
 #include <sstream>
@@ -112,7 +111,7 @@ void capture::do_capture(const config &config) {
     return;
   }
 
-  auto process = [&capture](frame_context &ctx) -> bool {
+  auto process = [&capture, this](frame_context &ctx) -> bool {
     ctx.capture_time = checkpoint(3);
     time(&ctx.frame_time);
     std::pair<bool, std::shared_ptr<v4l_capture::buffer>> packet =
@@ -123,6 +122,12 @@ void capture::do_capture(const config &config) {
     }
     ctx.captured_frame = std::move(packet.second);
     ctx.capture_done_time = checkpoint(3);
+
+    this->web_service_p            //
+        ->get_livestream_instace() //
+        .send_frame_to_all((unsigned char *)(ctx.captured_frame->data),
+                           ctx.captured_frame->length);
+
     return true;
   };
 #else
@@ -156,9 +161,6 @@ void capture::do_capture(const config &config) {
     this->web_service_p            //
         ->get_livestream_instace() //
         .send_frame_to_all(out.data(), out.size());
-    /*FILE *fp = fopen("out.jpg", "wb");
-    fwrite(out.data(), 1, out.size(), fp);
-    fclose(fp);*/
 
     return true;
   };

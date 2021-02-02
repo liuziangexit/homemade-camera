@@ -56,7 +56,7 @@ protected:
 public:
   // TODO 业务代码要和网络层的代码分离
   //下面是业务相关
-  livestream<SSL> *livestream;
+  livestream<SSL> *livestream_;
 
 private:
   void set_tcp_timeout() {

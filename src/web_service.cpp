@@ -134,7 +134,7 @@ void web_service::create_session(tcp::socket &&sock,
         std::function<bool(tcp::endpoint, modify_session_callback_type)>{
             [this](tcp::endpoint key, modify_session_callback_type callback)
                 -> bool { return modify_session(key, std::move(callback)); }});
-    new_session->livestream = &this->livestream_instance;
+    new_session->livestream_ = &this->livestream_instance;
     session.reset(new_session);
   }
 
