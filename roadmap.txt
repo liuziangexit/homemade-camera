@@ -36,23 +36,24 @@ OK-ssl握手应该在基类做
 ok-http转ws
 ok-http的handler
 ok-测试ssl连接
+OK-web界面
 
 -定web api
--web界面
 -web前端功能实现
 -mmap的v4l方式memcpy花时间太久的问题
 -web下载录像（这个应该还蛮简单，只是用标准的html控件去做就行了吧，可能服务端要支持分块http
 -自动删除旧录像
--检查warning
--测试线程池的完美转发
--给代码加上头部版权注释
--session应该不要和业务耦合
+-web直播
+
 
 -------------------V1.0
 
 OK-port到Mac上
 -守护进程
--web直播
+-session应该不要和业务耦合(头文件怎么互相包含?)
+-测试线程池的完美转发
+-给代码加上头部版权注释
+-检查warning
 
 -------------------V1.1
 

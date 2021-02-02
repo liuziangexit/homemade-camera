@@ -3,6 +3,7 @@
 #include "boost/beast.hpp"
 #include "config/config.h"
 #include "find_layer.h"
+#include "livestream.h"
 #include "util/logger.h"
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/strand.hpp>
@@ -51,6 +52,11 @@ protected:
   //使close只会被工作一次并且线程安全
   bool closed = false;
   std::mutex close_mutex;
+
+public:
+  // TODO 业务代码要和网络层的代码分离
+  //下面是业务相关
+  livestream<SSL> *livestream;
 
 private:
   void set_tcp_timeout() {

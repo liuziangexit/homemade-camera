@@ -3,6 +3,7 @@
 #include "asio_base_session.h"
 #include "boost/beast.hpp"
 #include "config/config.h"
+#include "livestream.h"
 #include "util/logger.h"
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/strand.hpp>
@@ -163,28 +164,34 @@ public:
       hcam::logger::debug(this->remote_, " WebSocket read OK");
     }
 
-    auto reply = [this](const unsigned char *msg) {
-      this->write(msg, strlen((const char *)msg), false, false);
+    auto reply = [this](const char *msg) {
+      this->write(msg, strlen(msg), false, false);
     };
 
     // handle
     if (!this->stream_->got_text()) {
-      static const unsigned char msg[] = "can not handle binary message";
-      reply(msg);
+      reply("can not handle binary message");
       this->close();
       return;
     }
 
     std::string txt = beast::buffers_to_string(buffer_.cdata());
     if (txt == "STREAM_ON") {
-      static const unsigned char msg[] = "STREAM ON?";
-      reply(msg);
+      if (!this->livestream->add(this->remote_, this->shared_from_this())) {
+        reply("livestream add failed");
+        this->close();
+      } else {
+        reply("ok");
+      }
     } else if (txt == "STREAM_OFF") {
-      static const unsigned char msg[] = "STREAM OFF?";
-      reply(msg);
+      if (!this->livestream->remove(this->remote_)) {
+        reply("livestream remove failed");
+        this->close();
+      } else {
+        reply("ok");
+      }
     } else {
-      static const unsigned char msg[] = "unknown request";
-      reply(msg);
+      reply("unknown request");
       this->close();
       return;
     }
@@ -205,6 +212,10 @@ public:
                  beast::error_code ec, std::size_t bytes_transferred) {
           this->on_write(ec, bytes_transferred);
         });
+  }
+
+  void write(const char *src, uint32_t len, bool binary, bool copy = true) {
+    write((const unsigned char *)src, len, binary, copy);
   }
 
   void write(const unsigned char *src, uint32_t len, bool binary,
@@ -263,6 +274,8 @@ public:
     std::lock_guard l(this->close_mutex);
     if (this->closed)
       return;
+
+    this->livestream->remove(this->remote_);
 
     // close websocket
     try {

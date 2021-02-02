@@ -121,17 +121,21 @@ void web_service::create_session(tcp::socket &&sock,
   if constexpr (SESSION_TYPE::ssl_enabled::value) {
     ssl::context ssl_ctx{ssl::context::tlsv12};
     load_server_certificate(ssl_ctx);
-    session.reset(new SESSION_TYPE(
+    auto new_session = new SESSION_TYPE(
         std::move(sock), remote, ssl_ctx, unregister,
         std::function<bool(tcp::endpoint, modify_session_callback_type)>{
             [this](tcp::endpoint key, modify_session_callback_type callback)
-                -> bool { return modify_session(key, std::move(callback)); }}));
+                -> bool { return modify_session(key, std::move(callback)); }});
+    new_session->livestream = &this->livestream_instance;
+    session.reset(new_session);
   } else {
-    session.reset(new SESSION_TYPE(
+    auto new_session = new SESSION_TYPE(
         std::move(sock), remote, unregister,
         std::function<bool(tcp::endpoint, modify_session_callback_type)>{
             [this](tcp::endpoint key, modify_session_callback_type callback)
-                -> bool { return modify_session(key, std::move(callback)); }}));
+                -> bool { return modify_session(key, std::move(callback)); }});
+    new_session->livestream = &this->livestream_instance;
+    session.reset(new_session);
   }
 
   //做一个引用计数

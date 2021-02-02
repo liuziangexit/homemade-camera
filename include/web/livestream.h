@@ -1,7 +1,6 @@
 #ifndef __HOMECAM_LIVESTREAM_H_
 #define __HOMECAM_LIVESTREAM_H_
 #include "boost/beast.hpp"
-#include "web/asio_ws_session.h"
 #include <boost/beast/core.hpp>
 #include <functional>
 #include <memory>
@@ -55,7 +54,9 @@ public:
       fmt << ep.address() << ":" << ep.port();
       throw std::runtime_error(fmt.str());
     }
+    return true;
   }
+
   void send_frame_to_all(unsigned char *frame, uint32_t len) {
     std::vector<tcp::endpoint> keys(this->sessions.size());
     for (typename session_map_t::iterator it = this->sessions.begin();
