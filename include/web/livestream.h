@@ -71,7 +71,7 @@ public:
         send_frame_(row->second.get(), frame, len);
       }
     }
-    logger::debug("send frame to ", keys.size(), " clients");
+    /*logger::debug("web", "send frame to ", keys.size(), " clients");*/
   }
 };
 } // namespace hcam

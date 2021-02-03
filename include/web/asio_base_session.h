@@ -92,7 +92,7 @@ public:
   asio_base_session(const asio_base_session &) = delete;
 
   virtual ~asio_base_session() {
-    hcam::logger::debug(this->remote_, " asio_base_session destructed");
+    hcam::logger::debug("web", this->remote_, " asio_base_session destructed");
   }
 
   virtual void run() { throw std::exception(); }
@@ -107,19 +107,19 @@ public:
         /*  try {
             find_layer<stream<true>::type>(*this->stream_.get()).shutdown();
           } catch (const boost::system::system_error &e) {
-            logger::debug(this->remote_, " shutdown SSL failed: ", e.what());
+            logger::debug("web", this->remote_, " shutdown SSL failed: ", e.what());
           }
-          logger::debug(this->remote_, " SSL shutdown");*/
+          logger::debug("web", this->remote_, " SSL shutdown");*/
       }
     }
     // close TCP
     beast::get_lowest_layer(*stream_).close();
-    logger::debug(this->remote_, " TCP closed");
+    logger::debug("web", this->remote_, " TCP closed");
     // unref
     this->unregister_();
 
     if (!moved) {
-      logger::info(this->remote_, " session closed");
+      logger::info("web", this->remote_, " session closed");
     }
   }
 
@@ -135,18 +135,18 @@ protected:
   template <typename CALLBACK> void ssl_handshake(CALLBACK callback) {
     if constexpr (SSL) {
       if (!ssl_established_) {
-        hcam::logger::debug(this->remote_, " SSL handshake begin");
+        hcam::logger::debug("web", this->remote_, " SSL handshake begin");
         find_layer<stream<true>::type>(*this->stream_.get())
             .async_handshake(
                 ssl::stream_base::server,
                 [this, callback,
                  shared_this = this->shared_from_this()](beast::error_code ec) {
                   if (ec) {
-                    hcam::logger::debug(this->remote_,
+                    hcam::logger::debug("web", this->remote_,
                                         " SSL handshake error: ", ec.message());
                   } else {
                     ssl_established_ = true;
-                    hcam::logger::debug(this->remote_, " SSL handshake OK");
+                    hcam::logger::debug("web", this->remote_, " SSL handshake OK");
                   }
                   callback(ec);
                 });

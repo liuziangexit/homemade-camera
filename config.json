@@ -1,5 +1,7 @@
 {
   "log-level": 0,
+  "disable-log-module": [
+  ],
   "video-thread-count": 4,
   "web-thread-count": 2,
   "camera-pixel-format": "MJPG",

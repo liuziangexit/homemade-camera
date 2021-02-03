@@ -38,6 +38,8 @@ bool config::read(const std::string &filename) {
     js = json::parse(raw);
 
     this->log_level = (log_level_t)js["log-level"].get<int>();
+    this->disable_log_module =
+        js["disable-log-module"].get<std::set<std::string>>();
     this->video_thread_count = js["video-thread-count"].get<int>();
     this->web_thread_count = js["web-thread-count"].get<int>();
     this->cam_pix_fmt =
@@ -68,7 +70,7 @@ bool config::read(const std::string &filename) {
     this->web_root = js["web-root"].get<std::string>();
     this->idle_timeout = js["idle-timeout"].get<int>();
   } catch (const std::exception &ex) {
-    logger::error(ex.what());
+    logger::error("config", ex.what());
     return false;
   }
   return true;

@@ -40,7 +40,7 @@ public:
       : ioc_(ioc), endpoint_(endpoint), create_session_(create_session),
         acceptor_(net::make_strand(ioc)) {}
 
-  ~asio_listener() { hcam::logger::debug("asio_listener destruct"); }
+  ~asio_listener() { hcam::logger::debug("web", "asio_listener destruct"); }
 
   // Start accepting incoming connections
   void run() {
@@ -69,7 +69,7 @@ public:
     if (ec) {
       throw std::runtime_error("acceptor_.listen");
     }
-    hcam::logger::info("listening at ", this->endpoint_);
+    hcam::logger::info("web", "listening at ", this->endpoint_);
     do_accept();
   }
 
@@ -77,7 +77,7 @@ public:
     try {
       acceptor_.close();
     } catch (const std::exception &ex) {
-      hcam::logger::debug("listener stop failed: ", ex.what());
+      hcam::logger::debug("web", "listener stop failed: ", ex.what());
     }
   }
 
@@ -91,7 +91,7 @@ private:
 
   void on_accept(beast::error_code ec, tcp::socket socket) {
     if (ec) {
-      hcam::logger::debug("asio accept fail: ", ec.message());
+      hcam::logger::debug("web", "asio accept fail: ", ec.message());
       if (ec == boost::asio::error::operation_aborted ||
           ec == boost::asio::error::bad_descriptor) {
         return;
@@ -101,11 +101,11 @@ private:
       try {
         remote = socket.remote_endpoint();
       } catch (const beast::system_error &e) {
-        hcam::logger::info("session create failed, ", e.what());
+        hcam::logger::info("web", "session create failed, ", e.what());
         return;
       }
-      hcam::logger::info(remote, " session created");
-      hcam::logger::debug(remote, " TCP handshake OK");
+      hcam::logger::info("web", remote, " session created");
+      hcam::logger::debug("web", remote, " TCP handshake OK");
       // Create the session and run it
       this->create_session_(std::move(socket), remote);
     }

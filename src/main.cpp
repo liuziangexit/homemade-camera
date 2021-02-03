@@ -9,7 +9,7 @@ hcam::web_service *web;
 hcam::capture *cap;
 
 void signal_handler(int signum) {
-  hcam::logger::info("signal ", signum, " received, quitting...");
+  hcam::logger::info("main", "signal ", signum, " received, quitting...");
   cap->stop();
   web->stop();
   delete web;

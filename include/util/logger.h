@@ -1,6 +1,7 @@
 #ifndef __HCAM_LOGGER_H__
 #define __HCAM_LOGGER_H__
 #include "config/config_manager.h"
+#include <iomanip>
 #include <iostream>
 #include <mutex>
 #include <sstream>
@@ -15,31 +16,44 @@ class logger {
   static std::mutex mut;
 
   template <typename... ARGS>
-  static void logger_impl(uint32_t level, ARGS &&...args) {
+  static void logger_impl(uint32_t level, const std::string &module,
+                          ARGS &&...args) {
     // TODO 预分配空间
-    if (level < config_manager::get().log_level)
+    if (level < config_manager::get().log_level) {
       return;
+    }
+    const auto &set = config_manager::get().disable_log_module;
+    if (set.find(module) != set.end()) {
+      return;
+    }
+
     std::ostringstream fmt;
     if (level == 0) {
-      fmt << "[debug] ";
+      fmt << "[debg] ";
     } else if (level == 1) {
       fmt << "[info] ";
     } else if (level == 2) {
       fmt << "[warn] ";
     } else if (level == 3) {
-      fmt << "[error] ";
+      fmt << "[erro] ";
     } else if (level == 4) {
-      fmt << "[fatal] ";
+      fmt << "[fatl] ";
     } else {
       throw std::invalid_argument("");
     }
+    fmt << module << " at ";
+
     time_t tm;
     time(&tm);
     auto localt = localtime(&tm);
-    fmt << localt->tm_year + 1900 << '/' << localt->tm_mon + 1 << '/'
-        << localt->tm_mday << ' ' << localt->tm_hour << ':' << localt->tm_min
-        << ':' << localt->tm_sec << ' ';
+    fmt << localt->tm_year + 1900 << '/' << std::setfill('0') << std::setw(2)
+        << localt->tm_mon + 1 << '/' << std::setfill('0') << std::setw(2)
+        << localt->tm_mday << ' ' << std::setfill('0') << std::setw(2)
+        << localt->tm_hour << ':' << std::setfill('0') << std::setw(2)
+        << localt->tm_min << ':' << std::setfill('0') << std::setw(2)
+        << localt->tm_sec;
 
+    fmt << ": ";
     logger_impl(fmt, std::forward<ARGS>(args)...);
 
     // TODO: 可选文件或console
@@ -52,6 +66,10 @@ class logger {
   static void logger_impl(std::ostringstream &fmt, T &&cur, ARGS &&...rest) {
     fmt << cur;
     logger_impl(fmt, std::forward<ARGS>(rest)...);
+  }
+
+  template <bool f = false> static void logger_impl(std::ostringstream &fmt) {
+    static_assert(f, "bad argument");
   }
 
   template <typename T>

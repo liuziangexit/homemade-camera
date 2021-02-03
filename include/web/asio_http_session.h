@@ -42,7 +42,7 @@ public:
             std::forward<ARGS>(args)...) {}
 
   ~asio_http_session() {
-    hcam::logger::debug(this->remote_, " asio_http_session destructed");
+    hcam::logger::debug("web", this->remote_, " asio_http_session destructed");
   }
 
   // Get on the correct executor
@@ -97,11 +97,12 @@ public:
     }
 
     if (ec) {
-      hcam::logger::debug(this->remote_, " HTTP read failed: ", ec.message());
+      hcam::logger::debug("web", this->remote_,
+                          " HTTP read failed: ", ec.message());
       this->close();
       return;
     } else {
-      hcam::logger::debug(this->remote_, " HTTP read OK");
+      hcam::logger::debug("web", this->remote_, " HTTP read OK");
     }
 
     // handle request
@@ -110,7 +111,7 @@ public:
     auto upgrade_header = req_.base().find("Upgrade");
     if (upgrade_header != req_.base().end() &&
         upgrade_header->value() == "websocket") {
-      logger::debug(this->remote_, " client request WebSocket upgrade!");
+      logger::debug("web", this->remote_, " client request WebSocket upgrade!");
 
       auto upgrade = [this](void *current) -> std::shared_ptr<void> {
         assert((void *)this == current);
@@ -137,13 +138,11 @@ public:
       };
 
       if (this->modify_session_(this->remote_, upgrade)) {
-        logger::debug(
-            this->remote_,
-            " HTTP session replaced by ws session, WebSocket handshake "
-            "one the way");
+        logger::info("web", this->remote_, " WebSocket upgrade");
         return;
       } else {
         logger::fatal(
+            "web", this->remote_,
             "modify_session returns false, that indicates the session can "
             "not find itself from the session pool! what?");
         abort();
@@ -190,11 +189,12 @@ public:
     deleter();
 
     if (ec) {
-      hcam::logger::debug(this->remote_, " HTTP write failed: ", ec.message());
+      hcam::logger::debug("web", this->remote_,
+                          " HTTP write failed: ", ec.message());
       this->close();
       return;
     } else {
-      hcam::logger::debug(this->remote_, " HTTP write OK");
+      hcam::logger::debug("web", this->remote_, " HTTP write OK");
     }
 
     //也许是因为"Connection: close"或者什么其他原因
@@ -210,7 +210,7 @@ public:
     if (this->closed)
       return;
 
-    logger::debug(this->remote_, " unreferenced");
+    logger::debug("web", this->remote_, " unreferenced");
     asio_base_session<SSL, typename stream<SSL>::type>::close();
 
     this->closed = true;

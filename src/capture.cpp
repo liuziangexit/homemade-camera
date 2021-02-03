@@ -37,12 +37,12 @@ void capture::run() {
 }
 
 void capture::stop() {
-  logger::debug("stopping capture");
+  logger::debug("cap", "stopping capture");
   {
     int expect = RUNNING;
     if (!state.compare_exchange_strong(expect, STOPPING)) {
-      logger::debug("stop failed, expect state ", RUNNING, ", actual state ",
-                    expect);
+      logger::debug("cap", "stop failed, expect state ", RUNNING,
+                    ", actual state ", expect);
       return;
     }
   }
@@ -59,7 +59,7 @@ void capture::stop() {
       write_thread.join();
   }
   state = STOPPED;
-  logger::info("capture stopped");
+  logger::info("cap", "capture stopped");
 }
 
 void capture::internal_stop_avoid_deadlock() {
@@ -75,7 +75,7 @@ bool capture::pause_others() {
     return false;
   paused = true;
   pause_time = checkpoint(3);
-  logger::warn("pause others!");
+  logger::warn("cap", "pause others!");
   return true;
 }
 
@@ -83,8 +83,8 @@ void capture::resume_others() {
   std::unique_lock l(pause_mtx);
   paused = false;
   pause_cv.notify_all();
-  logger::warn("resume others! paused time: ", checkpoint(3) - pause_time,
-               "ms");
+  logger::warn(
+      "cap", "resume others! paused time: ", checkpoint(3) - pause_time, "ms");
 }
 
 void capture::wait_pause() {
@@ -92,11 +92,11 @@ void capture::wait_pause() {
   bool pause_requested = false;
   if (paused) {
     pause_requested = true;
-    logger::warn("wait pause!");
+    logger::warn("cap", "wait pause!");
   }
   pause_cv.wait(l, [this] { return !paused; });
   if (pause_requested)
-    logger::warn("resumed!");
+    logger::warn("cap", "resumed!");
 }
 
 void capture::do_capture(const config &config) {
@@ -107,7 +107,7 @@ void capture::do_capture(const config &config) {
                                         (uint32_t)config.resolution.height,
                                         (uint32_t)config.fps,
                                         config.cam_pix_fmt})) {
-    logger::error("VideoCapture open failed");
+    logger::error("cap", "VideoCapture open failed");
     return;
   }
 
@@ -117,7 +117,7 @@ void capture::do_capture(const config &config) {
     std::pair<bool, std::shared_ptr<v4l_capture::buffer>> packet =
         capture.read();
     if (!packet.first) {
-      logger::error("VideoCapture read failed");
+      logger::error("cap", "VideoCapture read failed");
       return false;
     }
     ctx.captured_frame = std::move(packet.second);
@@ -145,7 +145,7 @@ void capture::do_capture(const config &config) {
     time(&ctx.frame_time);
     cv::Mat mat;
     if (!capture.read(mat)) {
-      logger::error("!VideoCapture read failed");
+      logger::error("cap", "!VideoCapture read failed");
       return false;
     }
     // FIXME 这里有奇怪的问题，鬼知道咋回事
@@ -204,7 +204,7 @@ void capture::do_decode(const config &config) {
         jpg_decoder.decode((unsigned char *)(ctx.captured_frame->data),
                            ctx.captured_frame->length);
     if (!decoded.first) {
-      logger::error("JPG decode failed");
+      logger::error("cap", "JPG decode failed");
       return false;
     }
     ctx.decoded_frame = std::move(decoded.second);
@@ -235,7 +235,8 @@ void capture::do_decode(const config &config) {
     }
     auto capture2decode_queue_size = capture2decode_queue.size();
     if (capture2decode_queue_size > WARN_QUEUE_CNT) {
-      logger::warn("capture2decode_queue size: ", capture2decode_queue_size);
+      logger::warn("cap",
+                   "capture2decode_queue size: ", capture2decode_queue_size);
     }
     lc2d.unlock();
 
@@ -282,7 +283,7 @@ void capture::do_write(const config &config) {
 
   cv::Ptr<cv::freetype::FreeType2> freetype = cv::freetype::createFreeType2();
   if (freetype.empty()) {
-    logger::error("create freetype2 instance failed");
+    logger::error("cap", "create freetype2 instance failed");
     this->stop();
   }
   freetype->loadFontData("Helvetica.ttc", 0);
@@ -300,7 +301,8 @@ void capture::do_write(const config &config) {
         out_filename = filename;
         return true;
       } else {
-        logger::error("VideoWriter open ", filename, " failed ", tried + 1);
+        logger::error("cap", "VideoWriter open ", filename, " failed ",
+                      tried + 1);
       }
     }
     return false;
@@ -311,13 +313,13 @@ OPEN_WRITER:
   time(&tm);
   std::string filename;
   if (!prepare_writer(tm, writer, filename)) {
-    logger::error("prepare_writer failed");
+    logger::error("cap", "prepare_writer failed");
     this->stop();
   }
 
   uint64 task_begin = 0;
-  logger::info("video file change to ", filename);
-  logger::debug(" writer backend:", writer.getBackendName(),
+  logger::info("cap", "video file change to ", filename);
+  logger::debug("cap", "writer backend:", writer.getBackendName(),
                 " codec:", codec_to_string(config.output_codec), " fps:", fps,
                 " resolution:", frame_size);
 
@@ -335,7 +337,7 @@ OPEN_WRITER:
     }
     auto decode2write_queue_size = decode2write_queue.size();
     if (decode2write_queue_size > WARN_QUEUE_CNT) {
-      logger::warn("decode2write_queue size: ", decode2write_queue_size);
+      logger::warn("cap", "decode2write_queue size: ", decode2write_queue_size);
     }
     l.unlock();
 
@@ -396,15 +398,15 @@ OPEN_WRITER:
     try {
       writer.write(frame);
     } catch (const cv::Exception &ex) {
-      logger::fatal("writer.write failed");
+      logger::fatal("cap", "writer.write failed");
       internal_stop_avoid_deadlock();
       break;
     } catch (const std::exception &ex) {
-      logger::fatal("writer.write failed");
+      logger::fatal("cap", "writer.write failed");
       internal_stop_avoid_deadlock();
       break;
     } catch (...) {
-      logger::fatal("writer.write failed");
+      logger::fatal("cap", "writer.write failed");
       internal_stop_avoid_deadlock();
       break;
     }
@@ -419,7 +421,8 @@ OPEN_WRITER:
     }
 
     if (frame_cost > expect_frame_time) {
-      logger::warn("low frame rate, expect ", expect_frame_time, "ms, actual ",
+      logger::warn("cap", "low frame rate, expect ", expect_frame_time,
+                   "ms, actual ",
                    frame_cost, //
                    "ms (capture:", ctx.send_time - ctx.capture_time,
                    "ms, send:", ctx.send_done_time - ctx.send_time,
@@ -429,7 +432,7 @@ OPEN_WRITER:
                    "ms, process:", ctx.write_time - ctx.process_time,
                    "ms, write:", ctx.done_time - ctx.write_time, "ms)");
     } else {
-      logger::debug("cost ", frame_cost, "ms");
+      logger::debug("cap", "cost ", frame_cost, "ms");
     }
 
     //到了预定的时间，换文件

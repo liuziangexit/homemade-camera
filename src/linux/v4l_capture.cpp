@@ -35,21 +35,21 @@ bool v4l_capture::set_fps(uint32_t value) {
   memset(&streamparm, 0, sizeof(v4l2_streamparm));
   streamparm.type = BUFFER_TYPE;
   if (ioctl(fd, VIDIOC_G_PARM, &streamparm) != 0) {
-    logger::error("VIDIOC_G_PARM failed");
+    logger::error("cap", "VIDIOC_G_PARM failed");
     return false;
   }
   if (!(streamparm.parm.capture.capability & V4L2_CAP_TIMEPERFRAME)) {
-    logger::error("V4L2_CAP_TIMEPERFRAME not supported");
+    logger::error("cap", "V4L2_CAP_TIMEPERFRAME not supported");
     return false;
   }
 
   streamparm.parm.capture.timeperframe.numerator = 1;
   streamparm.parm.capture.timeperframe.denominator = value;
   if (ioctl(fd, VIDIOC_S_PARM, &streamparm) != 0) {
-    logger::error("VIDIOC_S_PARM failed");
+    logger::error("cap", "VIDIOC_S_PARM failed");
     return false;
   }
-  logger::debug("fps are now set to ",
+  logger::debug("cap", "fps are now set to ",
                 streamparm.parm.capture.timeperframe.denominator);
   return true;
 }
@@ -57,13 +57,13 @@ bool v4l_capture::set_fps(uint32_t value) {
 bool v4l_capture::check_cap(int32_t flags) {
   struct v4l2_capability cap;
   if (ioctl(fd, VIDIOC_QUERYCAP, &cap) < 0) {
-    logger::error("VIDIOC_QUERYCAP failed");
+    logger::error("cap", "VIDIOC_QUERYCAP failed");
     return false;
   }
-  logger::info("DRIVER:", cap.driver, "(", cap.version, ")",
+  logger::info("cap", "DRIVER:", cap.driver, "(", cap.version, ")",
                ", DEVICE:", cap.card);
   if (!(cap.capabilities & flags)) {
-    logger::error("feature not supported");
+    logger::error("cap", "feature not supported");
     return false;
   }
   return true;
@@ -78,7 +78,7 @@ bool v4l_capture::set_fmt(graphic g) {
   format.fmt.pix.field = V4L2_FIELD_ANY;
 
   if (ioctl(fd, VIDIOC_S_FMT, &format) < 0) {
-    logger::error("VIDIOC_S_FMT failed");
+    logger::error("cap", "VIDIOC_S_FMT failed");
     return false;
   }
   return true;
@@ -91,15 +91,15 @@ bool v4l_capture::setup_buffer() {
   buf_req.count = V4L_BUFFER_CNT;
 
   if (ioctl(fd, VIDIOC_REQBUFS, &buf_req) < 0) {
-    logger::error("VIDIOC_REQBUFS failed");
+    logger::error("cap", "VIDIOC_REQBUFS failed");
     if (errno == EINVAL)
-      logger::error("Video capturing or mmap-streaming is not supported\n");
+      logger::error("cap", "Video capturing or mmap-streaming is not supported\n");
     return false;
   }
 
   if (buf_req.count < V4L_BUFFER_CNT) {
-    logger::error("VIDIOC_REQBUFS failed");
-    logger::error("no enough video memory");
+    logger::error("cap", "VIDIOC_REQBUFS failed");
+    logger::error("cap", "no enough video memory");
     return false;
   }
 
@@ -114,7 +114,7 @@ bool v4l_capture::setup_buffer() {
     buf.index = i;
 
     if (-1 == ioctl(fd, VIDIOC_QUERYBUF, &buf)) {
-      logger::error("VIDIOC_QUERYBUF failed");
+      logger::error("cap", "VIDIOC_QUERYBUF failed");
       return false;
     }
 
@@ -125,7 +125,7 @@ bool v4l_capture::setup_buffer() {
              fd, buf.m.offset);
 
     if (_buffer[i].data == MAP_FAILED) {
-      logger::error("mmap failed");
+      logger::error("cap", "mmap failed");
       _buffer[i].data = nullptr;
       return false;
     }
@@ -138,7 +138,7 @@ bool v4l_capture::stream_on() {
   // enable stream mode
   int type = BUFFER_TYPE;
   if (ioctl(fd, VIDIOC_STREAMON, &type) < 0) {
-    logger::error("stream on failed");
+    logger::error("cap", "stream on failed");
     return false;
   }
   return true;
@@ -156,7 +156,7 @@ bool v4l_capture::enqueue_buffer(uint32_t idx) {
   if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
     return false;
   }
-  logger::debug("v4l_capture::enqueue_buffer <- ", idx);
+  logger::debug("cap", "v4l_capture::enqueue_buffer <- ", idx);
   return true;
 }
 
@@ -175,12 +175,12 @@ int v4l_capture::dequeue_buffer() {
   } while (-1 == ret && EINTR == errno);
 
   /*if (buf.flags & V4L2_BUF_FLAG_ERROR != 0) {
-  logger::error("v4l_capture::dequeue_buffer V4L2_BUF_FLAG_ERROR");
+  logger::error("cap", "v4l_capture::dequeue_buffer V4L2_BUF_FLAG_ERROR");
    }*/
   if (ret < 0) {
     return -1;
   }
-  logger::debug("v4l_capture::dequeue_buffer -> ", buf.index);
+  logger::debug("cap", "v4l_capture::dequeue_buffer -> ", buf.index);
   return buf.index;
 }
 
@@ -226,7 +226,7 @@ std::vector<v4l_capture::graphic> v4l_capture::graphics(codec pix_fmt) {
 
 int v4l_capture::open(const std::string &device, v4l_capture::graphic g) {
   auto fail = [this](const char *error_message, int ret) -> int {
-    logger::error(error_message);
+    logger::error("cap", error_message);
     close();
     return ret;
   };
@@ -250,7 +250,8 @@ int v4l_capture::open(const std::string &device, v4l_capture::graphic g) {
       oss << codec_to_string(p.pix_fmt) << " ";
       oss << p.width << "x" << p.height << "@" << p.fps << std::endl;
     }
-    logger::info("available graphics on this device are:", oss.str());
+    logger::info("cap",
+                 "available graphics on this device are:", oss.str());
   }
 
   if (std::find(gs.begin(), gs.end(), g) == gs.end()) {
@@ -277,7 +278,7 @@ int v4l_capture::open(const std::string &device, v4l_capture::graphic g) {
     return fail("v4l_capture stream on failed", -7);
   }
 
-  logger::info("device been successfully opened");
+  logger::info("cap", "device been successfully opened");
 
   return 0;
 }
@@ -288,7 +289,7 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
   uint32_t current_read = checkpoint(3);
   if (last_read != 0) {
     // TODO 如果buffer数不足，才打印
-    logger::debug("read interval: ", current_read - last_read, "ms");
+    logger::debug("cap", "read interval: ", current_read - last_read, "ms");
   }
   last_read = current_read;
 
@@ -298,7 +299,7 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
     first_frame = false;
     for (int i = 0; i < V4L_BUFFER_CNT; i++) {
       if (!enqueue_buffer(i)) {
-        logger::error("enqueue_buffer failed");
+        logger::error("cap", "enqueue_buffer failed");
         close();
         return std::pair<bool, std::shared_ptr<buffer>>(
             false, std::shared_ptr<buffer>());
@@ -316,7 +317,7 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
   auto dequeue_time = checkpoint(3);
   int buffer_index;
   if ((buffer_index = dequeue_buffer()) < 0) {
-    logger::error("dequeue_buffer failed");
+    logger::error("cap", "dequeue_buffer failed");
     close();
     return std::pair<bool, std::shared_ptr<buffer>>(false,
                                                     std::shared_ptr<buffer>());
@@ -335,14 +336,14 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
   // get ready for the next frame
   auto enqueue_time = checkpoint(3);
   if (!enqueue_buffer(buffer_index)) {
-    logger::error("enqueue_buffer failed");
+    logger::error("cap", "enqueue_buffer failed");
     close();
     return std::pair<bool, std::shared_ptr<buffer>>(false,
                                                     std::shared_ptr<buffer>());
   }
 
   auto done_time = checkpoint(3);
-  logger::debug("v4lcapture alloc:", dequeue_time - alloc_time,
+  logger::debug("cap", "v4lcapture alloc:", dequeue_time - alloc_time,
                 "ms, dequeue:", copy_time - dequeue_time,
                 "ms, copy:", enqueue_time - copy_time,
                 "ms, enqueue:", done_time - enqueue_time, "ms");

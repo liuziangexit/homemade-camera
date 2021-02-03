@@ -48,12 +48,12 @@ web_service::~web_service() {
 }
 
 void web_service::run() {
-  logger::info("starting web service...");
+  logger::info("web", "starting service...");
   ioc_stopped = false;
   listener->run();
   std::thread([this] {
     ioc->run();
-    logger::debug("ioc run finished!");
+    logger::debug("web", "ioc run finished!");
     cvm.lock();
     cv.notify_one();
     ioc_stopped = true;
@@ -62,7 +62,7 @@ void web_service::run() {
 }
 
 void web_service::stop() {
-  logger::info("shutting down web service...");
+  logger::info("web", "shutting down web service...");
   listener->stop();
   //遍历map，干掉session们
   std::vector<tcp::endpoint> keys(this->sessions.size());
@@ -80,20 +80,21 @@ void web_service::stop() {
         p = static_cast<TYPE *>(row->second.get());
         ref = row->second;
         sessions.erase(row);
-        logger::debug(endpoint,
+        logger::debug("web", endpoint,
                       " has been removed from session map due to stop request");
       }
     }
     if (p)
       p->close();
   }
+  // FIXME 看看为啥树莓派上这个等不到
   //等待session全部被杀之后，ioc的停止
-  logger::debug("waiting ioc");
+  logger::debug("web", "waiting ioc");
   std::unique_lock<std::mutex> guard(cvm);
   while (!ioc_stopped) {
     cv.wait(guard);
   }
-  logger::info("web service stopped");
+  logger::info("web", "service stopped");
 }
 
 template <typename SESSION_TYPE>
@@ -114,7 +115,7 @@ void web_service::create_session(tcp::socket &&sock,
       fmt << endpoint.address() << ":" << endpoint.port();
       throw std::runtime_error(fmt.str());
     }
-    hcam::logger::debug(endpoint, " session->unregister_ ok");
+    hcam::logger::debug("web", endpoint, " session->unregister_ ok");
     return true;
   };
   std::shared_ptr<void> session;
@@ -157,6 +158,7 @@ bool web_service::modify_session(
   auto ret = callback(session);
   if (!ret) {
     logger::fatal(
+        "web",
         "web_service::modify_session: no replacement returned by callback");
     abort();
   }
