@@ -56,6 +56,7 @@ private:
   std::shared_ptr<asio_listener> listener;
   net::io_context *ioc;
   session_map_t sessions;
+  std::atomic<bool> stopped;
 };
 
 } // namespace hcam

@@ -54,10 +54,15 @@ void web_service::run() {
     ioc->run();
     logger::debug("web", "ioc run finished!");
   }).detach();
+  stopped = false;
 }
 
 void web_service::stop() {
-  logger::info("web", "shutting down web service...");
+  logger::info("web", "shutting down service...");
+  if (stopped) {
+    logger::info("web", "service already stopped");
+    return;
+  }
   listener->stop();
   //遍历map，干掉session们
   std::vector<tcp::endpoint> keys(this->sessions.size());
@@ -86,6 +91,7 @@ void web_service::stop() {
   logger::debug("web", "waiting ioc");
   ioc->stop();
   logger::info("web", "service stopped");
+  stopped = true;
 }
 
 template <typename SESSION_TYPE>

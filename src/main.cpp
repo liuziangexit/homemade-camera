@@ -12,8 +12,8 @@ void signal_handler(int signum) {
   hcam::logger::info("main", "signal ", signum, " received, quitting...");
   cap->stop();
   web->stop();
-  delete web;
   delete cap;
+  delete web;
   exit(signum);
 }
 

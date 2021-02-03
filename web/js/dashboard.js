@@ -2,11 +2,10 @@ var canvasScale = {
     denominator: 16,
     numerator: 9
 }
-var state = "connect";
 var canvas;
 var socket;
-var state_transfer_handler = null;
-var frame = new Image();
+var closeReason;
+var messageHandler = null;
 
 function changeCanvasSize() {
     // Make it visually fill the positioned parent
@@ -16,7 +15,29 @@ function changeCanvasSize() {
     canvas.height = canvas.offsetHeight;
 }
 
-function draw() {
+function drawStatus(color, text) {
+    var height = 20;
+    var leftPadding = 5;
+
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = "white";
+    ctx.font = height + "px sans-serif";
+    ctx.textBaseline = 'top';
+    ctx.textAlign = "start";
+    ctx.fillText(text, leftPadding * 2 + height / 2, 0);
+
+    ctx.beginPath();
+    ctx.arc(leftPadding + height / 4, height / 2, height / 4, 0, Math.PI * 2, true);
+    ctx.fillStyle = color;
+    ctx.fill();
+}
+
+
+var prevColor;
+var prevText;
+var prevFrame;
+
+function draw(color, text, frame, nochange) {
     changeCanvasSize(canvas);
 
     var ctx = canvas.getContext('2d');
@@ -24,67 +45,18 @@ function draw() {
     ctx.fillStyle = "rgba(0,0,0,1)";
     ctx.fillRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
 
-    /*ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(canvas.offsetWidth, canvas.offsetHeight);
-    ctx.stroke();
-    ctx.closePath();
-
-    ctx.beginPath();
-    ctx.moveTo(0, canvas.offsetHeight);
-    ctx.lineTo(canvas.offsetWidth, 0);
-    ctx.stroke();
-    ctx.closePath();*/
-
-    switch (state) {
-        case "connect": {
-            ctx.fillStyle = "white";
-            ctx.font = "20px sans-serif";
-            ctx.textBaseline = 'middle';
-            ctx.textAlign = "center";
-            ctx.fillText("连接中", canvas.offsetWidth / 2, canvas.offsetHeight / 2);
-        }
-            break;
-        case "load": {
-            ctx.fillStyle = "white";
-            ctx.font = "20px sans-serif";
-            ctx.textBaseline = 'middle';
-            ctx.textAlign = "center";
-            ctx.fillText("获取直播信息中", canvas.offsetWidth / 2, canvas.offsetHeight / 2);
-        }
-            break;
-        case "play": {
-            ctx.drawImage(frame, 0, 0, canvas.offsetWidth, canvas.offsetHeight);
-        }
-            break;
-        case "close": {
-            ctx.fillStyle = "white";
-            ctx.font = "20px sans-serif";
-            ctx.textBaseline = 'middle';
-            ctx.textAlign = "center";
-            ctx.fillText("无法播放", canvas.offsetWidth / 2, canvas.offsetHeight / 2);
-        }
-            break;
-        default: {
-            alert("invalid state");
-        }
+    if (nochange) {
+        color = prevColor;
+        text = prevText;
+        frame = prevFrame;
     }
-}
-
-function messageHandler(msg) {
-    if (msg.data instanceof Blob) {
-        // binary
-        console.log("frame received");
-        frame.src = URL.createObjectURL(msg.data);
-        frame.onload = () => {
-            canvasScale.numerator = frame.height;
-            canvasScale.denominator = frame.width;
-            draw();
-        }
-    } else {
-        // text
-        console.log(msg.data);
+    if (frame) {
+        ctx.drawImage(frame, 0, 0, canvas.offsetWidth, canvas.offsetHeight);
     }
+    drawStatus(color, text);
+    prevColor = color;
+    prevText = text;
+    prevFrame = frame;
 }
 
 function startLivestream() {
@@ -92,42 +64,58 @@ function startLivestream() {
         alert("浏览器不完整支持canvas的功能，无法进行直播");
         return;
     }
-    draw(canvas);
+    draw("yellow", "连接中...", null);
 
     socket = new WebSocket("ws://" + window.location.hostname + ":" + window.location.port);
     socket.binaryType = "blob";
     socket.addEventListener('open', function (event) {
-        state = "load";
-        draw();
+        draw("yellow", "等待直播...", null);
         socket.send('STREAM_ON');
-        state_transfer_handler = (e) => {
+        messageHandler = (e) => {
             if (e.data === "ok") {
+                draw("yellow", "已请求直播...", null);
                 console.log("stream on succeed");
-                state = "play";
-                return null;
+                var callback = (self, msg) => {
+                    if (msg.data instanceof Blob) {
+                        // binary
+                        console.log("frame received");
+                        var frame = new Image();
+                        frame.src = URL.createObjectURL(msg.data);
+                        frame.onload = () => {
+                            canvasScale.numerator = frame.height;
+                            canvasScale.denominator = frame.width;
+                            draw("green", "LIVE", frame);
+                        }
+                    } else {
+                        // text
+                        console.log(msg.data);
+                    }
+                    return (e) => {
+                        return self(self, e);
+                    };
+                };
+                return (e) => {
+                    return callback(callback, e);
+                };
             } else {
                 console.log("stream on failed");
                 socket.close();
-                state = "close";
-                draw();
+                draw("red", "获取直播信息失败", null);
                 return null;
             }
         };
     });
     socket.addEventListener('close', function (event) {
-        state = "close";
-        draw();
+        draw("red", "连接已关闭", null);
     });
     socket.addEventListener('error', function (event) {
-        state = "close";
-        draw();
-        alert('WebSocket错误:' + event);
+        draw("red", "连接错误", null);
     });
     socket.addEventListener('message', function (event) {
-        if (state_transfer_handler) {
-            state_transfer_handler = state_transfer_handler(event);
+        if (messageHandler) {
+            messageHandler = messageHandler(event);
         } else {
-            messageHandler(event);
+            console.warn("ws message ignored");
         }
     });
 
@@ -142,6 +130,6 @@ function startLivestream() {
     startLivestream();
 
     window.onresize = () => {
-        draw(canvas);
+        draw("", "", null, true);
     };
 })();
