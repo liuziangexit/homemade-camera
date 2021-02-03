@@ -7,12 +7,15 @@
 hcam::web_service *web;
 hcam::capture *cap;
 
+bool quit = false;
+
 void signal_handler(int signum) {
   hcam::logger::info("main", "signal ", signum, " received, quitting...");
   cap->stop();
   web->stop();
   delete cap;
   delete web;
+  quit = true;
   exit(signum);
 }
 
@@ -31,5 +34,8 @@ int main(int argc, char **argv) {
   raise(SIGINT);*/
   // FIXME 卧槽，这就是UB吗？
   // std::this_thread::sleep_for(std::chrono::hours::max());
-  pause();
+  while (!quit) {
+    pause();
+  }
+  /*hcam::logger::info("main", "pause done");*/
 }
