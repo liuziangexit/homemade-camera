@@ -16,18 +16,19 @@ function changeCanvasSize() {
 }
 
 function drawStatus(color, text) {
-    var height = 20;
+    var height = canvas.offsetHeight / 12;
+    var topPadding = 5;
     var leftPadding = 5;
 
     var ctx = canvas.getContext('2d');
     ctx.fillStyle = "white";
     ctx.font = height + "px sans-serif";
-    ctx.textBaseline = 'top';
+    ctx.textBaseline = 'middle';
     ctx.textAlign = "start";
-    ctx.fillText(text, leftPadding * 2 + height / 2, 0);
+    ctx.fillText(text, leftPadding * 2 + height / 2, height / 2 + topPadding + 1);
 
     ctx.beginPath();
-    ctx.arc(leftPadding + height / 4, height / 2, height / 4, 0, Math.PI * 2, true);
+    ctx.arc(leftPadding + height / 4, height / 2 + topPadding, height / 4, 0, Math.PI * 2, true);
     ctx.fillStyle = color;
     ctx.fill();
 }
@@ -121,12 +122,23 @@ function startLivestream() {
 
 }
 
-function captureCanvas() {
-    var imgData = canvas.toDataURL("image/png");
-    var imgControl = '<img src="' + imgData + '">';
-    var w = window.open("", '_blank');
-    w.document.write(imgControl);
-    w.document.close();
+function getBase64Image(img) {
+    var canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    var ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    return canvas.toDataURL("image/jpeg");
+}
+
+function saveFrame() {
+    if (prevFrame) {
+        var imgData = getBase64Image(prevFrame);
+        var imgControl = '<img src="' + imgData + '">';
+        var w = window.open("", '_blank');
+        w.document.write(imgControl);
+        w.document.close();
+    }
 }
 
 (function () {
