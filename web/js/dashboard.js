@@ -75,6 +75,7 @@ function startLivestream() {
         messageHandler = (e) => {
             if (e.data === "ok") {
                 draw("yellow", "已请求直播...", null);
+                document.getElementById("saveButton").removeAttribute("disabled");
                 console.log("stream on succeed");
                 var callback = (self, msg) => {
                     if (msg.data instanceof Blob) {
@@ -108,9 +109,11 @@ function startLivestream() {
     });
     socket.addEventListener('close', function (event) {
         draw("red", "连接已关闭", null);
+        document.getElementById("saveButton").setAttribute("disabled", "disabled");
     });
     socket.addEventListener('error', function (event) {
         draw("red", "连接错误", null);
+        document.getElementById("saveButton").setAttribute("disabled", "disabled");
     });
     socket.addEventListener('message', function (event) {
         if (messageHandler) {
