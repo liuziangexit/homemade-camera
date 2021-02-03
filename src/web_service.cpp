@@ -49,15 +49,10 @@ web_service::~web_service() {
 
 void web_service::run() {
   logger::info("web", "starting service...");
-  ioc_stopped = false;
   listener->run();
   std::thread([this] {
     ioc->run();
     logger::debug("web", "ioc run finished!");
-    cvm.lock();
-    cv.notify_one();
-    ioc_stopped = true;
-    cvm.unlock();
   }).detach();
 }
 
@@ -87,13 +82,9 @@ void web_service::stop() {
     if (p)
       p->close();
   }
-  // FIXME 看看为啥树莓派上这个等不到
   //等待session全部被杀之后，ioc的停止
   logger::debug("web", "waiting ioc");
-  std::unique_lock<std::mutex> guard(cvm);
-  while (!ioc_stopped) {
-    cv.wait(guard);
-  }
+  ioc->stop();
   logger::info("web", "service stopped");
 }
 
