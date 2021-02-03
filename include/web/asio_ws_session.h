@@ -327,13 +327,14 @@ public:
 
     this->livestream_->remove(this->remote_);
 
+    //这里没有办法设置close的timeout，如果客户端没有响应，那就一直卡在这了，干脆直接掐tcp
     // close websocket
-    try {
-      this->stream_->close(boost::beast::websocket::normal);
-    } catch (const beast::system_error &e) {
-      logger::debug("web", this->remote_,
-                    " close WebSocket failed: ", e.what());
-    }
+    /* try {
+       this->stream_->close(boost::beast::websocket::normal);
+     } catch (const beast::system_error &e) {
+       logger::debug("web", this->remote_,
+                     " close WebSocket failed: ", e.what());
+     }*/
     logger::debug("web", this->remote_, " WebSocket closed");
     // call base class
     asio_base_session<

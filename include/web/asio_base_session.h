@@ -19,6 +19,15 @@
 #include <type_traits>
 #include <utility>
 
+/*FIXME boost还有一些问题，ssl或者ws的stream关闭的时候呢，原理上都是发个fin
+ * syn包到client去，等client也说fin之后，才关上
+ *
+ * 但是ssl stream 和
+ * wsstream的close接口并没有提供东西给我设置timeout，所以这就导致如果客户端不响应(比如ios
+ * safari打开之后，然后退到桌面去，safari里的ws就不工作了)，这个io线程就一直卡那
+ *
+ * 应该有方法来优雅解决这问题，但目前呢，直接掐断TCP就完事
+ */
 namespace beast = boost::beast;   // from <boost/beast.hpp>
 namespace http = beast::http;     // from <boost/beast/http.hpp>
 namespace net = boost::asio;      // from <boost/asio.hpp>
@@ -107,7 +116,8 @@ public:
         /*  try {
             find_layer<stream<true>::type>(*this->stream_.get()).shutdown();
           } catch (const boost::system::system_error &e) {
-            logger::debug("web", this->remote_, " shutdown SSL failed: ", e.what());
+            logger::debug("web", this->remote_, " shutdown SSL failed: ",
+          e.what());
           }
           logger::debug("web", this->remote_, " SSL shutdown");*/
       }
@@ -146,7 +156,8 @@ protected:
                                         " SSL handshake error: ", ec.message());
                   } else {
                     ssl_established_ = true;
-                    hcam::logger::debug("web", this->remote_, " SSL handshake OK");
+                    hcam::logger::debug("web", this->remote_,
+                                        " SSL handshake OK");
                   }
                   callback(ec);
                 });
