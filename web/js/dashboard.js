@@ -121,6 +121,14 @@ function startLivestream() {
 
 }
 
+function captureCanvas() {
+    var imgData = canvas.toDataURL("image/png");
+    var imgControl = '<img src="' + imgData + '">';
+    var w = window.open("", '_blank');
+    w.document.write(imgControl);
+    w.document.close();
+}
+
 (function () {
     'use strict'
     feather.replace();
