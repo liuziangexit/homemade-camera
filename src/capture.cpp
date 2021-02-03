@@ -108,6 +108,7 @@ void capture::do_capture(const config &config) {
                                         (uint32_t)config.fps,
                                         config.cam_pix_fmt})) {
     logger::error("cap", "VideoCapture open failed");
+    this->internal_stop_avoid_deadlock();
     return;
   }
 
