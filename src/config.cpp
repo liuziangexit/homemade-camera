@@ -70,7 +70,8 @@ bool config::read(const std::string &filename) {
     this->web_root = js["web-root"].get<std::string>();
     this->idle_timeout = js["idle-timeout"].get<int>();
   } catch (const std::exception &ex) {
-    logger::error("config", ex.what());
+    //这里不能用logger，因为logger也依赖lazy
+    std::cout << "config read failed: " << ex.what() << std::endl;
     return false;
   }
   return true;
