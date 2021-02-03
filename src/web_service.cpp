@@ -49,10 +49,15 @@ web_service::~web_service() {
 
 void web_service::run() {
   logger::info("web", "starting service...");
+  ioc_stopped = false;
   listener->run();
   std::thread([this] {
     ioc->run();
     logger::debug("web", "ioc run finished!");
+    cvm.lock();
+    cv.notify_one();
+    ioc_stopped = true;
+    cvm.unlock();
   }).detach();
   stopped = false;
 }
@@ -89,7 +94,8 @@ void web_service::stop() {
   }
   //等待session全部被杀之后，ioc的停止
   logger::debug("web", "waiting ioc");
-  ioc->stop();
+  std::unique_lock<std::mutex> guard(cvm);
+  cv.wait(guard, [this] { return ioc_stopped; });
   logger::info("web", "service stopped");
   stopped = true;
 }
