@@ -39,10 +39,6 @@ class web_service {
 public:
   livestream<HCAM_WEB_SERVICE_SSL_ENABLED> &get_livestream_instace();
 
-  std::condition_variable cv;
-  std::mutex cvm;
-  bool ioc_stopped;
-
   web_service();
   ~web_service();
   void run();
@@ -61,6 +57,7 @@ private:
   net::io_context *ioc;
   session_map_t sessions;
   std::atomic<bool> stopped;
+  std::vector<std::thread> ioc_threads;
 };
 
 } // namespace hcam

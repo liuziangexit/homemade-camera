@@ -30,10 +30,9 @@ web_service::web_service()
           &asio_ws_session<HCAM_WEB_SERVICE_SSL_ENABLED>::send_frame) {
   const auto address = net::ip::make_address(config_manager::get().web_addr);
   const unsigned short port = config_manager::get().web_port;
-  const auto threads = config_manager::get().web_thread_count;
 
   // The io_context is required for all I/O
-  this->ioc = new net::io_context(threads);
+  this->ioc = new net::io_context(config_manager::get().web_thread_count);
 
   // Create and launch a listening port
   this->listener = std::make_shared<asio_listener>(
@@ -49,17 +48,19 @@ web_service::~web_service() {
 
 void web_service::run() {
   logger::info("web", "starting service...");
-  ioc_stopped = false;
-  listener->run();
-  std::thread([this] {
-    ioc->run();
-    logger::debug("web", "ioc run finished!");
-    cvm.lock();
-    cv.notify_one();
-    ioc_stopped = true;
-    cvm.unlock();
-  }).detach();
   stopped = false;
+  listener->run();
+  for (int i = 0; i < config_manager::get().web_thread_count; i++) {
+    this->ioc_threads.push_back(std::thread([this] {
+      try {
+        ioc->run();
+      } catch (...) {
+        logger::debug("web", "caocaocao");
+        abort();
+      }
+      logger::debug("web", "ioc run finished!");
+    }));
+  }
 }
 
 void web_service::stop() {
@@ -69,13 +70,16 @@ void web_service::stop() {
     return;
   }
   listener->stop();
+
   //遍历map，干掉session们
   std::vector<tcp::endpoint> keys(this->sessions.size());
   for (session_map_t::iterator it = this->sessions.begin();
        it != this->sessions.end(); ++it) {
     keys.push_back(it->first);
   }
+  int cnt = keys.size();
   for (const auto &endpoint : keys) {
+    logger::debug("web", cnt--, " sessions left");
     std::shared_ptr<void> ref;
     TYPE *p = nullptr;
     //竟然是不可重入的。。。
@@ -94,8 +98,12 @@ void web_service::stop() {
   }
   //等待session全部被杀之后，ioc的停止
   logger::debug("web", "waiting ioc");
-  std::unique_lock<std::mutex> guard(cvm);
-  cv.wait(guard, [this] { return ioc_stopped; });
+  ioc->stop();
+  for (auto &t : ioc_threads) {
+    if (t.joinable())
+      t.join();
+  }
+  assert(ioc->stopped());
   logger::info("web", "service stopped");
   stopped = true;
 }

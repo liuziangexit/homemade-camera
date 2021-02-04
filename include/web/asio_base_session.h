@@ -100,9 +100,7 @@ public:
 
   asio_base_session(const asio_base_session &) = delete;
 
-  virtual ~asio_base_session() {
-    hcam::logger::debug("web", this->remote_, " asio_base_session destructed");
-  }
+  virtual ~asio_base_session() {}
 
   virtual void run() { throw std::exception(); }
 
@@ -123,8 +121,9 @@ public:
       }
     }
     // close TCP
+    // FIXME 其实我也想要shutdown的，但是必须先弄清楚怎么设置超时呢？
     beast::get_lowest_layer(*stream_).close();
-    logger::debug("web", this->remote_, " TCP closed");
+    beast::get_lowest_layer(*stream_).cancel();
     // unref
     this->unregister_();
 

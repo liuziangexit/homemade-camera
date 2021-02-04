@@ -108,6 +108,7 @@ public:
     // handle request
 
     // handle websocket upgrade request
+    // FIXME 这地方写的真恶心，有空用官方的写法去做
     auto upgrade_header = req_.base().find("Upgrade");
     if (upgrade_header != req_.base().end() &&
         upgrade_header->value() == "websocket") {

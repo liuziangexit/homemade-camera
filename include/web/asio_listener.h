@@ -5,6 +5,7 @@
 #include "boost/beast.hpp"
 #include "config/config.h"
 #include "util/logger.h"
+#include <atomic>
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
@@ -31,6 +32,9 @@ class asio_listener : public std::enable_shared_from_this<asio_listener> {
   std::function<void(tcp::socket &&, beast::tcp_stream::endpoint_type remote)>
       create_session_;
   tcp::acceptor acceptor_;
+  std::mutex quit_mut;
+  std::condition_variable quit_cv;
+  std::atomic<int> quit = 0;
 
 public:
   asio_listener(net::io_context &ioc, tcp::endpoint endpoint,
@@ -74,15 +78,23 @@ public:
   }
 
   void stop() {
+    hcam::logger::debug("web", "stopping listener");
+    std::unique_lock l(quit_mut);
+    quit = 1;
     try {
-      acceptor_.close();
+      acceptor_.cancel();
     } catch (const std::exception &ex) {
       hcam::logger::debug("web", "listener stop failed: ", ex.what());
     }
+    hcam::logger::debug("web", "waiting listener");
+    quit_cv.wait(l, [this] { return quit == 2; });
+    acceptor_.close();
+    hcam::logger::debug("web", "listener stopped");
   }
 
 private:
   void do_accept() {
+    hcam::logger::debug("web", " do_accept");
     // The new connection gets its own strand
     acceptor_.async_accept(net::make_strand(ioc_),
                            beast::bind_front_handler(&asio_listener::on_accept,
@@ -90,24 +102,30 @@ private:
   }
 
   void on_accept(beast::error_code ec, tcp::socket socket) {
+    hcam::logger::debug("web", "on_accept");
     if (ec) {
       hcam::logger::debug("web", "asio accept fail: ", ec.message());
-      if (ec == boost::asio::error::operation_aborted ||
-          ec == boost::asio::error::bad_descriptor) {
+      if (quit == 1) {
+        std::unique_lock l(quit_mut);
+        quit = 2;
+        quit_cv.notify_all();
         return;
       }
     } else {
       beast::tcp_stream::endpoint_type remote;
+      bool ok = true;
       try {
         remote = socket.remote_endpoint();
       } catch (const beast::system_error &e) {
         hcam::logger::info("web", "session create failed, ", e.what());
-        return;
+        ok = false;
       }
-      hcam::logger::info("web", remote, " session created");
-      hcam::logger::debug("web", remote, " TCP handshake OK");
-      // Create the session and run it
-      this->create_session_(std::move(socket), remote);
+      if (ok) {
+        hcam::logger::info("web", remote, " session created");
+        hcam::logger::debug("web", remote, " TCP handshake OK");
+        // Create the session and run it
+        this->create_session_(std::move(socket), remote);
+      }
     }
 
     // Accept another connection

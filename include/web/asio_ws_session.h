@@ -54,9 +54,7 @@ public:
                           websocket::stream<typename stream<SSL>::type, true>>(
             std::forward<ARGS>(args)...) {}
 
-  ~asio_ws_session() {
-    hcam::logger::debug("web", this->remote_, " asio_ws_session destructed");
-  }
+  ~asio_ws_session() {}
 
   // Get on the correct executor
   virtual void run() override {
@@ -335,7 +333,6 @@ public:
        logger::debug("web", this->remote_,
                      " close WebSocket failed: ", e.what());
      }*/
-    logger::debug("web", this->remote_, " WebSocket closed");
     // call base class
     asio_base_session<
         SSL, websocket::stream<typename stream<SSL>::type, true>>::close();
