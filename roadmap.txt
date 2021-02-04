@@ -37,8 +37,13 @@ ok-http转ws
 ok-http的handler
 ok-测试ssl连接
 OK-web界面
+OK-定web api
 
--定web api
+-直播一会之后web模块无响应
+-web模块有时候无法平滑停止
+-直播帧率低
+
+-很多stop函数需要等待别的线程停止，这部分的代码都是重复的，这个应该单独抽出来做个基类，然后有这个需求的类都从这继承
 -web前端功能实现
 -mmap的v4l方式memcpy花时间太久的问题
 -web下载录像（这个应该还蛮简单，只是用标准的html控件去做就行了吧，可能服务端要支持分块http
