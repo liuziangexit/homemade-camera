@@ -44,7 +44,7 @@ class web {
   std::vector<std::thread> io_threads;
   boost::beast::net::ip::tcp::acceptor acceptor, ssl_port_acceptor;
   session_map_t weak_sessions;
-  std::atomic<uint32_t> online;
+  std::atomic<uint32_t> online = 0;
 
 public:
   web();
