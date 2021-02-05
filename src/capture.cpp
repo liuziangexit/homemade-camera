@@ -21,8 +21,7 @@
 
 namespace hcam {
 
-capture::capture(web_service *s)
-    : web_service_p(s), _config(config_manager::get()) {}
+capture::capture() : _config(config_manager::get()) {}
 capture::~capture() { stop(); }
 
 void capture::run() {
@@ -159,9 +158,7 @@ void capture::do_capture(const config &config) {
     std::vector<unsigned char> out;
     cv::imencode(".jpg", ctx.decoded_frame, out);
     ctx.send_time = checkpoint(3);
-    this->web_service_p            //
-        ->get_livestream_instace() //
-        .send_frame_to_all(out.data(), out.size());
+    // TODO 用EVENT来做
     ctx.send_done_time = checkpoint(3);
 
     return true;

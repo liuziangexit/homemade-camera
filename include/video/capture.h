@@ -4,7 +4,6 @@
 #include "codec.h"
 #include "config/config.h"
 #include "util/string_util.h"
-#include "web/web_service.h"
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -32,13 +31,10 @@ namespace hcam {
 
 class capture {
 public:
-  capture(web_service *);
+  capture();
   void run();
   void stop();
   ~capture();
-
-  // TODO 看看有没有更好的办法
-  web_service *web_service_p;
 
 private:
   struct frame_context {

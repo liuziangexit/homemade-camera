@@ -1,10 +1,9 @@
 #include "util/logger.h"
 #include "video/capture.h"
-#include "web/web_service.h"
+#include "web/web.h"
 #include <opencv2/core/utility.hpp>
 #include <signal.h>
 
-hcam::web_service *web;
 hcam::capture *cap;
 
 int quit = 0;
@@ -16,9 +15,7 @@ void signal_handler(int signum) {
   quit = 1;
   hcam::logger::info("main", "signal ", signum, " received, quitting...");
   cap->stop();
-  web->stop();
   delete cap;
-  delete web;
   quit = true;
   quit = 2;
   exit(signum);
@@ -29,10 +26,7 @@ int main(int argc, char **argv) {
   signal(SIGINT, signal_handler);
   signal(SIGTERM, signal_handler);
 
-  web = new hcam::web_service();
-  web->run();
-
-  cap = new hcam::capture(web);
+  cap = new hcam::capture();
   cap->run();
 
   /*getchar();
