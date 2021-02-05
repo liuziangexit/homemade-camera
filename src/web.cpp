@@ -10,9 +10,10 @@ namespace hcam {
 void wrap(
     boost::beast::error_code ec, boost::asio::ip::tcp::socket socket,
     boost::beast::net::ip::tcp::acceptor &_acceptor,
-    std::function<void(boost::beast::error_code, boost::asio::ip::tcp::socket)>
+    std::function<bool(boost::beast::error_code, boost::asio::ip::tcp::socket)>
         on_accept) {
-  on_accept(ec, std::move(socket));
+  if (!on_accept(ec, std::move(socket)))
+    return;
   _acceptor.async_accept(
       boost::asio::make_strand(_acceptor.get_executor()),
       [&_acceptor, on_accept](boost::beast::error_code ec,
@@ -21,11 +22,11 @@ void wrap(
       });
 }
 
-bool run_acceptor(boost::beast::net::ip::tcp::acceptor &_acceptor,
-                  boost::asio::ip::tcp::endpoint endpoint,
-                  std::function<void(boost::beast::error_code ec,
-                                     boost::asio::ip::tcp::socket socket)>
-                      on_accept) {
+bool run_acceptor(
+    boost::beast::net::ip::tcp::acceptor &_acceptor,
+    boost::asio::ip::tcp::endpoint endpoint,
+    std::function<bool(boost::beast::error_code, boost::asio::ip::tcp::socket)>
+        on_accept) {
   // FIXME 里面有问题全部returnfalse
   boost::beast::error_code ec;
 
@@ -108,6 +109,11 @@ void web::stop() {
       t.join();
   }
   assert(io_context.stopped());
+  //由于ioctx里未完成的异步任务里面引用了session的shared_ptr，导致这些session没有destruct，我们这样做
+  //清空任务队列的唯一方法是destruct，但是他的dtor调多次会出问题，所以就调完再构建一个
+  io_context.~io_context();
+  new (&io_context) boost::asio::io_context(config::get().web_thread_count);
+  assert(online == 0);
   change_state_certain(CLOSING, STOPPED);
   logger::debug("web", "web stopped");
 }
@@ -123,12 +129,12 @@ void web::change_state_certain(state_t expect, state_t desired) {
   }
 }
 
-void web::on_accept(boost::beast::error_code ec,
+bool web::on_accept(boost::beast::error_code ec,
                     boost::asio::ip::tcp::socket socket) {
   if (ec) {
     logger::debug("web", //
                   "accept new connection failed, ", ec.message());
-    return;
+    return false;
   }
 
   boost::asio::ip::tcp::endpoint endpoint;
@@ -137,11 +143,12 @@ void web::on_accept(boost::beast::error_code ec,
   } catch (const std::exception &e) {
     logger::debug("web", //
                   "accept new connection failed, ", e.what());
-    return;
+    return true;
   }
 
-  logger::debug("web", //
-                "accept new connection from ", endpoint);
- /* session<false> new_session(std::move(socket));*/
+  auto new_session =
+      std::make_shared<session<false>>(*this, endpoint, std::move(socket));
+  new_session->run();
+  return true;
 }
 } // namespace hcam
