@@ -5,6 +5,7 @@
 #include <signal.h>
 
 hcam::capture *cap;
+hcam::web *web;
 
 int quit = 0;
 
@@ -16,6 +17,8 @@ void signal_handler(int signum) {
   hcam::logger::info("main", "signal ", signum, " received, quitting...");
   cap->stop();
   delete cap;
+  web->stop();
+  delete web;
   quit = true;
   quit = 2;
   exit(signum);
@@ -26,8 +29,11 @@ int main(int argc, char **argv) {
   signal(SIGINT, signal_handler);
   signal(SIGTERM, signal_handler);
 
+  web = new hcam::web();
+  web->run();
+
   cap = new hcam::capture();
-  cap->run();
+  // cap->run();
 
   /*getchar();
   raise(SIGINT);*/
