@@ -2,6 +2,7 @@
 #include "assert.h"
 #include "config/config.h"
 #include "util/logger.h"
+#include "web/session.h"
 #include <functional>
 
 namespace hcam {
@@ -64,7 +65,8 @@ bool run_acceptor(boost::beast::net::ip::tcp::acceptor &_acceptor,
 web::web()
     : state{STOPPED}, thread_count(config::get().web_thread_count),
       io_context(thread_count), //
-      acceptor(io_context), ssl_port_acceptor(io_context) {}
+      acceptor(boost::asio::make_strand(io_context)),
+      ssl_port_acceptor(io_context) {}
 
 web::~web() { stop(); }
 
@@ -140,6 +142,6 @@ void web::on_accept(boost::beast::error_code ec,
 
   logger::debug("web", //
                 "accept new connection from ", endpoint);
-  socket.close();
+ /* session<false> new_session(std::move(socket));*/
 }
 } // namespace hcam
