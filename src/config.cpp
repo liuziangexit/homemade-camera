@@ -66,7 +66,8 @@ bool config::read(const std::string &filename) {
     this->display_fps = (display_fps_t)js["display-fps"].get<int>();
     this->font_height = js["font-height"].get<int>();
     this->web_addr = js["web-addr"].get<std::string>();
-    this->web_port = js["web-port"].get<int>();
+    this->port = js["port"].get<int>();
+    this->ssl_port = js["ssl-port"].get<int>();
     this->web_root = js["web-root"].get<std::string>();
     this->idle_timeout = js["idle-timeout"].get<int>();
   } catch (const std::exception &ex) {

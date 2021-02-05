@@ -34,7 +34,8 @@ struct config {
   display_fps_t display_fps; //帧率显示模式 0-NEVER 1-WARNING ONLY 2-ALWAYS
   int font_height;           //视频时间戳字体大小
   std::string web_addr;      // web服务地址
-  int web_port;              // web服务端口
+  int port;                  // web服务端口
+  int ssl_port;              // web服务端口
   std::string web_root;      // web目录
   int idle_timeout;          // web服务连接闲置超时时间（秒）
 
