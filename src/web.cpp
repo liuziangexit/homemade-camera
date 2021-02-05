@@ -123,7 +123,23 @@ void web::change_state_certain(state_t expect, state_t desired) {
 
 void web::on_accept(boost::beast::error_code ec,
                     boost::asio::ip::tcp::socket socket) {
-  logger::debug("web", "we got one!");
+  if (ec) {
+    logger::debug("web", //
+                  "accept new connection failed, ", ec.message());
+    return;
+  }
+
+  boost::asio::ip::tcp::endpoint endpoint;
+  try {
+    endpoint = socket.remote_endpoint();
+  } catch (const std::exception &e) {
+    logger::debug("web", //
+                  "accept new connection failed, ", e.what());
+    return;
+  }
+
+  logger::debug("web", //
+                "accept new connection from ", endpoint);
   socket.close();
 }
 } // namespace hcam
