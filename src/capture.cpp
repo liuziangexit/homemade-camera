@@ -121,10 +121,6 @@ void capture::do_capture(const config &config) {
     }
     ctx.captured_frame = std::move(packet.second);
     ctx.send_time = checkpoint(3);
-    this->web_service_p            //
-        ->get_livestream_instace() //
-        .send_frame_to_all((unsigned char *)(ctx.captured_frame->data),
-                           ctx.captured_frame->length);
     ctx.send_done_time = checkpoint(3);
 
     return true;
