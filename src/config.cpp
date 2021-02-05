@@ -97,7 +97,6 @@ bool config::write(const std::string &filename) {
       {"device", this->device},
       {"timestamp_pos", this->timestamp_pos},
       {"font-height", this->font_height},
-      {"web-port", this->web_port},
       {"idle-timeout", this->idle_timeout} //
   };
 
