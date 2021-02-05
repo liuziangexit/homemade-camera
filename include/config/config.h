@@ -1,5 +1,6 @@
 #ifndef __HCAM_CONFIG_H__
 #define __HCAM_CONFIG_H__
+#include "lazy/lazy.h"
 #include "video/codec.h"
 #include <lazy/lazy.h>
 #include <set>
@@ -8,6 +9,9 @@
 namespace hcam {
 
 struct config {
+  static liuziangexit_lazy::lazy_t<config, std::string> lazy;
+  static config get() { return lazy.get_instance(); }
+
   enum log_level_t { DEBUG, INFO, WARN, ERROR, FATAL };
   log_level_t
       log_level; //只输出log_level和比它更高的log。比如，log_level==INFO，那么DEBUG不会输出

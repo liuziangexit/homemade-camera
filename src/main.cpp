@@ -22,7 +22,7 @@ void signal_handler(int signum) {
 }
 
 int main(int argc, char **argv) {
-  cv::setNumThreads(hcam::config_manager::get().video_thread_count);
+  cv::setNumThreads(hcam::config::get().video_thread_count);
   signal(SIGINT, signal_handler);
   signal(SIGTERM, signal_handler);
 

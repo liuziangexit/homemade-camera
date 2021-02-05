@@ -1,6 +1,5 @@
 #include "video/capture.h"
 #include "config/config.h"
-#include "config/config_manager.h"
 #include "util/logger.h"
 #include "util/time_util.h"
 #include "video/codec.h"
@@ -21,7 +20,7 @@
 
 namespace hcam {
 
-capture::capture() : _config(config_manager::get()) {}
+capture::capture() : _config(config::get()) {}
 capture::~capture() { stop(); }
 
 void capture::run() {

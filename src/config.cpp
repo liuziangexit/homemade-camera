@@ -10,6 +10,9 @@
 
 namespace hcam {
 
+liuziangexit_lazy::lazy_t<config, std::string> config::lazy =
+    liuziangexit_lazy::make_lazy<config, std::string>("config.json");
+
 config::config(const std::string &filename) {
   if (!read(filename))
     throw std::runtime_error("read config failed");
