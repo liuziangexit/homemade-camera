@@ -35,12 +35,10 @@ int main(int argc, char **argv) {
   cap = new hcam::capture();
   // cap->run();
 
-  getchar();
-  signal_handler(2);
   // FIXME 卧槽，这就是UB吗？
   // std::this_thread::sleep_for(std::chrono::hours::max());
-  /*while (quit != 2) {
+  while (quit != 2) {
     pause();
-  }*/
+  }
   /*hcam::logger::info("main", "pause done");*/
 }
