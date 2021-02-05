@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
   web->run();
 
   cap = new hcam::capture();
-  // cap->run();
+  cap->run();
 
   // FIXME 卧槽，这就是UB吗？
   // std::this_thread::sleep_for(std::chrono::hours::max());
