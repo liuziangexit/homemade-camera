@@ -18,7 +18,7 @@ class web {
 public:
   struct session_context {
     bool ssl;
-    void *session;
+    std::weak_ptr<void> session;
   };
 
 private:

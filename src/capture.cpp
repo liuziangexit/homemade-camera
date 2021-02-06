@@ -129,13 +129,16 @@ void capture::do_capture(const config &config) {
                                    (unsigned char)0);
     memcpy(out.data(), ctx.captured_frame->data, ctx.captured_frame->length);
     web_service.foreach_session([&out](const web::session_context &_session) {
-      auto copy = out;
-      if (_session.ssl) {
-        static_cast<session<true> *>(_session.session)
-            ->ws_write(std::move(copy), true, 1);
-      } else {
-        static_cast<session<false> *>(_session.session)
-            ->ws_write(std::move(copy), true, 1);
+      auto shared_session = _session.session.lock();
+      if (shared_session) {
+        auto copy = out;
+        if (_session.ssl) {
+          static_cast<session<true> *>(shared_session.get())
+              ->ws_write(std::move(copy), true, 1);
+        } else {
+          static_cast<session<false> *>(shared_session.get())
+              ->ws_write(std::move(copy), true, 1);
+        }
       }
     });
 
@@ -172,13 +175,16 @@ void capture::do_capture(const config &config) {
     cv::imencode(".jpg", ctx.decoded_frame, out);
     ctx.send_time = checkpoint(3);
     web_service.foreach_session([&out](const web::session_context &_session) {
-      auto copy = out;
-      if (_session.ssl) {
-        static_cast<session<true> *>(_session.session)
-            ->ws_write(std::move(copy), true, 1);
-      } else {
-        static_cast<session<false> *>(_session.session)
-            ->ws_write(std::move(copy), true, 1);
+      auto shared_session = _session.session.lock();
+      if (shared_session) {
+        auto copy = out;
+        if (_session.ssl) {
+          static_cast<session<true> *>(shared_session.get())
+              ->ws_write(std::move(copy), true, 1);
+        } else {
+          static_cast<session<false> *>(shared_session.get())
+              ->ws_write(std::move(copy), true, 1);
+        }
       }
     });
     ctx.send_done_time = checkpoint(3);

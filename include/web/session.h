@@ -1,5 +1,6 @@
 #ifndef HCAM_SESSION_H
 #define HCAM_SESSION_H
+#include "util/logger.h"
 #include "web/web.h"
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/dispatch.hpp>
@@ -208,7 +209,7 @@ private:
       std::unique_lock l(service.subscribed_mut);
       if (!service.subscribed
                .insert(web::session_map_t::value_type{
-                   remote, web::session_context{SSL, this}})
+                   remote, web::session_context{SSL, this->weak_from_this()}})
                .second) {
         logger::error("web", "map insert failed");
         reply("internal error");
