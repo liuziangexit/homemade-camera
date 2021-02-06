@@ -158,7 +158,10 @@ void web::foreach_session(std::function<void(const session_context &)> viewer) {
   std::unique_lock<std::shared_mutex> l(subscribed_mut);
   for (session_map_t::const_iterator it = subscribed.begin();
        it != subscribed.end(); ++it) {
-    viewer(it->second);
+    session_map_t::const_accessor row;
+    if (subscribed.find(row, it->first)) {
+      viewer(row->second);
+    }
   }
 }
 

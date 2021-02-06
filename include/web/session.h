@@ -299,7 +299,16 @@ public:
   }
 
   void ws_write(std::vector<unsigned char> &&msg, bool binary) {
+    ws_write(std::move(msg), binary, 0xFFFFFFFF);
+  }
+
+  //如果send队列长度超过max_pending，那么本次发送失败
+  bool ws_write(std::vector<unsigned char> &&msg, bool binary,
+                uint32_t max_pending) {
     std::lock_guard l(ws_send_queue_mut);
+    if (ws_send_queue.size() >= max_pending) {
+      return false;
+    }
     ws_send_queue.push(
         std::pair<std::vector<unsigned char>, bool>(std::move(msg), binary));
     if (ws_send_queue.size() == 1) {
@@ -312,6 +321,7 @@ public:
             on_ws_write(ec, bytes_transferred);
           });
     }
+    return true;
   }
 };
 } // namespace hcam

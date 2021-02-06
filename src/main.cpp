@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
   web = new hcam::web();
   web->run();
 
-  cap = new hcam::capture();
+  cap = new hcam::capture(*web);
   cap->run();
 
   // FIXME 卧槽，这就是UB吗？
