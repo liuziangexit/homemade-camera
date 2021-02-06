@@ -3,7 +3,10 @@
 #include "boost/asio.hpp"
 #include "boost/beast.hpp"
 #include "config/config.h"
+#include "ssl_context_manager.h"
 #include <atomic>
+#include <boost/asio/ssl/context.hpp>
+#include <boost/beast/ssl.hpp>
 #include <condition_variable>
 #include <functional>
 #include <map>
@@ -23,6 +26,15 @@ public:
 
 private:
   template <bool SSL> friend class session;
+
+  enum state_t { STOPPED, STARTING, RUNNING, CLOSING };
+  std::atomic<state_t> state;
+  const int thread_count;
+  boost::beast::net::io_context io_context;
+  std::vector<std::thread> io_threads;
+  boost::beast::net::ip::tcp::acceptor acceptor, ssl_acceptor;
+  std::atomic<uint32_t> online = 0;
+  boost::asio::ssl::context ssl_ctx{boost::asio::ssl::context::tlsv12};
 
   struct endpoint_compare {
     static size_t hash(const boost::asio::ip::tcp::endpoint &e) {
@@ -44,14 +56,6 @@ private:
   using session_map_t = std::map<boost::asio::ip::tcp::endpoint,
                                  session_context, endpoint_compare>;
 
-  enum state_t { STOPPED, STARTING, RUNNING, CLOSING };
-  std::atomic<state_t> state;
-  const int thread_count;
-  boost::beast::net::io_context io_context;
-  std::vector<std::thread> io_threads;
-  boost::beast::net::ip::tcp::acceptor acceptor, ssl_port_acceptor;
-  std::atomic<uint32_t> online = 0;
-
   std::mutex subscribed_mut;
   session_map_t subscribed;
 
@@ -65,7 +69,7 @@ public:
 private:
   bool change_state(state_t expect, state_t desired);
   void change_state_certain(state_t expect, state_t desired);
-  bool on_accept(boost::beast::error_code ec,
+  bool on_accept(bool ssl, boost::beast::error_code ec,
                  boost::asio::ip::tcp::socket socket);
 };
 } // namespace hcam

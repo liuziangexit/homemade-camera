@@ -67,7 +67,9 @@ web::web()
     : state{STOPPED}, thread_count(config::get().web_thread_count),
       io_context(thread_count), //
       acceptor(boost::asio::make_strand(io_context)),
-      ssl_port_acceptor(io_context) {}
+      ssl_acceptor(boost::asio::make_strand(io_context)) {
+  load_server_certificate(ssl_ctx);
+}
 
 web::~web() { stop(); }
 
@@ -83,8 +85,21 @@ void web::run() {
                         boost::asio::ip::make_address(config::get().web_addr),
                         (unsigned short)config::get().port},
                     // on_accept
-                    std::bind(&web::on_accept, this, std::placeholders::_1,
-                              std::placeholders::_2))) {
+                    std::bind(&web::on_accept, this, false,
+                              std::placeholders::_1, std::placeholders::_2))) {
+    logger::error("web", "web start run_acceptor failed");
+    change_state_certain(STARTING, STOPPED);
+    return;
+  }
+
+  if (!run_acceptor(ssl_acceptor,
+                    // endpoint
+                    boost::asio::ip::tcp::endpoint{
+                        boost::asio::ip::make_address(config::get().web_addr),
+                        (unsigned short)config::get().ssl_port},
+                    // on_accept
+                    std::bind(&web::on_accept, this, true,
+                              std::placeholders::_1, std::placeholders::_2))) {
     logger::error("web", "web start run_acceptor failed");
     change_state_certain(STARTING, STOPPED);
     return;
@@ -130,10 +145,10 @@ void web::change_state_certain(state_t expect, state_t desired) {
   }
 }
 
-bool web::on_accept(boost::beast::error_code ec,
+bool web::on_accept(bool ssl, boost::beast::error_code ec,
                     boost::asio::ip::tcp::socket socket) {
   if (ec) {
-    logger::debug("web", //
+    logger::error("web", //
                   "accept new connection failed, ", ec.message());
     return false;
   }
@@ -147,9 +162,15 @@ bool web::on_accept(boost::beast::error_code ec,
     return true;
   }
 
-  auto new_session =
-      std::make_shared<session<false>>(*this, endpoint, std::move(socket));
-  new_session->run();
+  if (ssl) {
+    auto new_session = std::make_shared<session<true>>(
+        *this, endpoint, std::move(socket), ssl_ctx);
+    new_session->run();
+  } else {
+    auto new_session =
+        std::make_shared<session<false>>(*this, endpoint, std::move(socket));
+    new_session->run();
+  }
 
   return true;
 }

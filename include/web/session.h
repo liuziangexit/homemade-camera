@@ -282,7 +282,6 @@ public:
   void run() {
     if constexpr (SSL) {
       //如果base stream是ssl stream，就去做ssl握手，然后调到on http read
-      hcam::logger::debug("web", this->remote, " SSL handshake begin");
       base_stream->async_handshake(
           boost::asio::ssl::stream_base::server,
           [this, shared_this =
