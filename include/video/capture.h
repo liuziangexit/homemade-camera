@@ -4,6 +4,7 @@
 #include "codec.h"
 #include "config/config.h"
 #include "util/string_util.h"
+#include "web/web.h"
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -31,7 +32,7 @@ namespace hcam {
 
 class capture {
 public:
-  capture();
+  capture(web &_web_service);
   void run();
   void stop();
   ~capture();
@@ -73,6 +74,8 @@ private:
   bool paused = false;
   std::mutex pause_mtx;
   std::condition_variable pause_cv;
+
+  web &web_service;
 
   //帧速
   uint32_t frame_cost = 0;

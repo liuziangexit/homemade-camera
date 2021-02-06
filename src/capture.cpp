@@ -4,6 +4,7 @@
 #include "util/time_util.h"
 #include "video/codec.h"
 #include "video/soft_jpg.h"
+#include "web/session.h"
 #include <algorithm>
 #include <atomic>
 #include <future>
@@ -21,7 +22,8 @@
 
 namespace hcam {
 
-capture::capture() : _config(config::get()) {}
+capture::capture(web &_web_service)
+    : _config(config::get()), web_service(_web_service) {}
 capture::~capture() { stop(); }
 
 void capture::run() {
@@ -122,6 +124,20 @@ void capture::do_capture(const config &config) {
     }
     ctx.captured_frame = std::move(packet.second);
     ctx.send_time = checkpoint(3);
+
+    std::vector<unsigned char> out(packet.second->length, (unsigned char)0);
+    memcpy(out.data(), packet.second->data, packet.second->length);
+    web_service.foreach_session([&out](const web::session_context &_session) {
+      auto copy = out;
+      if (_session.ssl) {
+        static_cast<session<true> *>(_session.session)
+            ->ws_write(std::move(copy), true);
+      } else {
+        static_cast<session<false> *>(_session.session)
+            ->ws_write(std::move(copy), true);
+      }
+    });
+
     ctx.send_done_time = checkpoint(3);
 
     return true;
@@ -154,9 +170,17 @@ void capture::do_capture(const config &config) {
     std::vector<unsigned char> out;
     cv::imencode(".jpg", ctx.decoded_frame, out);
     ctx.send_time = checkpoint(3);
-    // TODO 用EVENT来做
+    web_service.foreach_session([&out](const web::session_context &_session) {
+      auto copy = out;
+      if (_session.ssl) {
+        static_cast<session<true> *>(_session.session)
+            ->ws_write(std::move(copy), true);
+      } else {
+        static_cast<session<false> *>(_session.session)
+            ->ws_write(std::move(copy), true);
+      }
+    });
     ctx.send_done_time = checkpoint(3);
-
     return true;
   };
 #endif

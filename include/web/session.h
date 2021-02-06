@@ -205,8 +205,25 @@ private:
 
     std::string text = boost::beast::buffers_to_string(read_buffer.cdata());
     if (text == "STREAM_ON") {
+      std::shared_lock l(service.subscribed_mut);
+      if (!service.subscribed.insert(web::session_map_t::value_type{
+              remote, web::session_context{SSL, this}})) {
+        logger::error("web", "tbb concurrent map insert failed");
+        reply("internal error");
+        return;
+      }
+      l.unlock();
       reply("ok");
     } else if (text == "STREAM_OFF") {
+      std::shared_lock l(service.subscribed_mut);
+      web::session_map_t::accessor row;
+      if (!service.subscribed.find(row, remote)) {
+        logger::error("web", "tbb concurrent map erase failed");
+        reply("internal error");
+        return;
+      }
+      service.subscribed.erase(row);
+      l.unlock();
       reply("ok");
     } else {
       reply("unknown request");
@@ -243,6 +260,12 @@ public:
   }
 
   virtual ~session() {
+    web::session_map_t::accessor row;
+    std::shared_lock l(service.subscribed_mut);
+    if (service.subscribed.find(row, remote)) {
+      service.subscribed.erase(row);
+    }
+    l.unlock();
     if (is_websocket()) {
       boost::beast::get_lowest_layer(*ws_stream).close();
     } else {

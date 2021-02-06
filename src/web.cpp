@@ -149,6 +149,17 @@ bool web::on_accept(boost::beast::error_code ec,
   auto new_session =
       std::make_shared<session<false>>(*this, endpoint, std::move(socket));
   new_session->run();
+
   return true;
 }
+
+//这函数只能在一个线程调用!
+void web::foreach_session(std::function<void(const session_context &)> viewer) {
+  std::unique_lock<std::shared_mutex> l(subscribed_mut);
+  for (session_map_t::const_iterator it = subscribed.begin();
+       it != subscribed.end(); ++it) {
+    viewer(it->second);
+  }
+}
+
 } // namespace hcam

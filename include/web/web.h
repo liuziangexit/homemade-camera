@@ -5,8 +5,10 @@
 #include "config/config.h"
 #include <atomic>
 #include <condition_variable>
+#include <functional>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <tbb/concurrent_hash_map.h>
 #include <thread>
 #include <vector>
@@ -14,6 +16,13 @@
 namespace hcam {
 template <bool SSL> class session;
 class web {
+public:
+  struct session_context {
+    bool ssl;
+    void *session;
+  };
+
+private:
   template <bool SSL> friend class session;
 
   struct endpoint_compare {
@@ -29,10 +38,6 @@ class web {
       return hash(x) == hash(y);
     }
   };
-  struct session_context {
-    enum { HTTP, WEBSOCKET } type;
-    std::weak_ptr<void> obj;
-  };
   using session_map_t =
       tbb::concurrent_hash_map<boost::asio::ip::tcp::endpoint, session_context,
                                endpoint_compare>;
@@ -43,14 +48,17 @@ class web {
   boost::beast::net::io_context io_context;
   std::vector<std::thread> io_threads;
   boost::beast::net::ip::tcp::acceptor acceptor, ssl_port_acceptor;
-  session_map_t weak_sessions;
   std::atomic<uint32_t> online = 0;
+
+  std::shared_mutex subscribed_mut;
+  session_map_t subscribed;
 
 public:
   web();
   ~web();
   void run();
   void stop();
+  void foreach_session(std::function<void(const session_context &)> viewer);
 
 private:
   bool change_state(state_t expect, state_t desired);
