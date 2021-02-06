@@ -68,7 +68,7 @@ private:
       logger::debug("web", "on_http_ready failed");
       return;
     }
-    boost::beast::get_lowest_layer(base_stream)
+    boost::beast::get_lowest_layer(*base_stream)
         .expires_after(std::chrono::seconds(config::get().idle_timeout));
     http_read();
   }
@@ -260,7 +260,7 @@ public:
       : service(_service), remote(_remote) {
     base_stream.reset(new UNDERLYING_STREAM(std::forward<ARGS>(args)...));
     auto total = ++service.online;
-    logger::debug("web", remote, " new connection online, total: ", total);
+    logger::info("web", remote, " new connection online, total: ", total);
   }
 
   virtual ~session() {
@@ -276,7 +276,7 @@ public:
       boost::beast::get_lowest_layer(*base_stream).close();
     }
     auto remain = --service.online;
-    logger::debug("web", remote, " connection closed, total: ", remain);
+    logger::info("web", remote, " connection closed, total: ", remain);
   }
 
   void run() {
