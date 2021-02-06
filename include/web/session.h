@@ -9,7 +9,10 @@
 #include <boost/beast/websocket.hpp>
 #include <boost/system/error_code.hpp>
 #include <memory>
+#include <mutex>
+#include <queue>
 #include <type_traits>
+#include <utility>
 
 //这里本来想做成纯架构的代码，然后业务相关的代码通过继承这个类来做
 //但是感觉没有这个必要，就把业务代码都写着里面了
@@ -34,6 +37,9 @@ class session : public std::enable_shared_from_this<session<SSL>> {
 
   boost::beast::flat_buffer read_buffer;
   boost::beast::http::request<boost::beast::http::string_body> http_request;
+
+  std::mutex ws_send_queue_mut;
+  std::queue<std::pair<std::vector<unsigned char>, bool>> ws_send_queue;
 
 private:
   // internal
@@ -180,17 +186,16 @@ private:
           on_ws_read(ec, bytes_transferred);
         });
   }
+
   void on_ws_read(boost::beast::error_code ec, std::size_t bytes_transferred) {
     if (ec) {
       return;
     }
     auto reply = [this](const char *msg) {
-      boost::beast::flat_buffer write_buffer;
       auto len = strlen(msg);
-      write_buffer.prepare(len);
-      memcpy(write_buffer.data().data(), msg, len);
-      write_buffer.commit(len);
-      ws_write(std::move(write_buffer.cdata()), false);
+      std::vector<unsigned char> buffer(len, (unsigned char)0);
+      memcpy(buffer.data(), msg, len);
+      ws_write(std::move(buffer), false);
     };
 
     if (!ws_stream->got_text()) {
@@ -213,6 +218,19 @@ private:
 
   // ws write
   void on_ws_write(boost::beast::error_code ec, std::size_t bytes_transferred) {
+    std::lock_guard l(ws_send_queue_mut);
+    ws_send_queue.pop();
+    if (ws_send_queue.empty())
+      return;
+
+    ws_stream->binary(ws_send_queue.front().second);
+    ws_stream->async_write(
+        boost::asio::buffer(ws_send_queue.front().first.data(),
+                            ws_send_queue.front().first.size()),
+        [this, shared_this = this->shared_from_this()](
+            boost::beast::error_code ec, std::size_t bytes_transferred) {
+          on_ws_write(ec, bytes_transferred);
+        });
   }
 
 public:
@@ -257,14 +275,20 @@ public:
     }
   }
 
-  template <typename BUF> void ws_write(BUF &&buf, bool binary) {
-    ws_stream->binary(binary);
-    ws_stream->async_write(
-        std::move(buf),
-        [this, shared_this = this->shared_from_this()](
-            boost::beast::error_code ec, std::size_t bytes_transferred) {
-          on_ws_write(ec, bytes_transferred);
-        });
+  void ws_write(std::vector<unsigned char> &&msg, bool binary) {
+    std::lock_guard l(ws_send_queue_mut);
+    ws_send_queue.push(
+        std::pair<std::vector<unsigned char>, bool>(std::move(msg), binary));
+    if (ws_send_queue.size() == 1) {
+      ws_stream->binary(binary);
+      ws_stream->async_write(
+          boost::asio::buffer(ws_send_queue.front().first.data(),
+                              ws_send_queue.front().first.size()),
+          [this, shared_this = this->shared_from_this()](
+              boost::beast::error_code ec, std::size_t bytes_transferred) {
+            on_ws_write(ec, bytes_transferred);
+          });
+    }
   }
 };
 } // namespace hcam
