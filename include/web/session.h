@@ -68,6 +68,8 @@ private:
       logger::debug("web", "on_http_ready failed");
       return;
     }
+    boost::beast::get_lowest_layer(base_stream)
+        .expires_after(std::chrono::seconds(config::get().idle_timeout));
     http_read();
   }
 
