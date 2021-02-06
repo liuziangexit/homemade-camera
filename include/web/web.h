@@ -12,9 +12,9 @@
 #include <vector>
 
 namespace hcam {
-template <bool SSL, typename UNDERLYING_STREAM> class session;
+template <bool SSL> class session;
 class web {
-  template <bool SSL, typename UNDERLYING_STREAM> friend class session;
+  template <bool SSL> friend class session;
 
   struct endpoint_compare {
     static size_t hash(const boost::asio::ip::tcp::endpoint &e) {

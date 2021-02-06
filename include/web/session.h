@@ -18,16 +18,18 @@
 
 namespace hcam {
 
-template <bool SSL, typename UNDERLYING_STREAM = std::conditional_t<
-                        SSL, boost::beast::ssl_stream<boost::beast::tcp_stream>,
-                        boost::beast::tcp_stream>>
+template <bool SSL>
 class session : public std::enable_shared_from_this<session<SSL>> {
+  using UNDERLYING_STREAM =
+      std::conditional_t<SSL,
+                         boost::beast::ssl_stream<boost::beast::tcp_stream>,
+                         boost::beast::tcp_stream>;
+  using WS_STREAM = boost::beast::websocket::stream<UNDERLYING_STREAM, true>;
+
   web &service;
 
-  // TODO 把base移进ws_stream之后，base_stream就应该clear
   std::unique_ptr<UNDERLYING_STREAM> base_stream;
-  std::unique_ptr<boost::beast::websocket::stream<UNDERLYING_STREAM, true>>
-      ws_stream;
+  std::unique_ptr<WS_STREAM> ws_stream;
   boost::asio::ip::tcp::endpoint remote;
 
   boost::beast::flat_buffer read_buffer;
@@ -62,7 +64,13 @@ private:
     http_read();
   }
 
-  void on_ws_handshake() {}
+  void on_ws_handshake(boost::beast::error_code ec) {
+    if (ec) {
+      logger::debug("web", "on_ws_handshake failed");
+      return;
+    }
+    ws_read();
+  }
 
   // http read
   void http_read() {
@@ -91,10 +99,43 @@ private:
       return;
     }
 
+    //处理ws升级
+    if (boost::beast::websocket::is_upgrade(http_request)) {
+      ws_stream.reset(new WS_STREAM(std::move(*base_stream)));
+      base_stream.reset(nullptr);
+
+      // Turn off the timeout on the tcp_stream, because
+      // the websocket stream has its own timeout system.
+      boost::beast::get_lowest_layer(*ws_stream).expires_never();
+
+      // Set suggested timeout settings for the websocket
+      boost::beast::websocket::stream_base::timeout timeout =
+          boost::beast::websocket::stream_base::timeout::suggested(
+              boost::beast::role_type::server);
+      timeout.handshake_timeout = std::chrono::seconds(10);
+      timeout.keep_alive_pings = true;
+      timeout.idle_timeout = std::chrono::seconds(config::get().idle_timeout);
+      ws_stream->set_option(timeout);
+
+      // Set a decorator to change the Server of the handshake
+      ws_stream->set_option(boost::beast::websocket::stream_base::decorator(
+          [](boost::beast::websocket::response_type &res) {
+            res.set(boost::beast::http::field::server, "homemade-camera");
+          }));
+
+      // Accept the websocket handshake
+      ws_stream->async_accept(
+          http_request,
+          [this, shared_this = this->shared_from_this()](
+              boost::beast::error_code ec) { on_ws_handshake(ec); });
+      return;
+    }
+
     // handle request
     handle_request(boost::beast::string_view(config::get().web_root),
                    std::move(http_request), [this](auto &&response) {
-                     response.set(boost::beast::http::field::server, "hcam");
+                     response.set(boost::beast::http::field::server,
+                                  "homemade-camera");
                      this->http_write(std::move(response));
                    });
   }
@@ -129,11 +170,50 @@ private:
   }
 
   // ws read
-  void ws_read() {}
-  void on_ws_read() {}
+  void ws_read() {
+    // Read a message into our buffer
+    read_buffer.consume(read_buffer.size());
+    ws_stream->async_read(
+        read_buffer,
+        [this, shared_this = this->shared_from_this()](
+            boost::beast::error_code ec, std::size_t bytes_transferred) {
+          on_ws_read(ec, bytes_transferred);
+        });
+  }
+  void on_ws_read(boost::beast::error_code ec, std::size_t bytes_transferred) {
+    if (ec) {
+      return;
+    }
+    auto reply = [this](const char *msg) {
+      boost::beast::flat_buffer write_buffer;
+      auto len = strlen(msg);
+      write_buffer.prepare(len);
+      memcpy(write_buffer.data().data(), msg, len);
+      write_buffer.commit(len);
+      ws_write(std::move(write_buffer.cdata()), false);
+    };
+
+    if (!ws_stream->got_text()) {
+      reply("can not handle binary message");
+      return;
+    }
+
+    std::string text = boost::beast::buffers_to_string(read_buffer.cdata());
+    if (text == "STREAM_ON") {
+      reply("ok");
+    } else if (text == "STREAM_OFF") {
+      reply("ok");
+    } else {
+      reply("unknown request");
+      return;
+    }
+
+    ws_read();
+  }
 
   // ws write
-  void on_ws_write() {}
+  void on_ws_write(boost::beast::error_code ec, std::size_t bytes_transferred) {
+  }
 
 public:
   template <typename... ARGS>
@@ -177,7 +257,15 @@ public:
     }
   }
 
-  void ws_write() {}
+  template <typename BUF> void ws_write(BUF &&buf, bool binary) {
+    ws_stream->binary(binary);
+    ws_stream->async_write(
+        std::move(buf),
+        [this, shared_this = this->shared_from_this()](
+            boost::beast::error_code ec, std::size_t bytes_transferred) {
+          on_ws_write(ec, bytes_transferred);
+        });
+  }
 };
 } // namespace hcam
 
