@@ -11,6 +11,11 @@
 #include <memory>
 #include <type_traits>
 
+//这里本来想做成纯架构的代码，然后业务相关的代码通过继承这个类来做
+//但是感觉没有这个必要，就把业务代码都写着里面了
+
+#include "http_file_handler.h"
+
 namespace hcam {
 
 template <bool SSL, typename UNDERLYING_STREAM = std::conditional_t<
@@ -87,13 +92,11 @@ private:
     }
 
     // handle request
-    boost::beast::http::response<boost::beast::http::string_body> response;
-    response.set(boost::beast::http::field::server, "hcam");
-    response.set(boost::beast::http::field::content_type, "text/html");
-    response.keep_alive(http_request.keep_alive());
-    response.body() = std::string("hi");
-    response.prepare_payload();
-    http_write(std::move(response));
+    handle_request(boost::beast::string_view(config::get().web_root),
+                   std::move(http_request), [this](auto &&response) {
+                     response.set(boost::beast::http::field::server, "hcam");
+                     this->http_write(std::move(response));
+                   });
   }
 
   // http write
