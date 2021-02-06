@@ -5,7 +5,6 @@
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/strand.hpp>
-#include <boost/beast/core.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/system/error_code.hpp>

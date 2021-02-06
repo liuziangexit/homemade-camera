@@ -408,8 +408,8 @@ OPEN_WRITER:
                        (uint32_t)diff > fps / 2;
         if (low_fps) {
           if (config.display_fps == 1 || config.display_fps == 2) {
-            fmt << "LOW FPS: ";
-            fmt << 1000 / frame_cost << ", DIFF: " << diff;
+            fmt << "FPS: ";
+            fmt << 1000 / frame_cost;
             logger::warn("cap", "frame drop detected, diff: ", diff);
           }
         } else {

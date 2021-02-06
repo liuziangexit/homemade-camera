@@ -40,6 +40,7 @@ OK-web界面
 OK-定web api
 OK-web直播
 
+-看看帧率显示那部分行不行
 -web前端功能实现
 -mmap的v4l方式memcpy花时间太久的问题
 -web下载录像（这个应该还蛮简单，只是用标准的html控件去做就行了吧，可能服务端要支持分块http

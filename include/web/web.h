@@ -1,11 +1,10 @@
 #ifndef HCAM_WEB_H
 #define HCAM_WEB_H
-#include "boost/asio.hpp"
-#include "boost/beast.hpp"
 #include "config/config.h"
 #include "ssl_context_manager.h"
 #include <atomic>
-#include <boost/asio/ssl/context.hpp>
+#include <boost/asio.hpp>
+#include <boost/beast.hpp>
 #include <boost/beast/ssl.hpp>
 #include <condition_variable>
 #include <functional>
