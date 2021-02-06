@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <atomic>
 #include <future>
+#include <math.h>
 #include <memory>
 #include <opencv2/core.hpp>
 #include <opencv2/freetype.hpp>
@@ -272,7 +273,7 @@ void capture::do_write(const config &config) {
 
   auto fps = (uint32_t)config.fps;
   cv::Size frame_size(config.resolution);
-  const uint64_t expect_frame_time = 1000 / fps;
+  const uint32_t expect_frame_time = 1000 / fps;
 
   cv::Ptr<cv::freetype::FreeType2> freetype = cv::freetype::createFreeType2();
   if (freetype.empty()) {
@@ -365,11 +366,19 @@ OPEN_WRITER:
       //渲染帧率
       fmt.str("");
       if (frame_cost != 0) {
-        auto low_fps = frame_cost > expect_frame_time;
+        if (frame_cnt % (fps * 1) == 0) {
+          //测帧速1秒一个周期
+          diff = 0;
+        }
+        if (frame_cnt > 1) {
+          diff += ((int32_t)frame_cost - (int32_t)expect_frame_time);
+        }
+        auto low_fps = frame_cost > expect_frame_time && diff > 0 &&
+                       (uint32_t)diff > fps / 2;
         if (low_fps) {
           if (config.display_fps == 1 || config.display_fps == 2) {
             fmt << "LOW FPS: ";
-            fmt << 1000 / frame_cost;
+            fmt << 1000 / frame_cost << ", DIFF: " << diff;
           }
         } else {
           if (config.display_fps == 2) {
@@ -427,6 +436,8 @@ OPEN_WRITER:
     } else {
       logger::debug("cap", "cost ", frame_cost, "ms");
     }
+
+    frame_cnt++;
 
     //到了预定的时间，换文件
     if (ctx.send_time - task_begin >= config.duration * 1000) {

@@ -76,6 +76,9 @@ private:
 
   //帧速
   uint32_t frame_cost = 0;
+  int32_t diff = 0;
+  //总处理帧数
+  uint32_t frame_cnt = 0;
 
   static std::string make_filename(std::string save_directory,
                                    const std::string &file_format, time_t tm) {
