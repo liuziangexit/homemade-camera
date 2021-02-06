@@ -379,6 +379,7 @@ OPEN_WRITER:
           if (config.display_fps == 1 || config.display_fps == 2) {
             fmt << "LOW FPS: ";
             fmt << 1000 / frame_cost << ", DIFF: " << diff;
+            logger::warn("cap", "frame drop detected, diff: ", diff);
           }
         } else {
           if (config.display_fps == 2) {
@@ -423,16 +424,16 @@ OPEN_WRITER:
     }
 
     if (frame_cost > expect_frame_time) {
-      logger::warn("cap", "low frame rate, expect ", expect_frame_time,
-                   "ms, actual ",
-                   frame_cost, //
-                   "ms (capture:", ctx.send_time - ctx.capture_time,
-                   "ms, send:", ctx.send_done_time - ctx.send_time,
-                   "ms, inter-thread:", ctx.decode_time - ctx.send_done_time,
-                   "ms, decode:", ctx.decode_done_time - ctx.decode_time,
-                   "ms, inter-thread:", ctx.process_time - ctx.decode_done_time,
-                   "ms, process:", ctx.write_time - ctx.process_time,
-                   "ms, write:", ctx.done_time - ctx.write_time, "ms)");
+      logger::debug(
+          "cap", "low frame rate, expect ", expect_frame_time, "ms, actual ",
+          frame_cost, //
+          "ms (capture:", ctx.send_time - ctx.capture_time,
+          "ms, send:", ctx.send_done_time - ctx.send_time,
+          "ms, inter-thread:", ctx.decode_time - ctx.send_done_time,
+          "ms, decode:", ctx.decode_done_time - ctx.decode_time,
+          "ms, inter-thread:", ctx.process_time - ctx.decode_done_time,
+          "ms, process:", ctx.write_time - ctx.process_time,
+          "ms, write:", ctx.done_time - ctx.write_time, "ms)");
     } else {
       logger::debug("cap", "cost ", frame_cost, "ms");
     }
