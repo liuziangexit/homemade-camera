@@ -205,24 +205,25 @@ private:
 
     std::string text = boost::beast::buffers_to_string(read_buffer.cdata());
     if (text == "STREAM_ON") {
-      std::shared_lock l(service.subscribed_mut);
-      if (!service.subscribed.insert(web::session_map_t::value_type{
-              remote, web::session_context{SSL, this}})) {
-        logger::error("web", "tbb concurrent map insert failed");
+      std::unique_lock l(service.subscribed_mut);
+      if (!service.subscribed
+               .insert(web::session_map_t::value_type{
+                   remote, web::session_context{SSL, this}})
+               .second) {
+        logger::error("web", "map insert failed");
         reply("internal error");
         return;
       }
       l.unlock();
       reply("ok");
     } else if (text == "STREAM_OFF") {
-      std::shared_lock l(service.subscribed_mut);
-      web::session_map_t::accessor row;
-      if (!service.subscribed.find(row, remote)) {
-        logger::error("web", "tbb concurrent map erase failed");
-        reply("internal error");
+      std::unique_lock l(service.subscribed_mut);
+      auto it = service.subscribed.find(remote);
+      if (it == service.subscribed.end()) {
+        reply("bad request");
         return;
       }
-      service.subscribed.erase(row);
+      service.subscribed.erase(it);
       l.unlock();
       reply("ok");
     } else {
@@ -260,10 +261,10 @@ public:
   }
 
   virtual ~session() {
-    web::session_map_t::accessor row;
-    std::shared_lock l(service.subscribed_mut);
-    if (service.subscribed.find(row, remote)) {
-      service.subscribed.erase(row);
+    std::unique_lock l(service.subscribed_mut);
+    auto it = service.subscribed.find(remote);
+    if (it != service.subscribed.end()) {
+      service.subscribed.erase(it);
     }
     l.unlock();
     if (is_websocket()) {

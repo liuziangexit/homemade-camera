@@ -6,10 +6,9 @@
 #include <atomic>
 #include <condition_variable>
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
-#include <shared_mutex>
-#include <tbb/concurrent_hash_map.h>
 #include <thread>
 #include <vector>
 
@@ -37,10 +36,13 @@ private:
                       const boost::asio::ip::tcp::endpoint &y) {
       return hash(x) == hash(y);
     }
+    bool operator()(const boost::asio::ip::tcp::endpoint &x,
+                    const boost::asio::ip::tcp::endpoint &y) const {
+      return hash(x) < hash(y);
+    }
   };
-  using session_map_t =
-      tbb::concurrent_hash_map<boost::asio::ip::tcp::endpoint, session_context,
-                               endpoint_compare>;
+  using session_map_t = std::map<boost::asio::ip::tcp::endpoint,
+                                 session_context, endpoint_compare>;
 
   enum state_t { STOPPED, STARTING, RUNNING, CLOSING };
   std::atomic<state_t> state;
@@ -50,7 +52,7 @@ private:
   boost::beast::net::ip::tcp::acceptor acceptor, ssl_port_acceptor;
   std::atomic<uint32_t> online = 0;
 
-  std::shared_mutex subscribed_mut;
+  std::mutex subscribed_mut;
   session_map_t subscribed;
 
 public:

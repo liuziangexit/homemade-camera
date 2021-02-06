@@ -114,6 +114,7 @@ void web::stop() {
   io_context.~io_context();
   new (&io_context) boost::asio::io_context(config::get().web_thread_count);
   assert(online == 0);
+  assert(subscribed.empty());
   change_state_certain(CLOSING, STOPPED);
   logger::debug("web", "web stopped");
 }
@@ -155,13 +156,9 @@ bool web::on_accept(boost::beast::error_code ec,
 
 //这函数只能在一个线程调用!
 void web::foreach_session(std::function<void(const session_context &)> viewer) {
-  std::unique_lock<std::shared_mutex> l(subscribed_mut);
-  for (session_map_t::const_iterator it = subscribed.begin();
-       it != subscribed.end(); ++it) {
-    session_map_t::const_accessor row;
-    if (subscribed.find(row, it->first)) {
-      viewer(row->second);
-    }
+  std::unique_lock<std::mutex> l(subscribed_mut);
+  for (const auto &p : subscribed) {
+    viewer(p.second);
   }
 }
 
