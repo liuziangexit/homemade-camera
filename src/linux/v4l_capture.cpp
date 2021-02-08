@@ -152,6 +152,9 @@ bool v4l_capture::enqueue_buffer(uint32_t idx) {
   buf.memory = V4L2_MEMORY_MMAP;
   buf.index = idx;
 
+  //似乎这个是必要的，如果不这样做，到时候decode jpg就有几率失败，没有调查为什么
+  memset(_buffer[idx].data, 0, _buffer[idx].length);
+
   // Put the buffer in the incoming queue.
   if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
     return false;
