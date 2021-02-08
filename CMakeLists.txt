@@ -40,6 +40,7 @@ else ()
 endif ()
 message(STATUS "Source Files : ${SRCS}")
 add_executable(homecam ${SRCS})
+target_precompile_headers(homecam PUBLIC include/web/web.h include/web/session.h include/web/http_file_handler.h include/web/ssl_context_manager.h include/video/capture.h)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     find_library(PTHREAD NAMES libpthread.so.0
