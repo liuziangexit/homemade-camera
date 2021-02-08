@@ -113,7 +113,7 @@ void web::run() {
 }
 
 void web::stop() {
-  logger::debug("web", "web stopping");
+  logger::info("web", "web stopping");
   if (!change_state(RUNNING, CLOSING)) {
     logger::debug("web", "stop change_state failed");
     return;
@@ -131,7 +131,7 @@ void web::stop() {
   assert(online == 0);
   assert(subscribed.empty());
   change_state_certain(CLOSING, STOPPED);
-  logger::debug("web", "web stopped");
+  logger::info("web", "web stopped");
 }
 
 bool web::change_state(state_t expect, state_t desired) {

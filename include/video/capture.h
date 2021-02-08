@@ -79,9 +79,16 @@ private:
 
   //帧速
   uint32_t frame_cost = 0;
-  int32_t diff = 0;
   //总处理帧数
   uint32_t frame_cnt = 0;
+  //帧率周期开始时的帧数
+  uint32_t frame_cnt_base = 0;
+  //帧率周期开始时间
+  uint32_t base_time = 0;
+  //此周期帧率
+  uint32_t display_fps = 0;
+  //此周期是否掉帧
+  bool low_fps = false;
 
   static std::string make_filename(std::string save_directory,
                                    const std::string &file_format, time_t tm) {

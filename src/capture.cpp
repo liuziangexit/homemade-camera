@@ -396,26 +396,30 @@ OPEN_WRITER:
                   std::optional<cv::Scalar>(), freetype, frame);
       //渲染帧率
       fmt.str("");
+      //测速周期（秒）
+      static const uint32_t period = 1;
       if (frame_cost != 0) {
-        if (frame_cnt % (fps * 1) == 0) {
-          //测帧速1秒一个周期
-          diff = 0;
+        uint32_t current_time = checkpoint(3);
+        if (base_time == 0 || current_time - base_time > 1000 * period) {
+          display_fps = frame_cnt - frame_cnt_base;
+          low_fps = display_fps < fps * 95 / 100;
+          if (low_fps) {
+            logger::warn("cap", "frame drop detected, fps: ", display_fps);
+          }
+
+          base_time = current_time;
+          frame_cnt_base = frame_cnt;
         }
-        if (frame_cnt > 1) {
-          diff += ((int32_t)frame_cost - (int32_t)expect_frame_time);
-        }
-        auto low_fps = frame_cost > expect_frame_time && diff > 0 &&
-                       (uint32_t)diff > fps / 2;
+
         if (low_fps) {
           if (config.display_fps == 1 || config.display_fps == 2) {
             fmt << "FPS: ";
-            fmt << 1000 / frame_cost;
-            logger::warn("cap", "frame drop detected, diff: ", diff);
+            fmt << display_fps;
           }
         } else {
           if (config.display_fps == 2) {
             fmt << "FPS: ";
-            fmt << 1000 / frame_cost;
+            fmt << display_fps;
           }
         }
         if (fmt.str() != "") {
@@ -455,18 +459,18 @@ OPEN_WRITER:
     }
 
     if (frame_cost > expect_frame_time) {
-      logger::debug(
-          "cap", "low frame rate, expect ", expect_frame_time, "ms, actual ",
-          frame_cost, //
-          "ms (capture:", ctx.send_time - ctx.capture_time,
-          "ms, send:", ctx.send_done_time - ctx.send_time,
-          "ms, inter-thread:", ctx.decode_time - ctx.send_done_time,
-          "ms, decode:", ctx.decode_done_time - ctx.decode_time,
-          "ms, inter-thread:", ctx.process_time - ctx.decode_done_time,
-          "ms, process:", ctx.write_time - ctx.process_time,
-          "ms, write:", ctx.done_time - ctx.write_time, "ms)");
+      /* logger::debug(
+           "cap", "low frame rate, expect ", expect_frame_time, "ms, actual ",
+           frame_cost, //
+           "ms (capture:", ctx.send_time - ctx.capture_time,
+           "ms, send:", ctx.send_done_time - ctx.send_time,
+           "ms, inter-thread:", ctx.decode_time - ctx.send_done_time,
+           "ms, decode:", ctx.decode_done_time - ctx.decode_time,
+           "ms, inter-thread:", ctx.process_time - ctx.decode_done_time,
+           "ms, process:", ctx.write_time - ctx.process_time,
+           "ms, write:", ctx.done_time - ctx.write_time, "ms)");*/
     } else {
-      logger::debug("cap", "cost ", frame_cost, "ms");
+      /*logger::debug("cap", "cost ", frame_cost, "ms");*/
     }
 
     frame_cnt++;
