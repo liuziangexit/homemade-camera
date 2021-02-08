@@ -1,13 +1,14 @@
 #include "video/capture.h"
 #include "config/config.h"
-#include "config/config_manager.h"
 #include "util/logger.h"
 #include "util/time_util.h"
 #include "video/codec.h"
 #include "video/soft_jpg.h"
+#include "web/session.h"
 #include <algorithm>
 #include <atomic>
 #include <future>
+#include <math.h>
 #include <memory>
 #include <opencv2/core.hpp>
 #include <opencv2/freetype.hpp>
@@ -21,8 +22,8 @@
 
 namespace hcam {
 
-capture::capture(web_service *s)
-    : web_service_p(s), _config(config_manager::get()) {}
+capture::capture(web &_web_service)
+    : _config(config::get()), web_service(_web_service) {}
 capture::~capture() { stop(); }
 
 void capture::run() {
@@ -123,10 +124,24 @@ void capture::do_capture(const config &config) {
     }
     ctx.captured_frame = std::move(packet.second);
     ctx.send_time = checkpoint(3);
-    this->web_service_p            //
-        ->get_livestream_instace() //
-        .send_frame_to_all((unsigned char *)(ctx.captured_frame->data),
-                           ctx.captured_frame->length);
+
+    std::vector<unsigned char> out(ctx.captured_frame->length,
+                                   (unsigned char)0);
+    memcpy(out.data(), ctx.captured_frame->data, ctx.captured_frame->length);
+    web_service.foreach_session([&out](const web::session_context &_session) {
+      auto shared_session = _session.session.lock();
+      if (shared_session) {
+        auto copy = out;
+        if (_session.ssl) {
+          static_cast<session<true> *>(shared_session.get())
+              ->ws_write(std::move(copy), true, 1);
+        } else {
+          static_cast<session<false> *>(shared_session.get())
+              ->ws_write(std::move(copy), true, 1);
+        }
+      }
+    });
+
     ctx.send_done_time = checkpoint(3);
 
     return true;
@@ -159,11 +174,20 @@ void capture::do_capture(const config &config) {
     std::vector<unsigned char> out;
     cv::imencode(".jpg", ctx.decoded_frame, out);
     ctx.send_time = checkpoint(3);
-    this->web_service_p            //
-        ->get_livestream_instace() //
-        .send_frame_to_all(out.data(), out.size());
+    web_service.foreach_session([&out](const web::session_context &_session) {
+      auto shared_session = _session.session.lock();
+      if (shared_session) {
+        auto copy = out;
+        if (_session.ssl) {
+          static_cast<session<true> *>(shared_session.get())
+              ->ws_write(std::move(copy), true, 1);
+        } else {
+          static_cast<session<false> *>(shared_session.get())
+              ->ws_write(std::move(copy), true, 1);
+        }
+      }
+    });
     ctx.send_done_time = checkpoint(3);
-
     return true;
   };
 #endif
@@ -280,7 +304,7 @@ void capture::do_write(const config &config) {
 
   auto fps = (uint32_t)config.fps;
   cv::Size frame_size(config.resolution);
-  const uint64_t expect_frame_time = 1000 / fps;
+  const uint32_t expect_frame_time = 1000 / fps;
 
   cv::Ptr<cv::freetype::FreeType2> freetype = cv::freetype::createFreeType2();
   if (freetype.empty()) {
@@ -372,17 +396,30 @@ OPEN_WRITER:
                   std::optional<cv::Scalar>(), freetype, frame);
       //渲染帧率
       fmt.str("");
+      //测速周期（秒）
+      static const uint32_t period = 1;
       if (frame_cost != 0) {
-        auto low_fps = frame_cost > expect_frame_time;
+        uint32_t current_time = checkpoint(3);
+        if (base_time == 0 || current_time - base_time > 1000 * period) {
+          display_fps = frame_cnt - frame_cnt_base;
+          low_fps = display_fps < fps * 95 / 100;
+          if (low_fps) {
+            logger::warn("cap", "frame drop detected, fps: ", display_fps);
+          }
+
+          base_time = current_time;
+          frame_cnt_base = frame_cnt;
+        }
+
         if (low_fps) {
           if (config.display_fps == 1 || config.display_fps == 2) {
-            fmt << "LOW FPS: ";
-            fmt << 1000 / frame_cost;
+            fmt << "FPS: ";
+            fmt << display_fps;
           }
         } else {
           if (config.display_fps == 2) {
             fmt << "FPS: ";
-            fmt << 1000 / frame_cost;
+            fmt << display_fps;
           }
         }
         if (fmt.str() != "") {
@@ -422,19 +459,21 @@ OPEN_WRITER:
     }
 
     if (frame_cost > expect_frame_time) {
-      logger::warn("cap", "low frame rate, expect ", expect_frame_time,
-                   "ms, actual ",
-                   frame_cost, //
-                   "ms (capture:", ctx.send_time - ctx.capture_time,
-                   "ms, send:", ctx.send_done_time - ctx.send_time,
-                   "ms, inter-thread:", ctx.decode_time - ctx.send_done_time,
-                   "ms, decode:", ctx.decode_done_time - ctx.decode_time,
-                   "ms, inter-thread:", ctx.process_time - ctx.decode_done_time,
-                   "ms, process:", ctx.write_time - ctx.process_time,
-                   "ms, write:", ctx.done_time - ctx.write_time, "ms)");
+      /* logger::debug(
+           "cap", "low frame rate, expect ", expect_frame_time, "ms, actual ",
+           frame_cost, //
+           "ms (capture:", ctx.send_time - ctx.capture_time,
+           "ms, send:", ctx.send_done_time - ctx.send_time,
+           "ms, inter-thread:", ctx.decode_time - ctx.send_done_time,
+           "ms, decode:", ctx.decode_done_time - ctx.decode_time,
+           "ms, inter-thread:", ctx.process_time - ctx.decode_done_time,
+           "ms, process:", ctx.write_time - ctx.process_time,
+           "ms, write:", ctx.done_time - ctx.write_time, "ms)");*/
     } else {
-      logger::debug("cap", "cost ", frame_cost, "ms");
+      /*logger::debug("cap", "cost ", frame_cost, "ms");*/
     }
+
+    frame_cnt++;
 
     //到了预定的时间，换文件
     if (ctx.send_time - task_begin >= config.duration * 1000) {

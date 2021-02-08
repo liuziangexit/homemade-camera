@@ -35,7 +35,6 @@ public:
 private:
   int fd;
   buffer _buffer[V4L_BUFFER_CNT];
-  bool first_frame;
 
   void init();
   bool set_fps(uint32_t);

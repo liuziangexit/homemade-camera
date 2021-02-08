@@ -4,7 +4,7 @@
 #include "codec.h"
 #include "config/config.h"
 #include "util/string_util.h"
-#include "web/web_service.h"
+#include "web/web.h"
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -32,13 +32,10 @@ namespace hcam {
 
 class capture {
 public:
-  capture(web_service *);
+  capture(web &_web_service);
   void run();
   void stop();
   ~capture();
-
-  // TODO 看看有没有更好的办法
-  web_service *web_service_p;
 
 private:
   struct frame_context {
@@ -78,8 +75,20 @@ private:
   std::mutex pause_mtx;
   std::condition_variable pause_cv;
 
+  web &web_service;
+
   //帧速
   uint32_t frame_cost = 0;
+  //总处理帧数
+  uint32_t frame_cnt = 0;
+  //帧率周期开始时的帧数
+  uint32_t frame_cnt_base = 0;
+  //帧率周期开始时间
+  uint32_t base_time = 0;
+  //此周期帧率
+  uint32_t display_fps = 0;
+  //此周期是否掉帧
+  bool low_fps = false;
 
   static std::string make_filename(std::string save_directory,
                                    const std::string &file_format, time_t tm) {

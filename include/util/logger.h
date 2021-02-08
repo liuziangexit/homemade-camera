@@ -1,6 +1,6 @@
 #ifndef __HCAM_LOGGER_H__
 #define __HCAM_LOGGER_H__
-#include "config/config_manager.h"
+#include "config/config.h"
 #include <iomanip>
 #include <iostream>
 #include <mutex>
@@ -19,10 +19,10 @@ class logger {
   static void logger_impl(uint32_t level, const std::string &module,
                           ARGS &&...args) {
     // TODO 预分配空间
-    if (level < config_manager::get().log_level) {
+    if (level < config::get().log_level) {
       return;
     }
-    const auto &set = config_manager::get().disable_log_module;
+    const auto &set = config::get().disable_log_module;
     if (set.find(module) != set.end()) {
       return;
     }

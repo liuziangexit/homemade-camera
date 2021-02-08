@@ -8,10 +8,10 @@ opencv                       liuziang-4.5.1
 opencv_contrib               offical-4.5.1
 raspi                        2020-12-02-raspios-buster-armhf-lite
 libjpeg-turbo                2.0.90
-openssl                      system
+openssl                      openssl-1.1.1i | system
 vc                           system
 freetype                     2.10.4
 harfbuzz                     2.7.4
 
 编译顺序:
-freetype, harfbuzz, ffmpeg, opencv
+openssl, freetype, harfbuzz, ffmpeg, opencv

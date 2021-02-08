@@ -1,7 +1,3 @@
-//
-// Created by 刘子昂 on 2021/2/1.
-//
-
 #ifndef HOMECAM_SSL_CONTEXT_MANAGER_H
 #define HOMECAM_SSL_CONTEXT_MANAGER_H
 #include <boost/asio/buffer.hpp>

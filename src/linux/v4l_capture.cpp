@@ -27,7 +27,6 @@ namespace hcam {
 void v4l_capture::init() {
   fd = 0;
   memset(&_buffer, 0, sizeof(buffer) * V4L_BUFFER_CNT);
-  first_frame = true;
 }
 
 bool v4l_capture::set_fps(uint32_t value) {
@@ -93,7 +92,8 @@ bool v4l_capture::setup_buffer() {
   if (ioctl(fd, VIDIOC_REQBUFS, &buf_req) < 0) {
     logger::error("cap", "VIDIOC_REQBUFS failed");
     if (errno == EINVAL)
-      logger::error("cap", "Video capturing or mmap-streaming is not supported\n");
+      logger::error("cap",
+                    "Video capturing or mmap-streaming is not supported\n");
     return false;
   }
 
@@ -152,6 +152,9 @@ bool v4l_capture::enqueue_buffer(uint32_t idx) {
   buf.memory = V4L2_MEMORY_MMAP;
   buf.index = idx;
 
+  //似乎这个是必要的，如果不这样做，到时候decode jpg就有几率失败，没有调查为什么
+  memset(_buffer[idx].data, 0, _buffer[idx].length);
+
   // Put the buffer in the incoming queue.
   if (ioctl(fd, VIDIOC_QBUF, &buf) < 0) {
     return false;
@@ -169,16 +172,36 @@ int v4l_capture::dequeue_buffer() {
 
   // The buffer's waiting in the outgoing queue.
   int ret;
+  fd_set fds;
+  struct timeval tv;
 
-  do {
-    ret = ioctl(fd, VIDIOC_DQBUF, &buf);
-  } while (-1 == ret && EINTR == errno);
+  FD_ZERO(&fds);
+  FD_SET(fd, &fds);
+
+  /* Timeout. */
+  tv.tv_sec = 2;
+  tv.tv_usec = 0;
+
+  while (true) {
+    ret = select(fd + 1, &fds, NULL, NULL, &tv);
+    if (ret == -1) {
+      if (EINTR == errno)
+        continue;
+      return ret;
+    }
+    if (ret == 0) {
+      logger::info("cap", "v4l select timeout");
+      return -999;
+    }
+    break;
+  }
+  ret = ioctl(fd, VIDIOC_DQBUF, &buf);
 
   /*if (buf.flags & V4L2_BUF_FLAG_ERROR != 0) {
   logger::error("cap", "v4l_capture::dequeue_buffer V4L2_BUF_FLAG_ERROR");
    }*/
   if (ret < 0) {
-    return -1;
+    return -998;
   }
   logger::debug("cap", "v4l_capture::dequeue_buffer -> ", buf.index);
   return buf.index;
@@ -250,8 +273,7 @@ int v4l_capture::open(const std::string &device, v4l_capture::graphic g) {
       oss << codec_to_string(p.pix_fmt) << " ";
       oss << p.width << "x" << p.height << "@" << p.fps << std::endl;
     }
-    logger::info("cap",
-                 "available graphics on this device are:", oss.str());
+    logger::info("cap", "available graphics on this device are:", oss.str());
   }
 
   if (std::find(gs.begin(), gs.end(), g) == gs.end()) {
@@ -274,8 +296,16 @@ int v4l_capture::open(const std::string &device, v4l_capture::graphic g) {
     return fail("v4l_capture setup buffer failed", -6);
   }
 
+  for (int i = 0; i < V4L_BUFFER_CNT; i++) {
+    if (!enqueue_buffer(i)) {
+      logger::error("cap", "enqueue_buffer failed");
+      close();
+      return fail("v4l_capture prepare buffer failed", -7);
+    }
+  }
+
   if (!stream_on()) {
-    return fail("v4l_capture stream on failed", -7);
+    return fail("v4l_capture stream on failed", -8);
   }
 
   logger::info("cap", "device been successfully opened");
@@ -283,30 +313,7 @@ int v4l_capture::open(const std::string &device, v4l_capture::graphic g) {
   return 0;
 }
 
-uint32_t last_read = 0;
-
 std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
-  uint32_t current_read = checkpoint(3);
-  if (last_read != 0) {
-    // TODO 如果buffer数不足，才打印
-    logger::debug("cap", "read interval: ", current_read - last_read, "ms");
-  }
-  last_read = current_read;
-
-  // first time?
-  // https://www.youtube.com/watch?v=qNgCGIBrK9A
-  if (first_frame) {
-    first_frame = false;
-    for (int i = 0; i < V4L_BUFFER_CNT; i++) {
-      if (!enqueue_buffer(i)) {
-        logger::error("cap", "enqueue_buffer failed");
-        close();
-        return std::pair<bool, std::shared_ptr<buffer>>(
-            false, std::shared_ptr<buffer>());
-      }
-    }
-  }
-
   // allocate space for return
   auto alloc_time = checkpoint(3);
   buffer *rv = (buffer *)malloc(sizeof(buffer) + _buffer[0].length);
@@ -342,6 +349,7 @@ std::pair<bool, std::shared_ptr<v4l_capture::buffer>> v4l_capture::read() {
                                                     std::shared_ptr<buffer>());
   }
 
+  //光线弱的时候会掉帧，据说，这是驱动有意延长曝光时间导致的
   auto done_time = checkpoint(3);
   logger::debug("cap", "v4lcapture alloc:", dequeue_time - alloc_time,
                 "ms, dequeue:", copy_time - dequeue_time,

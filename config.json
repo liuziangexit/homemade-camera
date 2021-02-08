@@ -15,7 +15,8 @@
   "display-fps": 2,
   "font-height": 30,
   "web-addr": "0.0.0.0",
-  "web-port": 8080,
+  "port": 8080,
+  "ssl-port": 8082,
   "web-root": "web",
   "idle-timeout": 10
 }

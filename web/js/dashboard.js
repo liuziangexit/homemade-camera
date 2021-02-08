@@ -67,7 +67,7 @@ function startLivestream() {
     }
     draw("yellow", "连接中...", null);
 
-    socket = new WebSocket("ws://" + window.location.hostname + ":" + window.location.port);
+    socket = new WebSocket((window.location.protocol === "http:" ? "ws://" : "wss://") + window.location.hostname + ":" + window.location.port);
     socket.binaryType = "blob";
     socket.addEventListener('open', function (event) {
         draw("yellow", "等待直播...", null);

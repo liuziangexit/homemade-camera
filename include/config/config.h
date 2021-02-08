@@ -1,5 +1,6 @@
 #ifndef __HCAM_CONFIG_H__
 #define __HCAM_CONFIG_H__
+#include "lazy/lazy.h"
 #include "video/codec.h"
 #include <lazy/lazy.h>
 #include <set>
@@ -8,6 +9,9 @@
 namespace hcam {
 
 struct config {
+  static liuziangexit_lazy::lazy_t<config, std::string> lazy;
+  static config get() { return lazy.get_instance(); }
+
   enum log_level_t { DEBUG, INFO, WARN, ERROR, FATAL };
   log_level_t
       log_level; //只输出log_level和比它更高的log。比如，log_level==INFO，那么DEBUG不会输出
@@ -34,7 +38,8 @@ struct config {
   display_fps_t display_fps; //帧率显示模式 0-NEVER 1-WARNING ONLY 2-ALWAYS
   int font_height;           //视频时间戳字体大小
   std::string web_addr;      // web服务地址
-  int web_port;              // web服务端口
+  int port;                  // web服务端口
+  int ssl_port;              // web服务端口
   std::string web_root;      // web目录
   int idle_timeout;          // web服务连接闲置超时时间（秒）
 
