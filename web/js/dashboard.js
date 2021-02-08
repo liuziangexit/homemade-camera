@@ -38,6 +38,10 @@ var prevColor;
 var prevText;
 var prevFrame;
 
+var twinkleTime = Date.now();
+var twinkleId = 0;
+var twinkle = ["forestgreen", "rgba(0,0,0,0)"];
+
 function draw(color, text, frame, nochange) {
     changeCanvasSize(canvas);
 
@@ -86,7 +90,12 @@ function startLivestream() {
                         frame.onload = () => {
                             canvasScale.numerator = frame.height;
                             canvasScale.denominator = frame.width;
-                            draw("green", "LIVE", frame);
+                            var now = Date.now();
+                            if (now - twinkleTime >= 1000) {
+                                twinkleId++;
+                                twinkleTime = now;
+                            }
+                            draw(twinkle[(twinkleId) % 2], "LIVE", frame);
                         }
                     } else {
                         // text
