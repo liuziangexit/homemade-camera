@@ -38,6 +38,7 @@ var prevColor;
 var prevText;
 var prevFrame;
 
+var lastFrameTime = 0;
 var twinkleTime = Date.now();
 var twinkleId = 0;
 var twinkle = ["forestgreen", "rgba(0,0,0,0)"];
@@ -81,6 +82,19 @@ function startLivestream() {
                 draw("yellow", "已请求直播...", null);
                 document.getElementById("saveButton").removeAttribute("disabled");
                 console.log("stream on succeed");
+                lastFrameTime = Date.now();
+
+                var timerFunc = (self) => {
+                    if (Date.now() - lastFrameTime >= 10000) {
+                        socket.close();
+                    } else {
+                        setTimeout(() => self(self), 10000);
+                    }
+                };
+                setTimeout(() =>
+                        timerFunc(timerFunc)
+                    , 10000);
+
                 var callback = (self, msg) => {
                     if (msg.data instanceof Blob) {
                         // binary
