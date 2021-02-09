@@ -70,7 +70,7 @@ void capture::do_work(const config &config) {
   //准备 capture 和 decoder(如果需要)
 #ifdef USE_V4L_CAPTURE
   //改了这里也要去改do decode那里
-  hard_jpg decoder;
+  soft_jpg decoder;
   v4l_capture capture;
   if (capture.open(config.device,
                    v4l_capture::graphic{(uint32_t)config.resolution.width,
@@ -284,7 +284,7 @@ bool capture::do_capture(const config &config, frame_context &ctx,
 bool capture::do_decode(const config &config, frame_context &ctx,
                         void *decoder) {
 #ifdef USE_V4L_CAPTURE
-  hard_jpg *jpg_decoder = (hard_jpg *)decoder;
+  soft_jpg *jpg_decoder = (soft_jpg *)decoder;
 
   auto process = [jpg_decoder](frame_context &ctx) -> bool {
     ctx.decode_time = checkpoint(3);
