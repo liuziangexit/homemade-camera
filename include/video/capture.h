@@ -148,8 +148,7 @@ private:
   bool do_decode(const config &, frame_context &ctx, void *decoder);
   bool do_write(const config &config, frame_context &ctx,
                 const std::string &video_filename,
-                cv::Ptr<cv::freetype::FreeType2> freetype,
-                cv::VideoWriter &writer);
+                cv::freetype::FreeType2 *freetype, cv::VideoWriter &writer);
   void render_text(int, const std::string &, int, std::optional<cv::Scalar>,
                    cv::freetype::FreeType2 *, cv::Mat &);
 };

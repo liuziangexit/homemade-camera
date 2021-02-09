@@ -137,7 +137,8 @@ OPEN_WRITER:
     goto QUIT;
   }
 
-  logger::info("cap", "change video file to ", video_filename);
+  logger::info("cap", "duration: ", config.duration,
+               " seconds, change video file to ", video_filename);
 
   while (true) {
     if (state == STOPPING) {
@@ -172,7 +173,7 @@ OPEN_WRITER:
       goto QUIT;
     }
     //编码avc
-    if (!do_write(config, ctx, video_filename, freetype, writer)) {
+    if (!do_write(config, ctx, video_filename, freetype.get(), writer)) {
       goto QUIT;
     }
     frame_cnt++;
@@ -187,6 +188,7 @@ QUIT:
   stop(false);
 }
 
+// FIXME foreach session的代码应该复用
 bool capture::do_capture(const config &config, frame_context &ctx,
                          void *raw_capture) {
 #ifdef USE_V4L_CAPTURE
@@ -312,7 +314,7 @@ bool capture::do_decode(const config &config, frame_context &ctx,
 
 bool capture::do_write(const config &config, frame_context &ctx,
                        const std::string &video_filename,
-                       cv::Ptr<cv::freetype::FreeType2> freetype,
+                       cv::freetype::FreeType2 *freetype,
                        cv::VideoWriter &writer) {
   const uint32_t expect_frame_time = 1000 / config.fps;
 
