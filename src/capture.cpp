@@ -70,7 +70,6 @@ void capture::do_work(const config &config) {
   //准备 capture 和 decoder(如果需要)
 #ifdef USE_V4L_CAPTURE
   //改了这里也要去改do decode那里
-  // soft_jpg decoder;
   hard_jpg decoder;
   v4l_capture capture;
   if (capture.open(config.device,
