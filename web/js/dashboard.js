@@ -86,8 +86,10 @@ function startLivestream() {
 
                 var timerFunc = (self) => {
                     if (Date.now() - lastFrameTime >= 10000) {
+                        console.log("socket closed by timer callback");
                         socket.close();
                     } else {
+                        lastFrameTime = Date.now();
                         setTimeout(() => self(self), 10000);
                     }
                 };
