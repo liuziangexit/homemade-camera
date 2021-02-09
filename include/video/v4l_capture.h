@@ -9,7 +9,7 @@
 #include <vector>
 #include <video/codec.h>
 
-#define V4L_BUFFER_CNT 30 * 15
+#define V4L_BUFFER_CNT 8
 
 namespace hcam {
 

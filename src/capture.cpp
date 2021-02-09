@@ -3,6 +3,7 @@
 #include "util/logger.h"
 #include "util/time_util.h"
 #include "video/codec.h"
+#include "video/hard_jpg.h"
 #include "video/soft_jpg.h"
 #include "web/session.h"
 #include <algorithm>
@@ -68,7 +69,9 @@ void capture::do_work(const config &config) {
 
   //准备 capture 和 decoder(如果需要)
 #ifdef USE_V4L_CAPTURE
-  soft_jpg decoder;
+  //改了这里也要去改do decode那里
+  // soft_jpg decoder;
+  hard_jpg decoder;
   v4l_capture capture;
   if (capture.open(config.device,
                    v4l_capture::graphic{(uint32_t)config.resolution.width,
@@ -282,7 +285,7 @@ bool capture::do_capture(const config &config, frame_context &ctx,
 bool capture::do_decode(const config &config, frame_context &ctx,
                         void *decoder) {
 #ifdef USE_V4L_CAPTURE
-  soft_jpg *jpg_decoder = (soft_jpg *)decoder;
+  hard_jpg *jpg_decoder = (hard_jpg *)decoder;
 
   auto process = [jpg_decoder](frame_context &ctx) -> bool {
     ctx.decode_time = checkpoint(3);
@@ -383,27 +386,27 @@ bool capture::do_write(const config &config, frame_context &ctx,
   }
   ctx.done_time = checkpoint(3);
 
-  frame_cost = ctx.send_time - ctx.capture_time;
+  /*frame_cost = ctx.send_time - ctx.capture_time;
   if (ctx.decode_done_time - ctx.decode_time > frame_cost) {
     frame_cost = ctx.decode_done_time - ctx.decode_time;
   }
   if (ctx.done_time - ctx.process_time > frame_cost) {
     frame_cost = ctx.done_time - ctx.process_time;
-  }
-
+  }*/
+  frame_cost = ctx.done_time - ctx.capture_time;
   if (frame_cost > expect_frame_time) {
-    /* logger::debug(
-         "cap", "low frame rate, expect ", expect_frame_time, "ms, actual ",
-         frame_cost, //
-         "ms (capture:", ctx.send_time - ctx.capture_time,
-         "ms, send:", ctx.send_done_time - ctx.send_time,
-         "ms, inter-thread:", ctx.decode_time - ctx.send_done_time,
-         "ms, decode:", ctx.decode_done_time - ctx.decode_time,
-         "ms, inter-thread:", ctx.process_time - ctx.decode_done_time,
-         "ms, process:", ctx.write_time - ctx.process_time,
-         "ms, write:", ctx.done_time - ctx.write_time, "ms)");*/
+    logger::debug("cap", "low frame rate, expect ", expect_frame_time,
+                  "ms, actual ",
+                  frame_cost, //
+                  "ms (capture:", ctx.send_time - ctx.capture_time,
+                  "ms, send:", ctx.send_done_time - ctx.send_time,
+                  "ms, inter-thread:", ctx.decode_time - ctx.send_done_time,
+                  "ms, decode:", ctx.decode_done_time - ctx.decode_time,
+                  "ms, inter-thread:", ctx.process_time - ctx.decode_done_time,
+                  "ms, process:", ctx.write_time - ctx.process_time,
+                  "ms, write:", ctx.done_time - ctx.write_time, "ms)");
   } else {
-    /*logger::debug("cap", "cost ", frame_cost, "ms");*/
+    logger::debug("cap", "cost ", frame_cost, " ms");
   }
   return true;
 }
