@@ -35,12 +35,10 @@ void capture::run() {
   auto json_string = read_log(_config.save_location);
   log.parse(json_string);
 
-  capture_thread = std::thread([this] { this->do_capture(this->_config); });
-  decode_thread = std::thread([this] { this->do_decode(this->_config); });
-  write_thread = std::thread([this] { this->do_write(this->_config); });
+  worker_thread = std::thread([this] { this->do_work(this->_config); });
 }
 
-void capture::stop() {
+void capture::stop(bool join) {
   logger::debug("cap", "stopping capture");
   {
     int expect = RUNNING;
@@ -50,80 +48,154 @@ void capture::stop() {
       return;
     }
   }
-  if (!write_log(_config.save_location, log.to_str())) {
-    logger::error("cap", "write log failed");
-  }
-  if (std::this_thread::get_id() != capture_thread.get_id()) {
-    if (capture_thread.joinable())
-      capture_thread.join();
-  }
-  if (std::this_thread::get_id() != decode_thread.get_id()) {
-    if (decode_thread.joinable())
-      decode_thread.join();
-  }
-  if (std::this_thread::get_id() != write_thread.get_id()) {
-    if (write_thread.joinable())
-      write_thread.join();
+  if (join) {
+    if (worker_thread.joinable())
+      worker_thread.join();
   }
   state = STOPPED;
   logger::info("cap", "capture stopped");
 }
 
-void capture::internal_stop_avoid_deadlock() {
-  std::thread([this] { stop(); }).detach();
-}
-
-#define WARN_QUEUE_CNT 3
-#define PAUSE_QUEUE_CNT 60
-
-bool capture::pause_others() {
-  std::unique_lock l(pause_mtx);
-  if (paused)
-    return false;
-  paused = true;
-  pause_time = checkpoint(3);
-  logger::warn("cap", "pause others!");
-  return true;
-}
-
-void capture::resume_others() {
-  std::unique_lock l(pause_mtx);
-  paused = false;
-  pause_cv.notify_all();
-  logger::warn(
-      "cap", "resume others! paused time: ", checkpoint(3) - pause_time, "ms");
-}
-
-void capture::wait_pause() {
-  std::unique_lock l(pause_mtx);
-  bool pause_requested = false;
-  if (paused) {
-    pause_requested = true;
-    logger::warn("cap", "wait pause!");
+void capture::do_work(const config &config) {
+  // prepare freetype
+  cv::Ptr<cv::freetype::FreeType2> freetype = cv::freetype::createFreeType2();
+  if (freetype.empty()) {
+    logger::error("cap", "create freetype2 instance failed");
+    stop(false);
+    return;
   }
-  pause_cv.wait(l, [this] { return !paused; });
-  if (pause_requested)
-    logger::warn("cap", "resumed!");
-}
+  freetype->loadFontData("Helvetica.ttc", 0);
 
-void capture::do_capture(const config &config) {
+  //准备 capture 和 decoder(如果需要)
 #ifdef USE_V4L_CAPTURE
+  soft_jpg decoder;
   v4l_capture capture;
   if (capture.open(config.device,
                    v4l_capture::graphic{(uint32_t)config.resolution.width,
                                         (uint32_t)config.resolution.height,
                                         (uint32_t)config.fps,
                                         config.cam_pix_fmt})) {
-    logger::error("cap", "VideoCapture open failed");
-    this->internal_stop_avoid_deadlock();
+    logger::error("cap", "v4l2 VideoCapture open failed");
+    stop();
     return;
   }
+#else
+  cv::VideoCapture capture;
+  if (config.device.empty()) {
+    if (!capture.open(0)) {
+      logger::fatal("cap", "cv videocapture open failed");
+      stop(false);
+      return;
+    }
+  } else {
+    if (!capture.open(config.device)) {
+      logger::fatal("cap", "cv videocapture open failed");
+      stop(false);
+      return;
+    }
+  }
+  char decoder;
+#endif
 
-  auto process = [&capture, this](frame_context &ctx) -> bool {
+//准备writer
+OPEN_WRITER:
+  cv::VideoWriter writer;
+  time_t task_begin_time;
+  time(&task_begin_time);
+  uint64_t task_begin_mono_time = checkpoint(3);
+  const std::string video_filename =
+      make_filename(config.save_location, task_begin_time) + "." +
+      codec_file_format(config.output_codec);
+  const std::string preview_filename =
+      make_filename(config.save_location, task_begin_time) + ".jpg";
+
+  auto do_log = [this, task_begin_time, video_filename, preview_filename,
+                 config] {
+    auto localt = localtime(&task_begin_time);
+    log.add(video_filename, preview_filename, config.duration, mktime(localt),
+            true);
+    if (!write_log(_config.save_location, log.to_str())) {
+      logger::error("cap", "write log failed");
+    }
+  };
+
+  bool preview_saved = false;
+
+  //试三次打开writer
+  static const int open_writer_retry = 3;
+  for (int tried = 0; tried < open_writer_retry; tried++) {
+    if (!writer.open(video_filename, codec_fourcc(config.output_codec),
+                     config.fps, config.resolution)) {
+      logger::error("cap", "VideoWriter open ", video_filename, " failed ",
+                    tried + 1);
+    } else {
+      break;
+    }
+  }
+  if (!writer.isOpened()) {
+    logger::fatal("cap", "can not open VideoWriter");
+    goto QUIT;
+  }
+
+  logger::info("cap", "change video file to ", video_filename);
+
+  while (true) {
+    if (state == STOPPING) {
+      goto QUIT;
+    }
+
+    frame_context ctx;
+    if (!do_capture(config, ctx, &capture)) {
+      goto QUIT;
+    }
+
+    //保存jpg预览图
+    if (!preview_saved) {
+      FILE *fp = fopen(preview_filename.c_str(), "wb");
+      if (!fp) {
+        logger::fatal("cap", "do_capture write jpg preview failed(fopen)");
+        goto QUIT;
+      }
+      auto actual_write =
+          fwrite(ctx.captured_frame->data, 1, ctx.captured_frame->length, fp);
+      if (actual_write != ctx.captured_frame->length) {
+        logger::fatal("cap", "do_capture write jpg preview failed(fwrite)");
+        fclose(fp);
+        goto QUIT;
+      }
+      fclose(fp);
+      preview_saved = true;
+    }
+
+    //解码jpg
+    if (!do_decode(config, ctx, &decoder)) {
+      goto QUIT;
+    }
+    //编码avc
+    if (!do_write(config, ctx, video_filename, freetype, writer)) {
+      goto QUIT;
+    }
+    frame_cnt++;
+    //到了预定的时间，换文件
+    if (ctx.send_time - task_begin_mono_time >= config.duration * 1000) {
+      do_log();
+      goto OPEN_WRITER;
+    }
+  }
+QUIT:
+  do_log();
+  stop(false);
+}
+
+bool capture::do_capture(const config &config, frame_context &ctx,
+                         void *raw_capture) {
+#ifdef USE_V4L_CAPTURE
+  auto capture = (v4l_capture *)raw_capture;
+  auto process = [capture, this](frame_context &ctx) -> bool {
     ctx.capture_time = checkpoint(3);
     time(&ctx.frame_time);
     std::pair<bool, std::shared_ptr<v4l_capture::buffer>> packet =
-        capture.read();
+        capture->read();
     if (!packet.first) {
       logger::error("cap", "VideoCapture read failed");
       return false;
@@ -153,20 +225,12 @@ void capture::do_capture(const config &config) {
     return true;
   };
 #else
-  cv::VideoCapture capture;
-  if (config.device.empty()) {
-    if (!capture.open(0))
-      throw std::runtime_error("capture open failed");
-  } else {
-    if (!capture.open(config.device))
-      throw std::runtime_error("capture open failed");
-  }
-
-  auto process = [&capture, this](frame_context &ctx) -> bool {
+  auto capture = (cv::VideoCapture *)raw_capture;
+  auto process = [capture, this](frame_context &ctx) -> bool {
     ctx.capture_time = checkpoint(3);
     time(&ctx.frame_time);
     cv::Mat mat;
-    if (!capture.read(mat)) {
+    if (!capture->read(mat)) {
       logger::error("cap", "!VideoCapture read failed");
       return false;
     }
@@ -207,64 +271,22 @@ void capture::do_capture(const config &config) {
   };
 #endif
 
-  while (true) {
-    if (state == STOPPING) {
-      break;
-    }
-
-    wait_pause();
-
-    frame_context ctx;
-    if (!process(ctx)) {
-      break;
-    }
-    {
-      if (save_preview) {
-        FILE *fp = fopen(preview_filename.c_str(), "wb");
-        if (!fp) {
-          logger::fatal("cap", "do_capture write jpg preview failed(fopen)");
-          this->internal_stop_avoid_deadlock();
-          return;
-        }
-        auto actual_write =
-            fwrite(ctx.captured_frame->data, 1, ctx.captured_frame->length, fp);
-        if (actual_write != ctx.captured_frame->length) {
-          logger::fatal("cap", "do_capture write jpg preview failed(fwrite)");
-          fclose(fp);
-          this->internal_stop_avoid_deadlock();
-          return;
-        }
-        fclose(fp);
-
-        bool expect = true;
-        auto swap_ok = save_preview.compare_exchange_strong(expect, false);
-        assert(swap_ok);
-      }
-    }
-    std::unique_lock l(capture2decode_mtx);
-    if (capture2decode_queue.size() > PAUSE_QUEUE_CNT) {
-      continue;
-    }
-    capture2decode_queue.push(std::move(ctx));
-    capture2decode_cv.notify_one();
+  if (!process(ctx)) {
+    return false;
   }
-  std::unique_lock l(capture2decode_mtx);
-  frame_context ctx;
-  ctx.quit = true;
-  capture2decode_queue.push(ctx);
-  capture2decode_cv.notify_one();
-  this->internal_stop_avoid_deadlock();
+  return true;
 }
 
-void capture::do_decode(const config &config) {
+bool capture::do_decode(const config &config, frame_context &ctx,
+                        void *decoder) {
 #ifdef USE_V4L_CAPTURE
-  soft_jpg jpg_decoder;
+  soft_jpg *jpg_decoder = (soft_jpg *)decoder;
 
-  auto process = [&jpg_decoder](frame_context &ctx) -> bool {
+  auto process = [jpg_decoder](frame_context &ctx) -> bool {
     ctx.decode_time = checkpoint(3);
     std::pair<bool, cv::Mat> decoded =
-        jpg_decoder.decode((unsigned char *)(ctx.captured_frame->data),
-                           ctx.captured_frame->length);
+        jpg_decoder->decode((unsigned char *)(ctx.captured_frame->data),
+                            ctx.captured_frame->length);
     if (!decoded.first) {
       logger::error("cap", "JPG decode failed");
       return false;
@@ -282,258 +304,106 @@ void capture::do_decode(const config &config) {
   };
 #endif
 
-  bool paused_by_me = false;
-  while (true) {
-    if (!paused_by_me)
-      wait_pause();
-
-    std::unique_lock lc2d(capture2decode_mtx);
-    capture2decode_cv.wait(lc2d,
-                           [this] { return !capture2decode_queue.empty(); });
-    frame_context ctx = std::move(capture2decode_queue.front());
-    capture2decode_queue.pop();
-    if (ctx.quit) {
-      break;
-    }
-    auto capture2decode_queue_size = capture2decode_queue.size();
-    if (capture2decode_queue_size > WARN_QUEUE_CNT) {
-      logger::warn("cap",
-                   "capture2decode_queue size: ", capture2decode_queue_size);
-    }
-    lc2d.unlock();
-
-    if (capture2decode_queue_size >= PAUSE_QUEUE_CNT) {
-      if (!paused_by_me) {
-        if (pause_others())
-          paused_by_me = true;
-      }
-    } else if (capture2decode_queue_size == 0) {
-      if (paused_by_me) {
-        resume_others();
-        paused_by_me = false;
-      }
-    }
-
-    if (!process(ctx)) {
-      break;
-    }
-
-    std::unique_lock ld2w(decode2write_mtx);
-    if (decode2write_queue.size() > PAUSE_QUEUE_CNT) {
-      continue;
-    }
-    decode2write_queue.push(std::move(ctx));
-    decode2write_cv.notify_one();
+  if (!process(ctx)) {
+    return false;
   }
-  std::unique_lock l(decode2write_mtx);
-  frame_context ctx;
-  ctx.quit = true;
-  decode2write_queue.push(ctx);
-  decode2write_cv.notify_one();
-  this->internal_stop_avoid_deadlock();
+  return true;
 }
 
-void capture::do_write(const config &config) {
-  static const int open_writer_retry = 3;
+bool capture::do_write(const config &config, frame_context &ctx,
+                       const std::string &video_filename,
+                       cv::Ptr<cv::freetype::FreeType2> freetype,
+                       cv::VideoWriter &writer) {
+  const uint32_t expect_frame_time = 1000 / config.fps;
 
-  if (config.duration < 1)
-    this->stop(); //短于1秒的话文件名可能重复
+  cv::Mat &frame = ctx.decoded_frame;
+  ctx.process_time = checkpoint(3);
+  {
+    //在指定位置渲染时间
+    auto localt = localtime(&ctx.frame_time);
+    std::ostringstream fmt(std::ios::app);
+    fmt << localt->tm_year + 1900 << '/' << localt->tm_mon + 1 << '/'
+        << localt->tm_mday << " " << localt->tm_hour << ':' << localt->tm_min
+        << ':' << localt->tm_sec;
 
-  auto fps = (uint32_t)config.fps;
-  cv::Size frame_size(config.resolution);
-  const uint32_t expect_frame_time = 1000 / fps;
-
-  cv::Ptr<cv::freetype::FreeType2> freetype = cv::freetype::createFreeType2();
-  if (freetype.empty()) {
-    logger::error("cap", "create freetype2 instance failed");
-    this->stop();
-  }
-  freetype->loadFontData("Helvetica.ttc", 0);
-
-  cv::VideoWriter writer;
-  auto prepare_write = [this, config, frame_size,
-                        fps](time_t date, cv::VideoWriter &writer,
-                             std::string &out_filename) {
-    auto filename = make_filename(config.save_location, date);
-    std::string video_filename =
-        filename + "." + codec_file_format(config.output_codec);
-
-    //通知do_capture去保存一个jpg
-    auto prev = save_preview.exchange(true);
-    assert(prev == false);
-    preview_filename = filename + ".jpg";
-
-    //试三次打开writer
-    for (int tried = 0; tried < open_writer_retry; tried++) {
-      if (writer.open(video_filename, codec_fourcc(config.output_codec), fps,
-                      frame_size)) {
-        out_filename = video_filename;
-        return true;
-      } else {
-        logger::error("cap", "VideoWriter open ", video_filename, " failed ",
-                      tried + 1);
-      }
-    }
-    return false;
-  };
-
-OPEN_WRITER:
-  time_t tm;
-  time(&tm);
-  std::string filename;
-  if (!prepare_write(tm, writer, filename)) {
-    logger::error("cap", "prepare_writer failed");
-    this->stop();
-  }
-
-  auto do_log = [this, tm, filename, config] {
-    auto localt = localtime(&tm);
-    log.add(filename, preview_filename, config.duration, mktime(localt), true);
-    if (!write_log(_config.save_location, log.to_str())) {
-      logger::error("cap", "write log failed");
-    }
-  };
-
-  uint64 task_begin = 0;
-  logger::info("cap", "video file change to ", filename);
-  logger::debug("cap", "writer backend:", writer.getBackendName(),
-                " codec:", codec_to_string(config.output_codec), " fps:", fps,
-                " resolution:", frame_size);
-
-  bool paused_by_me = false;
-  while (true) {
-    if (!paused_by_me)
-      wait_pause();
-
-    std::unique_lock l(decode2write_mtx);
-    decode2write_cv.wait(l, [this] { return !decode2write_queue.empty(); });
-    frame_context ctx = std::move(decode2write_queue.front());
-    decode2write_queue.pop();
-    if (ctx.quit) {
-      do_log();
-      break;
-    }
-    auto decode2write_queue_size = decode2write_queue.size();
-    if (decode2write_queue_size > WARN_QUEUE_CNT) {
-      logger::warn("cap", "decode2write_queue size: ", decode2write_queue_size);
-    }
-    l.unlock();
-
-    if (decode2write_queue_size >= PAUSE_QUEUE_CNT) {
-      if (!paused_by_me) {
-        if (pause_others())
-          paused_by_me = true;
-      }
-    } else if (decode2write_queue_size == 0) {
-      if (paused_by_me) {
-        resume_others();
-        paused_by_me = false;
-      }
-    }
-
-    if (task_begin == 0) {
-      task_begin = ctx.send_time;
-    }
-    cv::Mat &frame = ctx.decoded_frame;
-
-    ctx.process_time = checkpoint(3);
-    {
-      //在指定位置渲染时间
-      auto localt = localtime(&ctx.frame_time);
-      std::ostringstream fmt(std::ios::app);
-      fmt << localt->tm_year + 1900 << '/' << localt->tm_mon + 1 << '/'
-          << localt->tm_mday << " " << localt->tm_hour << ':' << localt->tm_min
-          << ':' << localt->tm_sec;
-
-      render_text(config.timestamp_pos, fmt.str(), config.font_height,
-                  std::optional<cv::Scalar>(), freetype, frame);
-      //渲染帧率
-      fmt.str("");
-      //测速周期（秒）
-      static const uint32_t period = 1;
-      if (frame_cost != 0) {
-        uint32_t current_time = checkpoint(3);
-        if (base_time == 0 || current_time - base_time > 1000 * period) {
-          display_fps = frame_cnt - frame_cnt_base;
-          low_fps = display_fps < fps * 95 / 100;
-          if (low_fps) {
-            logger::warn("cap", "frame drop detected, fps: ", display_fps);
-          }
-
-          base_time = current_time;
-          frame_cnt_base = frame_cnt;
-        }
-
+    render_text(config.timestamp_pos, fmt.str(), config.font_height,
+                std::optional<cv::Scalar>(), freetype, frame);
+    //渲染帧率
+    fmt.str("");
+    //测速周期（秒）
+    static const uint32_t period = 1;
+    if (frame_cost != 0) {
+      uint32_t current_time = checkpoint(3);
+      if (base_time == 0 || current_time - base_time > 1000 * period) {
+        display_fps = frame_cnt - frame_cnt_base;
+        low_fps = display_fps < config.fps * 95 / 100;
         if (low_fps) {
-          if (config.display_fps == 1 || config.display_fps == 2) {
-            fmt << "FPS: ";
-            fmt << display_fps;
-          }
-        } else {
-          if (config.display_fps == 2) {
-            fmt << "FPS: ";
-            fmt << display_fps;
-          }
+          logger::warn("cap", "frame drop detected, fps: ", display_fps);
         }
-        if (fmt.str() != "") {
-          render_text((config.timestamp_pos + 1) % 4, fmt.str(),
-                      config.font_height,
-                      low_fps ? cv::Scalar((double)30, (double)120, (double)238)
-                              : std::optional<cv::Scalar>(),
-                      freetype, frame);
+
+        base_time = current_time;
+        frame_cnt_base = frame_cnt;
+      }
+
+      if (low_fps) {
+        if (config.display_fps == 1 || config.display_fps == 2) {
+          fmt << "FPS: ";
+          fmt << display_fps;
+        }
+      } else {
+        if (config.display_fps == 2) {
+          fmt << "FPS: ";
+          fmt << display_fps;
         }
       }
-    }
-
-    ctx.write_time = checkpoint(3);
-    try {
-      writer.write(frame);
-    } catch (const cv::Exception &ex) {
-      logger::fatal("cap", "writer.write failed");
-      internal_stop_avoid_deadlock();
-      break;
-    } catch (const std::exception &ex) {
-      logger::fatal("cap", "writer.write failed");
-      internal_stop_avoid_deadlock();
-      break;
-    } catch (...) {
-      logger::fatal("cap", "writer.write failed");
-      internal_stop_avoid_deadlock();
-      break;
-    }
-    ctx.done_time = checkpoint(3);
-
-    frame_cost = ctx.send_time - ctx.capture_time;
-    if (ctx.decode_done_time - ctx.decode_time > frame_cost) {
-      frame_cost = ctx.decode_done_time - ctx.decode_time;
-    }
-    if (ctx.done_time - ctx.process_time > frame_cost) {
-      frame_cost = ctx.done_time - ctx.process_time;
-    }
-
-    if (frame_cost > expect_frame_time) {
-      /* logger::debug(
-           "cap", "low frame rate, expect ", expect_frame_time, "ms, actual ",
-           frame_cost, //
-           "ms (capture:", ctx.send_time - ctx.capture_time,
-           "ms, send:", ctx.send_done_time - ctx.send_time,
-           "ms, inter-thread:", ctx.decode_time - ctx.send_done_time,
-           "ms, decode:", ctx.decode_done_time - ctx.decode_time,
-           "ms, inter-thread:", ctx.process_time - ctx.decode_done_time,
-           "ms, process:", ctx.write_time - ctx.process_time,
-           "ms, write:", ctx.done_time - ctx.write_time, "ms)");*/
-    } else {
-      /*logger::debug("cap", "cost ", frame_cost, "ms");*/
-    }
-
-    frame_cnt++;
-
-    //到了预定的时间，换文件
-    if (ctx.send_time - task_begin >= config.duration * 1000) {
-      do_log();
-      goto OPEN_WRITER;
+      if (fmt.str() != "") {
+        render_text((config.timestamp_pos + 1) % 4, fmt.str(),
+                    config.font_height,
+                    low_fps ? cv::Scalar((double)30, (double)120, (double)238)
+                            : std::optional<cv::Scalar>(),
+                    freetype, frame);
+      }
     }
   }
+
+  ctx.write_time = checkpoint(3);
+  try {
+    writer.write(frame);
+  } catch (const cv::Exception &ex) {
+    logger::fatal("cap", "writer.write failed");
+    return false;
+  } catch (const std::exception &ex) {
+    logger::fatal("cap", "writer.write failed");
+    return false;
+  } catch (...) {
+    logger::fatal("cap", "writer.write failed");
+    return false;
+  }
+  ctx.done_time = checkpoint(3);
+
+  frame_cost = ctx.send_time - ctx.capture_time;
+  if (ctx.decode_done_time - ctx.decode_time > frame_cost) {
+    frame_cost = ctx.decode_done_time - ctx.decode_time;
+  }
+  if (ctx.done_time - ctx.process_time > frame_cost) {
+    frame_cost = ctx.done_time - ctx.process_time;
+  }
+
+  if (frame_cost > expect_frame_time) {
+    /* logger::debug(
+         "cap", "low frame rate, expect ", expect_frame_time, "ms, actual ",
+         frame_cost, //
+         "ms (capture:", ctx.send_time - ctx.capture_time,
+         "ms, send:", ctx.send_done_time - ctx.send_time,
+         "ms, inter-thread:", ctx.decode_time - ctx.send_done_time,
+         "ms, decode:", ctx.decode_done_time - ctx.decode_time,
+         "ms, inter-thread:", ctx.process_time - ctx.decode_done_time,
+         "ms, process:", ctx.write_time - ctx.process_time,
+         "ms, write:", ctx.done_time - ctx.write_time, "ms)");*/
+  } else {
+    /*logger::debug("cap", "cost ", frame_cost, "ms");*/
+  }
+  return true;
 }
 
 void capture::render_text(int pos, const std::string &text, int font_height,

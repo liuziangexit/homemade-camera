@@ -48,6 +48,10 @@ bool config::read(const std::string &filename) {
     this->cam_pix_fmt =
         codec_parse(js["camera-pixel-format"].get<std::string>());
     this->duration = js["duration"].get<uint32_t>();
+    if (duration == 0) {
+      logger::fatal("config", "invalid duration");
+      return false;
+    }
     this->save_location = js["save-location"].get<std::string>();
     this->output_codec = codec_parse(js["output-codec"].get<std::string>());
     this->device = js["device"].get<std::string>();

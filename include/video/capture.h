@@ -36,7 +36,7 @@ class capture {
 public:
   capture(web &_web_service);
   void run();
-  void stop();
+  void stop(bool join = true);
   ~capture();
 
 private:
@@ -60,23 +60,8 @@ private:
   std::atomic<int> state = STOPPED;
   config _config;
   file_log log;
-  std::atomic<bool> save_preview = false;
-  std::string preview_filename;
 
-  std::thread capture_thread;
-  std::queue<frame_context> capture2decode_queue;
-  std::mutex capture2decode_mtx;
-  std::condition_variable capture2decode_cv;
-  std::thread decode_thread;
-  std::queue<frame_context> decode2write_queue;
-  std::mutex decode2write_mtx;
-  std::condition_variable decode2write_cv;
-  std::thread write_thread;
-
-  uint32_t pause_time;
-  bool paused = false;
-  std::mutex pause_mtx;
-  std::condition_variable pause_cv;
+  std::thread worker_thread;
 
   web &web_service;
 
@@ -158,15 +143,15 @@ private:
     return codec_fourcc(c) == cap.get(cv::CAP_PROP_FOURCC);
   }
 
-  void do_capture(const config &);
-  void do_decode(const config &);
-  void do_write(const config &);
+  void do_work(const config &);
+  bool do_capture(const config &, frame_context &ctx, void *raw_capture);
+  bool do_decode(const config &, frame_context &ctx, void *decoder);
+  bool do_write(const config &config, frame_context &ctx,
+                const std::string &video_filename,
+                cv::Ptr<cv::freetype::FreeType2> freetype,
+                cv::VideoWriter &writer);
   void render_text(int, const std::string &, int, std::optional<cv::Scalar>,
                    cv::freetype::FreeType2 *, cv::Mat &);
-  void internal_stop_avoid_deadlock();
-  bool pause_others();
-  void resume_others();
-  void wait_pause();
 };
 
 } // namespace hcam
