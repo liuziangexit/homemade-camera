@@ -32,6 +32,9 @@ void capture::run() {
     if (!state.compare_exchange_strong(expect, RUNNING))
       throw std::logic_error("capture already running");
   }
+  auto json_string = read_log(_config.save_location);
+  log.parse(json_string);
+
   capture_thread = std::thread([this] { this->do_capture(this->_config); });
   decode_thread = std::thread([this] { this->do_decode(this->_config); });
   write_thread = std::thread([this] { this->do_write(this->_config); });
@@ -46,6 +49,9 @@ void capture::stop() {
                     ", actual state ", expect);
       return;
     }
+  }
+  if (!write_log(_config.save_location, log.to_str())) {
+    logger::error("cap", "write log failed");
   }
   if (std::this_thread::get_id() != capture_thread.get_id()) {
     if (capture_thread.joinable())
@@ -173,6 +179,15 @@ void capture::do_capture(const config &config) {
      */
     std::vector<unsigned char> out;
     cv::imencode(".jpg", ctx.decoded_frame, out);
+
+    ctx.captured_frame = std::shared_ptr<v4l_capture::buffer>(
+        (v4l_capture::buffer *)malloc(sizeof(v4l_capture::buffer) + out.size()),
+        [](v4l_capture::buffer *p) { free(p); });
+    ctx.captured_frame->data =
+        (char *)(ctx.captured_frame.get()) + sizeof(v4l_capture::buffer);
+    ctx.captured_frame->length = out.size();
+    memcpy(ctx.captured_frame->data, out.data(), ctx.captured_frame->length);
+
     ctx.send_time = checkpoint(3);
     web_service.foreach_session([&out](const web::session_context &_session) {
       auto shared_session = _session.session.lock();
@@ -203,7 +218,29 @@ void capture::do_capture(const config &config) {
     if (!process(ctx)) {
       break;
     }
+    {
+      if (save_preview) {
+        FILE *fp = fopen(preview_filename.c_str(), "wb");
+        if (!fp) {
+          logger::fatal("cap", "do_capture write jpg preview failed(fopen)");
+          this->internal_stop_avoid_deadlock();
+          return;
+        }
+        auto actual_write =
+            fwrite(ctx.captured_frame->data, 1, ctx.captured_frame->length, fp);
+        if (actual_write != ctx.captured_frame->length) {
+          logger::fatal("cap", "do_capture write jpg preview failed(fwrite)");
+          fclose(fp);
+          this->internal_stop_avoid_deadlock();
+          return;
+        }
+        fclose(fp);
 
+        bool expect = true;
+        auto swap_ok = save_preview.compare_exchange_strong(expect, false);
+        assert(swap_ok);
+      }
+    }
     std::unique_lock l(capture2decode_mtx);
     if (capture2decode_queue.size() > PAUSE_QUEUE_CNT) {
       continue;
@@ -314,19 +351,26 @@ void capture::do_write(const config &config) {
   freetype->loadFontData("Helvetica.ttc", 0);
 
   cv::VideoWriter writer;
-  auto prepare_writer = [config, frame_size, fps](time_t date,
-                                                  cv::VideoWriter &writer,
-                                                  std::string &out_filename) {
-    std::string filename = make_filename(
-        config.save_location, codec_file_format(config.output_codec), date);
+  auto prepare_write = [this, config, frame_size,
+                        fps](time_t date, cv::VideoWriter &writer,
+                             std::string &out_filename) {
+    auto filename = make_filename(config.save_location, date);
+    std::string video_filename =
+        filename + "." + codec_file_format(config.output_codec);
 
+    //通知do_capture去保存一个jpg
+    auto prev = save_preview.exchange(true);
+    assert(prev == false);
+    preview_filename = filename + ".jpg";
+
+    //试三次打开writer
     for (int tried = 0; tried < open_writer_retry; tried++) {
-      if (writer.open(filename, codec_fourcc(config.output_codec), fps,
+      if (writer.open(video_filename, codec_fourcc(config.output_codec), fps,
                       frame_size)) {
-        out_filename = filename;
+        out_filename = video_filename;
         return true;
       } else {
-        logger::error("cap", "VideoWriter open ", filename, " failed ",
+        logger::error("cap", "VideoWriter open ", video_filename, " failed ",
                       tried + 1);
       }
     }
@@ -337,10 +381,18 @@ OPEN_WRITER:
   time_t tm;
   time(&tm);
   std::string filename;
-  if (!prepare_writer(tm, writer, filename)) {
+  if (!prepare_write(tm, writer, filename)) {
     logger::error("cap", "prepare_writer failed");
     this->stop();
   }
+
+  auto do_log = [this, tm, filename, config] {
+    auto localt = localtime(&tm);
+    log.add(filename, preview_filename, config.duration, mktime(localt), true);
+    if (!write_log(_config.save_location, log.to_str())) {
+      logger::error("cap", "write log failed");
+    }
+  };
 
   uint64 task_begin = 0;
   logger::info("cap", "video file change to ", filename);
@@ -358,6 +410,7 @@ OPEN_WRITER:
     frame_context ctx = std::move(decode2write_queue.front());
     decode2write_queue.pop();
     if (ctx.quit) {
+      do_log();
       break;
     }
     auto decode2write_queue_size = decode2write_queue.size();
@@ -477,6 +530,7 @@ OPEN_WRITER:
 
     //到了预定的时间，换文件
     if (ctx.send_time - task_begin >= config.duration * 1000) {
+      do_log();
       goto OPEN_WRITER;
     }
   }

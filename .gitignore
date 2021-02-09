@@ -38,3 +38,5 @@ cmake-build-release
 .idea/.gitignore
 3rd-party/libjpeg-turbo/build
 3rd-party/libjpeg-turbo/install
+video/*.jpg
+video/*.json

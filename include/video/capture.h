@@ -1,9 +1,10 @@
 #ifndef __HCAM_CAPTURE_H__
 #define __HCAM_CAPTURE_H__
-
 #include "codec.h"
 #include "config/config.h"
+#include "file_log.h"
 #include "util/string_util.h"
+#include "v4l_capture.h"
 #include "web/web.h"
 #include <atomic>
 #include <condition_variable>
@@ -14,6 +15,7 @@
 #include <opencv2/videoio.hpp>
 #include <optional>
 #include <queue>
+#include <stdio.h>
 #include <string>
 #include <thread>
 #include <time.h>
@@ -45,9 +47,7 @@ private:
 
     //捕获帧的时间
     time_t frame_time;
-#ifdef USE_V4L_CAPTURE
     std::shared_ptr<v4l_capture::buffer> captured_frame;
-#endif
     cv::Mat decoded_frame;
     //测性能
     uint32_t capture_time, send_time, send_done_time, decode_time,
@@ -59,6 +59,9 @@ private:
   enum { STOPPED, RUNNING, STOPPING };
   std::atomic<int> state = STOPPED;
   config _config;
+  file_log log;
+  std::atomic<bool> save_preview = false;
+  std::string preview_filename;
 
   std::thread capture_thread;
   std::queue<frame_context> capture2decode_queue;
@@ -90,8 +93,52 @@ private:
   //此周期是否掉帧
   bool low_fps = false;
 
-  static std::string make_filename(std::string save_directory,
-                                   const std::string &file_format, time_t tm) {
+  static std::string read_log(std::string dir) {
+    trim(dir);
+    if (!dir.empty() && *dir.rbegin() != '/' && *dir.rbegin() != '\\')
+      dir.append("/");
+    dir += "file_log.json";
+    std::unique_ptr<FILE, void (*)(FILE *)> fp(fopen(dir.c_str(), "rb"),
+                                               [](FILE *fp) {
+                                                 if (fp)
+                                                   fclose(fp);
+                                               });
+    if (!fp) {
+      return "[]";
+    }
+    fseek(fp.get(), 0L, SEEK_END);
+    auto size = ftell(fp.get());
+    if (size == -1L) {
+      return "[]";
+    }
+    rewind(fp.get());
+    std::string raw((std::size_t)size, 0);
+    auto actual_read = fread(raw.data(), 1, size, fp.get());
+    if (actual_read != size) {
+      return "[]";
+    }
+    return raw;
+  }
+
+  static bool write_log(std::string dir, const std::string &content) {
+    trim(dir);
+    if (!dir.empty() && *dir.rbegin() != '/' && *dir.rbegin() != '\\')
+      dir.append("/");
+    dir += "file_log.json";
+    std::unique_ptr<FILE, void (*)(FILE *)> fp(fopen(dir.c_str(), "wb"),
+                                               [](FILE *fp) {
+                                                 if (fp)
+                                                   fclose(fp);
+                                               });
+    if (!fp)
+      return false;
+    auto actual_write = fwrite(content.data(), 1, content.size(), fp.get());
+    if (actual_write != content.size())
+      return false;
+    return true;
+  }
+
+  static std::string make_filename(std::string save_directory, time_t tm) {
     trim(save_directory);
     if (!save_directory.empty() && *save_directory.rbegin() != '/' &&
         *save_directory.rbegin() != '\\')
@@ -103,7 +150,6 @@ private:
     fmt << localt->tm_year + 1900 << '-' << localt->tm_mon + 1 << '-'
         << localt->tm_mday << " at " << localt->tm_hour << '.' << localt->tm_min
         << '.' << localt->tm_sec;
-    fmt << '.' << file_format;
     return fmt.str();
   }
 
