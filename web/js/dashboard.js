@@ -89,7 +89,6 @@ function startLivestream() {
                         console.log("socket closed by timer callback");
                         socket.close();
                     } else {
-                        lastFrameTime = Date.now();
                         setTimeout(() => self(self), 10000);
                     }
                 };
@@ -101,6 +100,7 @@ function startLivestream() {
                     if (msg.data instanceof Blob) {
                         // binary
                         console.log("frame received");
+                        lastFrameTime = Date.now();
                         var frame = new Image();
                         frame.src = URL.createObjectURL(msg.data);
                         frame.onload = () => {
