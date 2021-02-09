@@ -34,7 +34,7 @@ message(STATUS "Project           : ${PROJECT_NAME}")
 message(STATUS "Project Directory : ${PROJECT_SOURCE_DIR}")
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    file(GLOB SRCS "src/*.cpp" "src/*.c" "src/linux/*.cpp" "src/linux/*.c")
+    file(GLOB SRCS "src/*.cpp" "src/*.c" "src/linux/*.cpp" "src/linux/*.c" "src/rpi/*.cpp" "src/rpi/*.c")
 else ()
     file(GLOB SRCS "src/*.cpp" "src/*.c")
 endif ()
