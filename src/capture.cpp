@@ -315,7 +315,10 @@ void capture::do_decode(const config &config) {
     }
 
     if (!process(ctx)) {
-      break;
+      //运行久了之后解码可能会收到损坏的jpg，暂时不清楚这个是因为什么
+      //我猜可能是bit flip之类的
+      continue;
+      /*break;*/
     }
 
     std::unique_lock ld2w(decode2write_mtx);
