@@ -401,11 +401,14 @@ void capture::do_write(const config &config) {
   };
 
 OPEN_WRITER:
-  if (directory_size >= config::get().max_storage * 1024 * 1024 * 1024) {
-    logger::info("cap",
-                 "max_storage limit reached, pause and removing old video(s)");
+  if (directory_size >= (uint64_t)config::get().max_storage * (uint64_t)1024 *
+                            (uint64_t)1024 * (uint64_t)1024) {
+    logger::info("cap", "max_storage limit reached(", directory_size,
+                 "), pause and removing old video(s)");
     pause_others();
-    while (directory_size >= config::get().max_storage * 1024 * 1024 * 1024) {
+    while (directory_size >= (uint64_t)config::get().max_storage *
+                                 (uint64_t)1024 * (uint64_t)1024 *
+                                 (uint64_t)1024) {
       auto video_info = log.pop_back();
       bool succ;
       auto total_removed = file_length(video_info.preview, succ);
