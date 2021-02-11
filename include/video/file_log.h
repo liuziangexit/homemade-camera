@@ -32,17 +32,22 @@ class file_log {
   std::vector<row> rows;
 
 public:
-  void parse(const std::string &str) {
-    rows.clear();
-    auto js = json::parse(str);
-    for (const auto &r : js) {
-      auto filename = r["filename"].get<std::string>();
-      auto preview = r["preview"].get<std::string>();
-      auto finished = r["finished"].get<bool>();
-      auto length = r["length"].get<uint32_t>();
-      auto time = r["time"].get<uint64_t>();
-      rows.emplace_back(filename, preview, length, time, finished);
+  bool parse(const std::string &str) {
+    try {
+      rows.clear();
+      auto js = json::parse(str);
+      for (const auto &r : js) {
+        auto filename = r["filename"].get<std::string>();
+        auto preview = r["preview"].get<std::string>();
+        auto finished = r["finished"].get<bool>();
+        auto length = r["length"].get<uint32_t>();
+        auto time = r["time"].get<uint64_t>();
+        rows.emplace_back(filename, preview, length, time, finished);
+      }
+    } catch (...) {
+      return false;
     }
+    return true;
   }
 
   void add(const std::string &filename, const std::string &preview,

@@ -33,7 +33,10 @@ void capture::run() {
       throw std::logic_error("capture already running");
   }
   auto json_string = read_log(_config.save_location);
-  log.parse(json_string);
+  if (!log.parse(json_string)) {
+    logger::fatal("cap", "log parse failed");
+    abort();
+  }
 
   capture_thread = std::thread([this] { this->do_capture(this->_config); });
   decode_thread = std::thread([this] { this->do_decode(this->_config); });
