@@ -40,6 +40,8 @@ struct config {
   std::string web_addr;      // web服务地址
   int port;                  // web服务端口
   int ssl_port;              // web服务端口
+  std::string ssl_cert;      // ssl证书
+  std::string ssl_key;       // ssl私钥
   std::string web_root;      // web目录
   int idle_timeout;          // web服务连接闲置超时时间（秒）
 

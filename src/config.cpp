@@ -71,6 +71,8 @@ bool config::read(const std::string &filename) {
     this->web_addr = js["web-addr"].get<std::string>();
     this->port = js["port"].get<int>();
     this->ssl_port = js["ssl-port"].get<int>();
+    this->ssl_cert = js["ssl-cert"].get<std::string>();
+    this->ssl_key = js["ssl-key"].get<std::string>();
     this->web_root = js["web-root"].get<std::string>();
     this->idle_timeout = js["idle-timeout"].get<int>();
   } catch (const std::exception &ex) {
