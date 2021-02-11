@@ -38,6 +38,23 @@ void capture::run() {
     abort();
   }
 
+  directory_size = 0;
+  for (const auto &p : log.rows) {
+    bool succ;
+    directory_size += file_length(p.filename, succ);
+    if (!succ) {
+      logger::fatal("cap", "can not retrieve info of ", p.filename);
+      internal_stop_avoid_deadlock();
+      return;
+    }
+    directory_size += file_length(p.preview, succ);
+    if (!succ) {
+      logger::fatal("cap", "can not retrieve info of ", p.preview);
+      internal_stop_avoid_deadlock();
+      return;
+    }
+  }
+
   capture_thread = std::thread([this] { this->do_capture(this->_config); });
   decode_thread = std::thread([this] { this->do_decode(this->_config); });
   write_thread = std::thread([this] { this->do_write(this->_config); });
@@ -384,6 +401,48 @@ void capture::do_write(const config &config) {
   };
 
 OPEN_WRITER:
+  if (directory_size >= config::get().max_storage * 1024 * 1024 * 1024) {
+    logger::info("cap",
+                 "max_storage limit reached, pause and removing old video(s)");
+    pause_others();
+    while (directory_size >= config::get().max_storage * 1024 * 1024 * 1024) {
+      auto video_info = log.pop_back();
+      bool succ;
+      auto total_removed = file_length(video_info.preview, succ);
+      if (!succ) {
+        logger::fatal("cap", "can not retrieve info of ", video_info.preview);
+        internal_stop_avoid_deadlock();
+        return;
+      }
+      total_removed += file_length(video_info.filename, succ);
+      if (!succ) {
+        logger::fatal("cap", "can not retrieve info of ", video_info.filename);
+        internal_stop_avoid_deadlock();
+        return;
+      }
+
+      if (remove(video_info.filename.c_str()) == 0) {
+        logger::info("cap", "remove ", video_info.filename, " ok");
+      } else {
+        logger::fatal("cap", "remove ", video_info.filename, " failed");
+        resume_others();
+        internal_stop_avoid_deadlock();
+        return;
+      }
+      if (remove(video_info.preview.c_str()) == 0) {
+        logger::info("cap", "remove ", video_info.preview, " ok");
+      } else {
+        logger::fatal("cap", "remove ", video_info.preview, " failed");
+        resume_others();
+        internal_stop_avoid_deadlock();
+        return;
+      }
+      directory_size -= total_removed;
+    }
+    logger::info("cap", "necessarily disk space reclaimed");
+    resume_others();
+  }
+
   time_t tm;
   time(&tm);
   std::string filename;
@@ -537,6 +596,19 @@ OPEN_WRITER:
     //到了预定的时间，换文件
     if (ctx.send_time - task_begin >= config.duration * 1000) {
       do_log();
+      bool succ;
+      directory_size += file_length(filename, succ);
+      if (!succ) {
+        logger::fatal("cap", "can not retrieve info of ", filename);
+        internal_stop_avoid_deadlock();
+        return;
+      }
+      directory_size += file_length(preview_filename, succ);
+      if (!succ) {
+        logger::fatal("cap", "can not retrieve info of ", preview_filename);
+        internal_stop_avoid_deadlock();
+        return;
+      }
       goto OPEN_WRITER;
     }
   }

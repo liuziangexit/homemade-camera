@@ -1,12 +1,12 @@
 #ifndef __HCAM_FILE_LOG_H__
 #define __HCAM_FILE_LOG_H__
 #include "json/json.hpp"
+#include <deque>
 #include <stdio.h>
-#include <vector>
 
 namespace hcam {
 
-class file_log {
+struct file_log {
   using json = nlohmann::json;
 
   struct row {
@@ -29,9 +29,8 @@ class file_log {
     bool finished;
   };
 
-  std::vector<row> rows;
+  std::deque<row> rows;
 
-public:
   bool parse(const std::string &str) {
     try {
       rows.clear();
@@ -53,6 +52,12 @@ public:
   void add(const std::string &filename, const std::string &preview,
            uint32_t length, uint64_t time, bool finished) {
     rows.emplace_back(filename, preview, length, time, finished);
+  }
+
+  row pop_back() {
+    row copy = rows.front();
+    rows.pop_front();
+    return copy;
   }
 
   std::string to_str() {

@@ -84,6 +84,8 @@ private:
   uint32_t frame_cost = 0;
   //总处理帧数
   uint32_t frame_cnt = 0;
+  //输出目录大小（字节）
+  uint64_t directory_size;
   //帧率周期开始时的帧数
   uint32_t frame_cnt_base = 0;
   //帧率周期开始时间

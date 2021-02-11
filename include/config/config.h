@@ -22,9 +22,10 @@ struct config {
   uint32_t duration;                        //每个视频文件的持续时间
   std::string save_location;                //保存目录
   enum codec output_codec;                  //视频文件编码格式
-  std::string device;                       //摄像头设备挂载点
-  cv::Size resolution;                      //分辨率
-  int fps;                                  //帧率
+  int max_storage;     //输出目录最大占用空间（GB）
+  std::string device;  //摄像头设备挂载点
+  cv::Size resolution; //分辨率
+  int fps;             //帧率
   enum timestamp_pos_t {
     UPPER_RIGHT,
     UPPER_LEFT,

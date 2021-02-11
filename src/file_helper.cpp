@@ -34,4 +34,24 @@ bool write_file(const std::string &name, const void *data, uint32_t len) {
   return actual_write == len;
 }
 
+uint64_t file_length(const std::string &name, bool &succ) {
+  std::unique_ptr<FILE, void (*)(FILE *)> fp(fopen(name.c_str(), "rb"),
+                                             [](FILE *fp) {
+                                               if (fp)
+                                                 fclose(fp);
+                                             });
+  if (!fp) {
+    succ = false;
+    return 0;
+  }
+  fseek(fp.get(), 0L, SEEK_END);
+  auto size = ftell(fp.get());
+  if (size == -1L) {
+    succ = false;
+    return 0;
+  }
+  succ = true;
+  return size;
+}
+
 } // namespace hcam

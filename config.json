@@ -9,6 +9,7 @@
   "duration": 1800,
   "save-location": "video",
   "device": "/dev/video0",
+  "max-storage": 1,
   "resolution": "1280x720",
   "fps": 30,
   "timestamp-pos": 3,
