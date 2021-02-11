@@ -34,6 +34,7 @@ bool write_file(const std::string &name, const void *data, uint32_t len) {
   return actual_write == len;
 }
 
+// TODO 只读inode就够了
 uint64_t file_length(const std::string &name, bool &succ) {
   std::unique_ptr<FILE, void (*)(FILE *)> fp(fopen(name.c_str(), "rb"),
                                              [](FILE *fp) {
