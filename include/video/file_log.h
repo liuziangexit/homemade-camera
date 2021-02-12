@@ -54,7 +54,7 @@ struct file_log {
     rows.emplace_back(filename, preview, length, time, finished);
   }
 
-  row pop_back() {
+  row pop_front() {
     row copy = rows.front();
     rows.pop_front();
     return copy;

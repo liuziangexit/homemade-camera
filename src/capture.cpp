@@ -409,17 +409,26 @@ OPEN_WRITER:
     while (directory_size >= (uint64_t)config::get().max_storage *
                                  (uint64_t)1024 * (uint64_t)1024 *
                                  (uint64_t)1024) {
-      auto video_info = log.pop_back();
+      if (log.rows.size() == 1) {
+        //防止删到正在写的文件
+        logger::fatal("cap", "running out of disk space");
+        resume_others();
+        internal_stop_avoid_deadlock();
+        return;
+      }
+      auto video_info = log.pop_front();
       bool succ;
       auto total_removed = file_length(video_info.preview, succ);
       if (!succ) {
         logger::fatal("cap", "can not retrieve info of ", video_info.preview);
+        resume_others();
         internal_stop_avoid_deadlock();
         return;
       }
       total_removed += file_length(video_info.filename, succ);
       if (!succ) {
         logger::fatal("cap", "can not retrieve info of ", video_info.filename);
+        resume_others();
         internal_stop_avoid_deadlock();
         return;
       }
