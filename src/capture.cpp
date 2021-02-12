@@ -22,6 +22,19 @@
 
 namespace hcam {
 
+std::string map_fs(const std::string &base, const std::string &file) {
+  std::string result(base);
+  if (base.back() != '/') {
+    result.append("/");
+  }
+  if (file.front() == '/') {
+    result.append(file.substr(1, file.size()));
+  } else {
+    result.append(file);
+  }
+  return result;
+}
+
 capture::capture(web &_web_service)
     : _config(config::get()), web_service(_web_service) {}
 capture::~capture() { stop(); }
@@ -41,15 +54,19 @@ void capture::run() {
   directory_size = 0;
   for (const auto &p : log.rows) {
     bool succ;
-    directory_size += file_length(p.filename, succ);
+    directory_size +=
+        file_length(map_fs(config::get().save_location, p.filename), succ);
     if (!succ) {
-      logger::fatal("cap", "can not retrieve info of ", p.filename);
+      logger::fatal("cap", "can not retrieve info of ",
+                    map_fs(config::get().save_location, p.filename));
       internal_stop_avoid_deadlock();
       return;
     }
-    directory_size += file_length(p.preview, succ);
+    directory_size +=
+        file_length(map_fs(config::get().save_location, p.preview), succ);
     if (!succ) {
-      logger::fatal("cap", "can not retrieve info of ", p.preview);
+      logger::fatal("cap", "can not retrieve info of ",
+                    map_fs(config::get().save_location, p.preview));
       internal_stop_avoid_deadlock();
       return;
     }
@@ -418,33 +435,47 @@ OPEN_WRITER:
       }
       auto video_info = log.pop_front();
       bool succ;
-      auto total_removed = file_length(video_info.preview, succ);
+      auto total_removed = file_length(
+          map_fs(config::get().save_location, video_info.preview), succ);
       if (!succ) {
-        logger::fatal("cap", "can not retrieve info of ", video_info.preview);
+        logger::fatal("cap", "can not retrieve info of ",
+                      map_fs(config::get().save_location, video_info.preview));
         resume_others();
         internal_stop_avoid_deadlock();
         return;
       }
-      total_removed += file_length(video_info.filename, succ);
+      total_removed += file_length(
+          map_fs(config::get().save_location, video_info.filename), succ);
       if (!succ) {
-        logger::fatal("cap", "can not retrieve info of ", video_info.filename);
+        logger::fatal("cap", "can not retrieve info of ",
+                      map_fs(config::get().save_location, video_info.filename));
         resume_others();
         internal_stop_avoid_deadlock();
         return;
       }
 
-      if (remove(video_info.filename.c_str()) == 0) {
-        logger::info("cap", "remove ", video_info.filename, " ok");
+      if (remove(map_fs(config::get().save_location, video_info.filename)
+                     .c_str()) == 0) {
+        logger::info("cap", "remove ",
+                     map_fs(config::get().save_location, video_info.filename),
+                     " ok");
       } else {
-        logger::fatal("cap", "remove ", video_info.filename, " failed");
+        logger::fatal("cap", "remove ",
+                      map_fs(config::get().save_location, video_info.filename),
+                      " failed");
         resume_others();
         internal_stop_avoid_deadlock();
         return;
       }
-      if (remove(video_info.preview.c_str()) == 0) {
-        logger::info("cap", "remove ", video_info.preview, " ok");
+      if (remove(map_fs(config::get().save_location, video_info.preview)
+                     .c_str()) == 0) {
+        logger::info("cap", "remove ",
+                     map_fs(config::get().save_location, video_info.preview),
+                     " ok");
       } else {
-        logger::fatal("cap", "remove ", video_info.preview, " failed");
+        logger::fatal("cap", "remove ",
+                      map_fs(config::get().save_location, video_info.preview),
+                      " failed");
         resume_others();
         internal_stop_avoid_deadlock();
         return;
@@ -465,7 +496,10 @@ OPEN_WRITER:
 
   auto do_log = [this, tm, filename, config] {
     auto localt = localtime(&tm);
-    log.add(filename, preview_filename, config.duration, mktime(localt), true);
+    log.add(filename.substr(filename.find('/') + 1, filename.size()),
+            preview_filename.substr(preview_filename.find('/') + 1,
+                                    preview_filename.size()),
+            config.duration, mktime(localt), true);
     if (!write_log(_config.save_location, log.to_str())) {
       logger::error("cap", "write log failed");
     }

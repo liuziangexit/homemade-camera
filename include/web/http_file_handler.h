@@ -69,16 +69,7 @@ void handle_request(
     return send(bad_request("Illegal request-target"));
 
   // Build the path to the requested file
-  static const std::string video_prefix = "/video";
-  std::string path;
-  std::string target(req.target());
-  if (target.size() > video_prefix.size() &&
-      target.substr(0, video_prefix.size()) == video_prefix) {
-    path = path_cat(config::get().save_location,
-                    target.substr(video_prefix.size(), target.size()));
-  } else {
-    path = path_cat(doc_root, req.target());
-  }
+  std::string path = path_cat(doc_root, req.target());
   if (req.target().back() == '/')
     path.append("index.html");
 

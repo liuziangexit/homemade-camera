@@ -140,12 +140,27 @@ private:
     }
 
     // handle request
-    handle_request(boost::beast::string_view(config::get().web_root),
-                   std::move(http_request), [this](auto &&response) {
-                     response.set(boost::beast::http::field::server,
-                                  "homemade-camera");
-                     this->http_write(std::move(response));
-                   });
+    static const std::string video_prefix = "/video";
+    std::string target(http_request.target());
+    if (target.size() > video_prefix.size() &&
+        target.substr(0, video_prefix.size()) == video_prefix) {
+      http_request.target(
+          std::string(http_request.target())
+              .substr(video_prefix.size(), http_request.target().size()));
+      handle_request(boost::beast::string_view(config::get().save_location),
+                     std::move(http_request), [this](auto &&response) {
+                       response.set(boost::beast::http::field::server,
+                                    "homemade-camera");
+                       this->http_write(std::move(response));
+                     });
+    } else {
+      handle_request(boost::beast::string_view(config::get().web_root),
+                     std::move(http_request), [this](auto &&response) {
+                       response.set(boost::beast::http::field::server,
+                                    "homemade-camera");
+                       this->http_write(std::move(response));
+                     });
+    }
   }
 
   // http write
