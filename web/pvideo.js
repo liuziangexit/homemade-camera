@@ -10,7 +10,7 @@ function secondsToString(sec) {
 
 function addVideo(videos, json) {
     var div = document.createElement("div");
-    div.className = "col-sm-3 p-2";
+    div.className = "col-sm p-2";
 
     var img = document.createElement("img");
     img.src = "video/" + json.preview;
@@ -46,10 +46,10 @@ function runVideoUI() {
         }
         //不知道为啥，file.length%2==0的时候，最后一个元素就没有对齐了
         //这里通过瞎搞的方式解决了，我也不想研究这些东西
-        for (var i = 0; i < files.length % 3; i++) {
+      /*  for (var i = 0; i < files.length % 3; i++) {
             var div = document.createElement("div");
-            div.className = "col-sm-3 p-2";
+            div.className = "col-sm p-2";
             videos.appendChild(div);
-        }
+        }*/
     })
 }
