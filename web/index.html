@@ -60,22 +60,15 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a id="videoTab" class="nav-link" onclick="tabClick('videoTab','pvideo.html',()=>{
-
-
-                            window.onresize = () => {
-
-                            };})">
+                        <a id="videoTab" class="nav-link"
+                           onclick="tabClick('videoTab','pvideo.html',()=>{runVideoUI();},null)">
                             <span data-feather="hard-drive"></span>
-                            录像管理
+                            回放
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a id="settingsTab" class="nav-link" onclick="tabClick('settingsTab','settings.html',()=>{
-
-                            window.onresize = () => {
-
-                            };})">
+                        <a id="settingsTab" class="nav-link"
+                           onclick="tabClick('settingsTab','settings.html',()=>{},null)">
                             <span data-feather="settings"></span>
                             设置
                         </a>
@@ -95,9 +88,11 @@
 <script>window.jQuery || document.write('<script src="js/jquery.slim.min.js"><\/script>')</script>
 <script src="js/bootstrap.bundle.min.js"></script>
 
-
 <script src="js/feather.min.js"></script>
 <script src="js/Chart.min.js"></script>
 <script src="js/dashboard.js"></script>
+<script src="live.js"></script>
+<script src="pvideo.js"></script>
+<script src="settings.js"></script>
 </body>
 </html>
