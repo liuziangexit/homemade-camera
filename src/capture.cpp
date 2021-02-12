@@ -510,6 +510,7 @@ OPEN_WRITER:
   logger::debug("cap", "writer backend:", writer.getBackendName(),
                 " codec:", codec_to_string(config.output_codec), " fps:", fps,
                 " resolution:", frame_size);
+  do_log();
 
   bool paused_by_me = false;
   while (true) {
@@ -521,7 +522,6 @@ OPEN_WRITER:
     frame_context ctx = std::move(decode2write_queue.front());
     decode2write_queue.pop();
     if (ctx.quit) {
-      do_log();
       break;
     }
     auto decode2write_queue_size = decode2write_queue.size();
@@ -641,7 +641,6 @@ OPEN_WRITER:
 
     //到了预定的时间，换文件
     if (ctx.send_time - task_begin >= config.duration * 1000) {
-      do_log();
       bool succ;
       directory_size += file_length(filename, succ);
       if (!succ) {

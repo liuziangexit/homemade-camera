@@ -73,6 +73,13 @@ void handle_request(
   if (req.target().back() == '/')
     path.append("index.html");
 
+  //我们现在还没有引入url编解码，所以为了简单支持带空格的文件，直接查找替换一下
+  std::string::size_type pos = path.find("%20");
+  while (pos != std::string::npos) {
+    path = path.replace(pos, 3, " ");
+    pos = path.find("%20");
+  }
+
   // Attempt to open the file
   boost::beast::error_code ec;
   boost::beast::http::file_body::value_type body;
