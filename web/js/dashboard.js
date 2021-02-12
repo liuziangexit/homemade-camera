@@ -22,13 +22,13 @@ var prevTabDesturctor;
 
 function tabClick(tabName, url, callback, dtor) {
     httpGetAsync(url, txt => {
+        if (prevTabDesturctor)
+            prevTabDesturctor();
         var mainDiv = document.getElementById("main");
         mainDiv.innerHTML = txt;
         feather.replace();
         prevTab = activeTab;
         activeTab = tabName;
-        if (prevTabDesturctor)
-            prevTabDesturctor();
         prevTabDesturctor = dtor;
         document.getElementById(tabName).classList.add("active");
         if (prevTab) {

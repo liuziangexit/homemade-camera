@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>HomeCam</title>
+    <title>HomeCam By 刘子昂</title>
 
 
     <!-- Bootstrap core CSS -->
@@ -46,29 +46,31 @@
             <div class="sidebar-sticky pt-3">
                 <ul class="nav flex-column">
                     <li class="nav-item">
-                        <a id="liveTab" class="nav-link" onclick="tabClick('liveTab','live.html',()=>{
+                        <a id="liveTab" class="nav-link" style="cursor: pointer" onclick="tabClick('liveTab','live.html',()=>{
                             // LiveStream
                             canvas = document.getElementById('hcam-live');
                             startLivestream();
 
                             window.onresize = () => {
                                 draw('', '', null, true);
-                            };},()=>{socket.close();window.onresize = () => {
+                            };},()=>{
+                            document.getElementById('main').innerHTML='';
+                            socket.close();window.onresize = () => {
                             }})">
                             <span data-feather="video"></span>
                             首页 <span class="sr-only">(current)</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a id="videoTab" class="nav-link"
-                           onclick="tabClick('videoTab','pvideo.html',()=>{runVideoUI();},null)">
+                        <a id="videoTab" class="nav-link" style="cursor: pointer"
+                           onclick="tabClick('videoTab','pvideo.html',()=>{runVideoUI();},()=>{document.getElementById('main').innerHTML='';})">
                             <span data-feather="hard-drive"></span>
                             回放
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a id="settingsTab" class="nav-link"
-                           onclick="tabClick('settingsTab','settings.html',()=>{},null)">
+                        <a id="settingsTab" class="nav-link" style="cursor: pointer"
+                           onclick="tabClick('settingsTab','settings.html',()=>{},()=>{document.getElementById('main').innerHTML='';})">
                             <span data-feather="settings"></span>
                             设置
                         </a>

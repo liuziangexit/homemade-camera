@@ -32,7 +32,7 @@ function addVideo(videos, json) {
         window.open("video/" + json.filename, '_blank');
     };
     img.onclick = download;
-    div.onclick = download();
+    div.onclick = download;
 }
 
 function runVideoUI() {
