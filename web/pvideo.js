@@ -14,7 +14,7 @@ function addVideo(videos, json) {
 
     var img = document.createElement("img");
     img.src = "video/" + json.preview;
-    img.style = "width:20em;cursor: pointer";
+    img.style = "width:16em;cursor: pointer";
     div.appendChild(img);
 
     var filename = document.createElement("p");
