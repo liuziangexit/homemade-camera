@@ -1,3 +1,21 @@
+function httpGetAsync(theUrl, callback) {
+    var xhr = new XMLHttpRequest();
+    if ("withCredentials" in xhr) {
+        xhr.open("GET", theUrl, true);
+    } else if (typeof XDomainRequest != "undefined") {
+        xhr = new XDomainRequest();
+        xhr.open("GET", theUrl);
+    } else {
+        return false;
+    }
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState == 4 && xhr.status == 200)
+            callback(xhr.responseText);
+    }
+    xhr.send();
+    return true;
+};
+
 var canvasScale = {
     denominator: 16,
     numerator: 9
@@ -44,6 +62,8 @@ var twinkleId = 0;
 var twinkle = ["forestgreen", "rgba(0,0,0,0)"];
 
 function draw(color, text, frame, nochange) {
+    if (activeTab != "liveTab")
+        return;
     changeCanvasSize(canvas);
 
     var ctx = canvas.getContext('2d');
@@ -134,11 +154,13 @@ function startLivestream() {
     });
     socket.addEventListener('close', function (event) {
         draw("red", "连接已关闭", null);
-        document.getElementById("saveButton").setAttribute("disabled", "disabled");
+        var btn = document.getElementById("saveButton")
+        if (btn) btn.setAttribute("disabled", "disabled");
     });
     socket.addEventListener('error', function (event) {
         draw("red", "连接错误", null);
-        document.getElementById("saveButton").setAttribute("disabled", "disabled");
+        var btn = document.getElementById("saveButton")
+        if (btn) btn.setAttribute("disabled", "disabled");
     });
     socket.addEventListener('message', function (event) {
         if (messageHandler) {
@@ -147,7 +169,6 @@ function startLivestream() {
             console.warn("ws message ignored");
         }
     });
-
 }
 
 function getBase64Image(img) {
@@ -169,15 +190,29 @@ function saveFrame() {
     }
 }
 
+var activeTab;
+var prevTab;
+var prevTabDesturctor;
+
+function tabClick(tabName, url, callback, dtor) {
+    httpGetAsync(url, txt => {
+        var mainDiv = document.getElementById("main");
+        mainDiv.innerHTML = txt;
+        feather.replace();
+        prevTab = activeTab;
+        activeTab = tabName;
+        if (prevTabDesturctor)
+            prevTabDesturctor();
+        prevTabDesturctor = dtor;
+        document.getElementById(tabName).classList.add("active");
+        if (prevTab) {
+            document.getElementById(prevTab).classList.remove("active");
+        }
+        callback();
+    })
+}
+
 (function () {
     'use strict'
-    feather.replace();
-
-    // LiveStream
-    canvas = document.getElementById("hcam-live");
-    startLivestream();
-
-    window.onresize = () => {
-        draw("", "", null, true);
-    };
+    document.getElementById("liveTab").click();
 })();
