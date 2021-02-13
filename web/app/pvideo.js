@@ -13,7 +13,7 @@ function addVideo(videos, json) {
     div.className = "col-sm p-2";
 
     var img = document.createElement("img");
-    img.src = "video/" + json.preview;
+    img.src = "/video/" + json.preview;
     img.style = "width:16em;cursor: pointer";
     div.appendChild(img);
 
@@ -29,14 +29,14 @@ function addVideo(videos, json) {
     videos.appendChild(div);
 
     var download = () => {
-        window.open("video/" + json.filename, '_blank');
+        window.open("/video/" + json.filename, '_blank');
     };
     img.onclick = download;
     div.onclick = download;
 }
 
 function runVideoUI() {
-    httpGetAsync("video/file_log.json", txt => {
+    httpGetAsync("/video/file_log.json", txt => {
         var files = JSON.parse(txt);
         var videos = document.getElementById("videos");
         for (var i in files) {

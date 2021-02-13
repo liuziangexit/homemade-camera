@@ -19,22 +19,43 @@ function httpGetAsync(theUrl, callback) {
 var activeTab;
 var prevTab;
 var prevTabDesturctor;
+var loadingPanel = false;
 
-function tabClick(tabName, url, callback, dtor) {
+//TODO 这里现在类似于加锁，但实际上想做成当新的tab被click时，老的loading（主要是httpget）就被取消了
+function tabClick(tabName, label, url, callback, dtor) {
+    if (loadingPanel)
+        return;
+    loadingPanel = true;
+    document.getElementById(tabName).classList.add("active");
+    if (activeTab) {
+        document.getElementById(activeTab).classList.remove("active");
+    }
+    if (document.getElementById("menu-button").getAttribute("aria-expanded") === "true") {
+        document.getElementById("menu-button").click();
+    }
+    if (prevTabDesturctor)
+        prevTabDesturctor();
+    document.getElementById("loading-div").style = "height:100%";
+    document.getElementById("loading-label").innerText = label;
+
     httpGetAsync(url, txt => {
-        if (prevTabDesturctor)
-            prevTabDesturctor();
-        var mainDiv = document.getElementById("main");
-        mainDiv.innerHTML = txt;
-        feather.replace();
-        prevTab = activeTab;
-        activeTab = tabName;
-        prevTabDesturctor = dtor;
-        document.getElementById(tabName).classList.add("active");
-        if (prevTab) {
-            document.getElementById(prevTab).classList.remove("active");
+        var eCopy;
+        try {
+            prevTab = activeTab;
+            activeTab = tabName;
+            prevTabDesturctor = dtor;
+
+            var mainDiv = document.getElementById("main");
+            mainDiv.innerHTML = txt;
+            feather.replace();
+            callback();
+        } catch (e) {
+            eCopy = e;
         }
-        callback();
+        document.getElementById("loading-div").style = "display: none";
+        loadingPanel = false;
+        if (eCopy)
+            throw eCopy;
     })
 }
 

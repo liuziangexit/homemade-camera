@@ -1,16 +1,17 @@
 {
-    "name": "Homecam",
-    "short_name": "hcam",
+    "name": "Homemade Camera",
+    "short_name": "Homecam",
     "description": "",
     "icons": [
         {
-            "src": "img/icon.png",
+            "src": "/img/icon.png",
             "sizes": "512x512",
             "type": "image/png"
         }
     ],
-    "start_url": "/",
+    "start_url": "/app/",
     "display": "fullscreen",
     "theme_color": "#343a40",
-    "background_color": "#8e8e8e"
+    "background_color": "#8e8e8e",
+    "scope":"/app/"
 }
