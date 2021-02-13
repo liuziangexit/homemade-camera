@@ -1,15 +1,15 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <p style="font-size: 2em;margin-bottom: 0;font-family: sans-serif bold">设置</p>
+    <p style="font-size: 2em;margin-bottom: 0;font-family: sans-serif bold">日志</p>
     <div class="btn-toolbar mb-2 mb-md-0">
         <div class="btn-group mr-2">
-            <button id="apply" type="button" disabled="disabled" onclick="applyConfig()"
+            <button id="fetchBtn" type="button" disabled="disabled" onclick="fetchLog()"
                     class="btn btn-sm btn-outline-secondary">
-                <span data-feather="upload"></span>
-                应用
+                <span data-feather="refresh-cw"></span>
+                更新
             </button>
         </div>
     </div>
 </div>
-<textarea id="configtxt" rows="25"
+<textarea id="logtxt" rows="25"
           style="visibility: hidden;">
 </textarea>

@@ -140,8 +140,30 @@ private:
     }
 
     // handle request
-    static const std::string video_prefix = "/video";
     std::string target(http_request.target());
+
+    if (target == "/config.json") {
+      http_request.target("/config.json");
+      handle_request(boost::beast::string_view("."), std::move(http_request),
+                     [this](auto &&response) {
+                       response.set(boost::beast::http::field::server,
+                                    "homemade-camera");
+                       this->http_write(std::move(response));
+                     });
+      return;
+    } else if (target == "/log") {
+      /* http_request.target(config::get().l);
+       handle_request(boost::beast::string_view(config::get().save_location),
+                      std::move(http_request), [this](auto &&response) {
+             response.set(boost::beast::http::field::server,
+                          "homemade-camera");
+             this->http_write(std::move(response));
+           });
+           return ;
+           */
+    }
+
+    static const std::string video_prefix = "/video";
     if (target.size() > video_prefix.size() &&
         target.substr(0, video_prefix.size()) == video_prefix) {
       http_request.target(

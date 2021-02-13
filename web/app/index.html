@@ -132,8 +132,15 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a id="logTab" class="nav-link" style="cursor: pointer"
+                           onclick="tabClick('logTab','日志','log.html',()=>{runLogUI();},()=>{document.getElementById('main').innerHTML='';})">
+                            <span data-feather="activity"></span>
+                            日志
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a id="settingsTab" class="nav-link" style="cursor: pointer"
-                           onclick="tabClick('settingsTab','设置','settings.html',()=>{},()=>{document.getElementById('main').innerHTML='';})">
+                           onclick="tabClick('settingsTab','设置','settings.html',()=>{runSettingsUI();},()=>{document.getElementById('main').innerHTML='';})">
                             <span data-feather="settings"></span>
                             设置
                         </a>
@@ -169,6 +176,7 @@
 <script src="/js/dashboard.js"></script>
 <script src="live.js"></script>
 <script src="pvideo.js"></script>
+<script src="log.js"></script>
 <script src="settings.js"></script>
 </body>
 </html>
