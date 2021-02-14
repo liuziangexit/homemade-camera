@@ -2,10 +2,15 @@
     <p style="font-size: 2em;margin-bottom: 0;font-family: sans-serif bold">设置</p>
     <div class="btn-toolbar mb-2 mb-md-0">
         <div class="btn-group mr-2">
+            <button id="reboot" type="button" disabled="disabled" onclick="rebootApp()"
+                    class="btn btn-sm btn-outline-secondary">
+                <span data-feather="power"></span>
+                重启
+            </button>
             <button id="apply" type="button" disabled="disabled" onclick="applyConfig()"
                     class="btn btn-sm btn-outline-secondary">
-                <span data-feather="upload"></span>
-                应用
+                <span data-feather="save"></span>
+                保存
             </button>
         </div>
     </div>
