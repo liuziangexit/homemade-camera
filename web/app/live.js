@@ -42,6 +42,11 @@ var lastFrameTime = 0;
 var twinkleTime = Date.now();
 var twinkleId = 0;
 var twinkle = ["forestgreen", "rgba(0,0,0,0)"];
+var debug = false;
+
+var roundBegin = 0;
+var frameCnt = 0;
+var fps = 0;
 
 function draw(color, text, frame, nochange) {
     if (activeTab != "liveTab")
@@ -103,6 +108,15 @@ function startLivestream() {
                         // binary
                         console.log("frame received");
                         lastFrameTime = Date.now();
+
+                        if (lastFrameTime - roundBegin >= 1000) {
+                            fps = frameCnt;
+                            frameCnt = 0;
+                            roundBegin = lastFrameTime;
+                        } else {
+                            frameCnt++;
+                        }
+
                         var frame = new Image();
                         frame.src = URL.createObjectURL(msg.data);
                         frame.onload = () => {
@@ -113,7 +127,11 @@ function startLivestream() {
                                 twinkleId++;
                                 twinkleTime = now;
                             }
-                            draw(twinkle[(twinkleId) % 2], "LIVE", frame);
+                            var text = "LIVE";
+                            if (debug) {
+                                text = "" + fps + " fps";
+                            }
+                            draw(twinkle[(twinkleId) % 2], text, frame);
                         }
                     } else {
                         // text

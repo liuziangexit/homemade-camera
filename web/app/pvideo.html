@@ -1,5 +1,17 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <p style="font-size: 2em;margin-bottom: 0;font-family: sans-serif bold">回放</p>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group mr-2">
+            <button id="prevBtn" type="button" disabled="disabled" onclick="prevPage()"
+                    class="btn btn-sm btn-outline-secondary">
+                <span data-feather="arrow-left"></span>
+            </button>
+            <button id="nextBtn" type="button" disabled="disabled" onclick="nextPage()"
+                    class="btn btn-sm btn-outline-secondary">
+                <span data-feather="arrow-right"></span>
+            </button>
+        </div>
+    </div>
 </div>
 
 <div class="container">

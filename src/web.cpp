@@ -12,8 +12,13 @@ void wrap(
     boost::beast::net::ip::tcp::acceptor &_acceptor,
     std::function<bool(boost::beast::error_code, boost::asio::ip::tcp::socket)>
         on_accept) {
-  if (!on_accept(ec, std::move(socket)))
-    return;
+  try {
+    if (!on_accept(ec, std::move(socket)))
+      return;
+  } catch (const std::exception &ex) {
+    logger::fatal("web", "on_accept throws an exception! ", ex.what());
+    abort();
+  }
   _acceptor.async_accept(
       boost::asio::make_strand(_acceptor.get_executor()),
       [&_acceptor, on_accept](boost::beast::error_code ec,
