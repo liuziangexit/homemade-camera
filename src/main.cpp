@@ -6,7 +6,9 @@
 #include <signal.h>
 #include <stdio.h>
 #include <sys/resource.h>
+#include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/types.h> /* See NOTES */
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
@@ -18,7 +20,7 @@ int quit = 0;
 
 enum job_t { CAPTURE = 0, NETWORK = 1, CONTROL = 2 };
 job_t job;
-pid_t children[CONTROL];
+pid_t children[CONTROL]{0};
 
 void hcam_exit(int num, bool is_ctl = false) {
   if (is_ctl) {
@@ -29,10 +31,11 @@ void hcam_exit(int num, bool is_ctl = false) {
     // kill children
     for (int i = 0; i < sizeof(children) / sizeof(pid_t); i++) {
       if (children[i]) {
-        hcam::logger::warn("main", "killing ", children[i]);
+        //好像给parent发signal时候，也给child发了，所以就不用我们自己发了
+        /*hcam::logger::warn("main", "killing ", children[i]);
         if (kill(children[i], SIGTERM)) {
           hcam::logger::error("main", "failed to kill child ", i);
-        }
+        }*/
         int status;
         int ret = waitpid(children[i], &status, 0);
         if (ret == -1) {
@@ -88,8 +91,18 @@ void signal_handler(int signum) {
   exit(signum);*/
 }
 
+int ipc_socks[2 * 3]{0};
+int *ctl_cap = &ipc_socks[0], *ctl_net = &ipc_socks[2],
+    *cap_net = &ipc_socks[4];
+
 int main(int argc, char **argv) {
-  memset(children, 0, sizeof(children));
+  //准备ipc用的sock
+  for (int i = 0; i < sizeof(ipc_socks) / sizeof(int) / 2; i++) {
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, &ipc_socks[i * 2])) {
+      perror("socketpair failed");
+      abort();
+    }
+  }
 
   //创建工作进程
   for (int i = 0; i < CONTROL; i++) {
@@ -142,9 +155,9 @@ WORK:
                        " NETWORK:", children[NETWORK]);
     // FIXME 卧槽，这就是UB吗？
     // std::this_thread::sleep_for(std::chrono::hours::max());
-     while (quit != 2) {
-       pause();
-     }
+    while (quit != 2) {
+      pause();
+    }
     break;
   }
   hcam::logger::fatal("main", "illegal job!");
