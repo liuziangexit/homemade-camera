@@ -60,9 +60,10 @@ private:
 
   std::mutex subscribed_mut;
   session_map_t subscribed;
+  int cap_web_fd;
 
 public:
-  web();
+  web(int cap_web_fd);
   ~web();
   void run(int ipc_fd);
   void stop();

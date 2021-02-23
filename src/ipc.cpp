@@ -102,7 +102,7 @@ hcam::message::~message() {
   }
 }
 
-int hcam::wait_msg(int fd, uint32_t timeout) {
+int hcam::wait_msg(int fd, int32_t timeout) {
   struct pollfd fds;
   memset(&fds, 0, sizeof(fds));
   fds.fd = fd;

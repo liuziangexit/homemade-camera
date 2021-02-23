@@ -34,7 +34,7 @@ namespace hcam {
 
 class capture {
 public:
-  capture();
+  capture(int cap_web_fd);
   void run(int ipc_fd);
   void stop();
   ~capture();
@@ -92,6 +92,8 @@ private:
   uint32_t display_fps = 0;
   //此周期是否掉帧
   bool low_fps = false;
+
+  int cap_web_fd;
 
   static std::string read_log(std::string dir) {
     trim(dir);

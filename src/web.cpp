@@ -70,11 +70,12 @@ bool run_acceptor(
   return true;
 }
 
-web::web()
+web::web(int cap_web_fd)
     : state{STOPPED}, thread_count(config::get().web_thread_count),
       io_context(thread_count), //
       acceptor(boost::asio::make_strand(io_context)),
-      ssl_acceptor(boost::asio::make_strand(io_context)) {
+      ssl_acceptor(boost::asio::make_strand(io_context)),
+      cap_web_fd(cap_web_fd) {
   if (config::get().ssl_enabled) {
     load_server_certificate(ssl_ctx);
   }
@@ -124,34 +125,64 @@ void web::run(int ipc_fd) {
   change_state_certain(STARTING, RUNNING);
 
   //处理ipc
+  if (send_msg(cap_web_fd, "READY")) {
+    logger::error("web", "unable to send first READY message");
+    goto STOP;
+  }
   while (true) {
-    auto msg = recv_msg(ipc_fd);
-    if (msg.first) {
-      logger::error("web", "ipc handler read failed, quitting...", msg.first);
-      raise(SIGTERM);
+    int ret;
+    fd_set fds;
+
+    int max_fd = ipc_fd;
+    if (cap_web_fd > ipc_fd) {
+      max_fd = cap_web_fd;
     }
-    std::string text((char *)msg.second.content, msg.second.size);
-    if (text == "PING") {
-      //心跳
-      if (send_msg(ipc_fd, "PONG")) {
-        // something goes wrong
-        exit(SIGABRT);
+
+  SELECT:
+    FD_ZERO(&fds);
+    FD_SET(ipc_fd, &fds);
+    FD_SET(cap_web_fd, &fds);
+    ret = select(max_fd + 1, &fds, NULL, NULL, NULL);
+    if (ret == -1) {
+      if (EINTR == errno)
+        goto SELECT;
+      logger::info("web", "select failed, quitting...");
+      this->stop();
+      return;
+    }
+
+    if (FD_ISSET(ipc_fd, &fds)) {
+      auto msg = recv_msg(ipc_fd);
+      if (msg.first) {
+        logger::error("web", "ipc handler read ipc_fd failed, quitting...",
+                      msg.first);
+        goto STOP;
       }
-    } else if (text == "CAPTURED_FRAME") {
-      //直播下发
-      auto frame = recv_msg(ipc_fd);
-      if (frame.first) {
-        logger::error(
-            "web",
-            "ipc handler read CAPTURED_FRAME subsequent failed, quitting...");
-        raise(SIGTERM);
+      std::string text((char *)msg.second.content, msg.second.size);
+      if (text == "PING") {
+        //心跳
+        if (send_msg(ipc_fd, "PONG")) {
+          // something goes wrong
+          exit(SIGABRT);
+        }
+      } else if (text == "EXIT") {
+        logger::debug("web", "IPC EXIT, quitting...");
+        this->stop();
+        return;
       }
-      std::vector<unsigned char> out(frame.second.size, (unsigned char)0);
-      memcpy(out.data(), frame.second.content, frame.second.size);
-      this->foreach_session([out](const web::session_context &_session) {
+    } else if (FD_ISSET(cap_web_fd, &fds)) {
+      auto msg = recv_msg(cap_web_fd);
+      if (msg.first) {
+        logger::error("web", "ipc handler read cap_web_fd failed, quitting...",
+                      msg.first);
+        goto STOP;
+      }
+      this->foreach_session([msg](const web::session_context &_session) {
         auto shared_session = _session.session.lock();
         if (shared_session) {
-          auto copy = out;
+          // FIXME 这拷贝是O(n)的，害怕。。其实用引用计数可以消掉
+          std::vector<unsigned char> copy(msg.second.size, ' ');
+          memcpy(copy.data(), msg.second.content, msg.second.size);
           if (_session.ssl) {
             static_cast<session<true> *>(shared_session.get())
                 ->ws_write(std::move(copy), true, 1);
@@ -161,12 +192,14 @@ void web::run(int ipc_fd) {
           }
         }
       });
-    } else if (text == "EXIT") {
-      logger::info("web", "IPC EXIT, quitting...");
-      this->stop();
-      return;
+      if (send_msg(cap_web_fd, "READY")) {
+        logger::error("web", "unable to send READY message");
+        goto STOP;
+      }
     }
   }
+STOP:
+  this->stop();
 }
 
 void web::stop() {

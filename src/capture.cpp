@@ -36,7 +36,8 @@ std::string map_fs(const std::string &base, const std::string &file) {
   return result;
 }
 
-capture::capture() : _config(config::get()) {}
+capture::capture(int cap_web_fd)
+    : _config(config::get()), cap_web_fd(cap_web_fd) {}
 capture::~capture() { stop(); }
 
 void capture::run(int ipc_fd) {
@@ -80,7 +81,7 @@ void capture::run(int ipc_fd) {
   while (true) {
     auto msg = recv_msg(ipc_fd);
     if (msg.first) {
-      logger::error("web", "ipc handler read failed, quitting...", msg.first);
+      logger::error("cap", "ipc handler read failed, quitting...", msg.first);
       raise(SIGTERM);
     }
     std::string text((char *)msg.second.content, msg.second.size);
@@ -91,7 +92,7 @@ void capture::run(int ipc_fd) {
         exit(SIGABRT);
       }
     } else if (text == "EXIT") {
-      logger::info("web", "IPC EXIT, quitting...");
+      logger::debug("cap", "IPC EXIT, quitting...");
       this->stop();
       return;
     }
@@ -220,7 +221,17 @@ void capture::do_capture(const config &config) {
       throw std::runtime_error("capture open failed");
   }
 
-  auto process = [&capture, this](frame_context &ctx) -> bool {
+  int sock_snd_buffer_len;
+  socklen_t optlen = sizeof(sock_snd_buffer_len);
+
+  if (getsockopt(cap_web_fd, SOL_SOCKET, SO_SNDBUF, &sock_snd_buffer_len,
+                 &optlen) == -1) {
+    this->internal_stop_avoid_deadlock();
+    return;
+  }
+
+  auto process = [&capture, this,
+                  &sock_snd_buffer_len](frame_context &ctx) -> bool {
     ctx.capture_time = checkpoint(3);
     time(&ctx.frame_time);
     cv::Mat mat;
@@ -247,19 +258,30 @@ void capture::do_capture(const config &config) {
     memcpy(ctx.captured_frame->data, out.data(), ctx.captured_frame->length);
 
     ctx.send_time = checkpoint(3);
-    /*web_service.foreach_session([&out](const web::session_context &_session) {
-      auto shared_session = _session.session.lock();
-      if (shared_session) {
-        auto copy = out;
-        if (_session.ssl) {
-          static_cast<session<true> *>(shared_session.get())
-              ->ws_write(std::move(copy), true, 1);
-        } else {
-          static_cast<session<false> *>(shared_session.get())
-              ->ws_write(std::move(copy), true, 1);
+    if (sock_snd_buffer_len < ctx.captured_frame->length * 2) {
+      //这里需要把sock的send缓冲区开到比图片还要大，不然的话有可能send时候就阻塞直到那边开始read了
+      //如果那边read还好说，如果那边都崩溃了，没人去read，这个send就卡住了！
+      //为什么不应async的sock呢，因为这种unix sock没有async实现！
+      // FIXME 这里会不会整型溢出？先不管
+      sock_snd_buffer_len = ctx.captured_frame->length * 2;
+      if (-1 == setsockopt(cap_web_fd, SOL_SOCKET, SO_SNDBUF,
+                           &sock_snd_buffer_len, sizeof(sock_snd_buffer_len))) {
+        return false;
+      }
+    }
+    auto ret = wait_msg(cap_web_fd, 0);
+    if (ret == 1) {
+      auto ready_msg = recv_msg(cap_web_fd);
+      if (ready_msg.first == 0) {
+        std::string text((char *)ready_msg.second.content,
+                         ready_msg.second.size);
+        if (text == "READY") {
+          if (send_msg(cap_web_fd, out.data(), ctx.captured_frame->length)) {
+            logger::warn("cap", "send frame to web failed");
+          }
         }
       }
-    });*/
+    }
     ctx.send_done_time = checkpoint(3);
     return true;
   };

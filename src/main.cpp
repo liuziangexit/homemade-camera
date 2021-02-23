@@ -36,20 +36,25 @@ void hcam_exit(int num, bool is_ctl = false) {
     // kill children
     for (int i = 0; i < sizeof(children) / sizeof(pid_t); i++) {
       if (children[i]) {
-        hcam::logger::warn("main", "killing ", children[i]);
+        hcam::logger::debug("main", "killing ", children[i]);
         if (hcam::send_msg(ipc_socks[i * 2 + 1], "EXIT")) {
           hcam::logger::error("main", "failed to kill child ", i);
         }
         int status;
         int ret = waitpid(children[i], &status, 0);
         if (ret == -1) {
-          hcam::logger::warn("main", "waitpid failed, what happened?");
+          if (errno == ECHILD) {
+            hcam::logger::warn("main", "child ", i, " already dead");
+            continue;
+          }
+          hcam::logger::fatal("main", "waitpid failed");
+          perror("waitpid failed");
           abort();
         }
         if (WIFEXITED(status)) {
           const int es = WEXITSTATUS(status);
-          hcam::logger::info("main", "child ", children[i], " exit status was ",
-                             es);
+          hcam::logger::debug("main", "child ", children[i],
+                              " exit status was ", es);
         } else {
           //应该不会，如果这样了再看看怎么整
           hcam::logger::fatal("main", "unexpected waitpid return value");
@@ -58,8 +63,8 @@ void hcam_exit(int num, bool is_ctl = false) {
       }
     }
   }
-  hcam::logger::info("main", getpid(), "(", (is_ctl ? "ctl" : "child"),
-                     ") exit");
+  hcam::logger::debug("main", getpid(), "(", (is_ctl ? "ctl" : "child"),
+                      ") exit");
   exit(num);
 }
 
@@ -72,7 +77,7 @@ void signal_handler(int signum) {
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
       if (WIFEXITED(status)) {
         const int es = WEXITSTATUS(status);
-        hcam::logger::info("main", "child ", pid, " exit status was ", es);
+        hcam::logger::debug("main", "child ", pid, " exit status was ", es);
       }
     }
     break;
@@ -117,7 +122,7 @@ int main(int argc, char **argv) {
     if (child == -1) {
       //创建失败
       hcam::logger::info("main", "failed to create job ", i, ", quitting...");
-      hcam_exit(-1, true);
+      hcam_exit(255, true);
     }
     if (child == 0) {
       // child
@@ -132,32 +137,32 @@ int main(int argc, char **argv) {
   signal(SIGINT, signal_handler);
   signal(SIGTERM, signal_handler);
   signal(SIGCHLD, signal_handler);
-  hcam::logger::info("main", "CAPTURE:", children[CAPTURE],
-                     " NETWORK:", children[NETWORK]);
+  hcam::logger::debug("main", "CAPTURE:", children[CAPTURE],
+                      " NETWORK:", children[NETWORK]);
   // 通过ipc验证刚创建的children是否还活着
   for (int i = 0; i < CONTROL; i++) {
     int sock = ipc_socks[i * 2 + 1];
     if (hcam::send_msg(sock, "PING")) {
       hcam::logger::error("main", "send_msg on child process ", children[i],
                           " failed");
-      hcam_exit(-1, true);
+      hcam_exit(255, true);
     }
     if (hcam::wait_msg(sock, 2000) != 1) {
       hcam::logger::error("main", "hcam::wait_msg on child process ",
                           children[i], " failed");
-      hcam_exit(-1, true);
+      hcam_exit(255, true);
     }
     auto response = hcam::recv_msg(sock);
     if (response.first) {
       hcam::logger::error("main", "hcam::recv_msg on child process ",
                           children[i], " failed");
-      hcam_exit(-1, true);
+      hcam_exit(255, true);
     }
     std::string text((char *)response.second.content, response.second.size);
     if (text != "PONG") {
       hcam::logger::error("main", "child process ", children[i],
                           " responded with unexpected message");
-      hcam_exit(-1, true);
+      hcam_exit(255, true);
     }
     hcam::logger::error("main", "child process ", children[i], " online");
   }
@@ -167,11 +172,11 @@ WORK:
   switch (job) {
   case CAPTURE:
     cv::setNumThreads(hcam::config::get().video_thread_count);
-    cap = new hcam::capture();
+    cap = new hcam::capture(cap_net[0]);
     cap->run(*ctl_cap);
     hcam_exit(0);
   case NETWORK:
-    web = new hcam::web();
+    web = new hcam::web(cap_net[1]);
     web->run(*ctl_net);
     hcam_exit(0);
   case CONTROL:
