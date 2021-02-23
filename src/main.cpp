@@ -88,15 +88,6 @@ void signal_handler(int signum) {
     }
     quit = 1;
     hcam::logger::info("main", "signal ", signum, " received, quitting...");
-
-    if (job == CAPTURE) {
-      /*cap->stop();
-      delete cap;*/
-    } else if (job == NETWORK) {
-      web->stop();
-      delete web;
-    }
-    quit = true;
     quit = 2;
 
     hcam_exit(signum, job == CONTROL);
@@ -174,10 +165,12 @@ WORK:
     cv::setNumThreads(hcam::config::get().video_thread_count);
     cap = new hcam::capture(cap_net[0]);
     cap->run(*ctl_cap);
+    delete cap;
     hcam_exit(0);
   case NETWORK:
     web = new hcam::web(cap_net[1]);
     web->run(*ctl_net);
+    delete web;
     hcam_exit(0);
   case CONTROL:
     // FIXME 卧槽，这就是UB吗？
@@ -185,7 +178,7 @@ WORK:
     while (quit != 2) {
       pause();
     }
-    break;
+    return 0;
   }
   hcam::logger::fatal("main", "illegal job!");
   abort();

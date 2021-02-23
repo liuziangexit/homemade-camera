@@ -127,7 +127,7 @@ void web::run(int ipc_fd) {
   //处理ipc
   if (send_msg(cap_web_fd, "READY")) {
     logger::error("web", "unable to send first READY message");
-    goto STOP;
+    return;
   }
   while (true) {
     int ret;
@@ -147,7 +147,6 @@ void web::run(int ipc_fd) {
       if (EINTR == errno)
         goto SELECT;
       logger::info("web", "select failed, quitting...");
-      this->stop();
       return;
     }
 
@@ -156,7 +155,7 @@ void web::run(int ipc_fd) {
       if (msg.first) {
         logger::error("web", "ipc handler read ipc_fd failed, quitting...",
                       msg.first);
-        goto STOP;
+        return;
       }
       std::string text((char *)msg.second.content, msg.second.size);
       if (text == "PING") {
@@ -167,7 +166,6 @@ void web::run(int ipc_fd) {
         }
       } else if (text == "EXIT") {
         logger::debug("web", "IPC EXIT, quitting...");
-        this->stop();
         return;
       }
     } else if (FD_ISSET(cap_web_fd, &fds)) {
@@ -175,7 +173,7 @@ void web::run(int ipc_fd) {
       if (msg.first) {
         logger::error("web", "ipc handler read cap_web_fd failed, quitting...",
                       msg.first);
-        goto STOP;
+        return;
       }
       this->foreach_session([msg](const web::session_context &_session) {
         auto shared_session = _session.session.lock();
@@ -193,13 +191,12 @@ void web::run(int ipc_fd) {
         }
       });
       if (send_msg(cap_web_fd, "READY")) {
-        logger::error("web", "unable to send READY message");
-        goto STOP;
+        return;
       }
     }
   }
-STOP:
-  this->stop();
+  /*STOP:*/
+  /*this->stop();*/
 }
 
 void web::stop() {
