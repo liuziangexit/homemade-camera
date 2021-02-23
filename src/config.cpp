@@ -71,6 +71,7 @@ bool config::read(const std::string &filename) {
     this->font_height = js["font-height"].get<int>();
     this->web_addr = js["web-addr"].get<std::string>();
     this->port = js["port"].get<int>();
+    this->ssl_enabled = js["ssl-enabled"].get<bool>();
     this->ssl_port = js["ssl-port"].get<int>();
     this->ssl_cert = js["ssl-cert"].get<std::string>();
     this->ssl_key = js["ssl-key"].get<std::string>();

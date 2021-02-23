@@ -40,6 +40,7 @@ struct config {
   int font_height;           //视频时间戳字体大小
   std::string web_addr;      // web服务地址
   int port;                  // web服务端口
+  bool ssl_enabled;          // 是否支持ssl
   int ssl_port;              // web服务端口
   std::string ssl_cert;      // ssl证书
   std::string ssl_key;       // ssl私钥

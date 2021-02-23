@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <atomic>
 #include <future>
+#include <ipc/ipc.h>
 #include <math.h>
 #include <memory>
 #include <opencv2/core.hpp>
@@ -35,11 +36,10 @@ std::string map_fs(const std::string &base, const std::string &file) {
   return result;
 }
 
-capture::capture(web &_web_service)
-    : _config(config::get()), web_service(_web_service) {}
+capture::capture() : _config(config::get()) {}
 capture::~capture() { stop(); }
 
-void capture::run() {
+void capture::run(int ipc_fd) {
   {
     int expect = STOPPED;
     if (!state.compare_exchange_strong(expect, RUNNING))
@@ -75,6 +75,27 @@ void capture::run() {
   capture_thread = std::thread([this] { this->do_capture(this->_config); });
   decode_thread = std::thread([this] { this->do_decode(this->_config); });
   write_thread = std::thread([this] { this->do_write(this->_config); });
+
+  //处理ipc
+  while (true) {
+    auto msg = recv_msg(ipc_fd);
+    if (msg.first) {
+      logger::error("web", "ipc handler read failed, quitting...", msg.first);
+      raise(SIGTERM);
+    }
+    std::string text((char *)msg.second.content, msg.second.size);
+    if (text == "PING") {
+      //心跳
+      if (send_msg(ipc_fd, "PONG")) {
+        // something goes wrong
+        exit(SIGABRT);
+      }
+    } else if (text == "EXIT") {
+      logger::info("web", "IPC EXIT, quitting...");
+      this->stop();
+      return;
+    }
+  }
 }
 
 void capture::stop() {
@@ -226,7 +247,7 @@ void capture::do_capture(const config &config) {
     memcpy(ctx.captured_frame->data, out.data(), ctx.captured_frame->length);
 
     ctx.send_time = checkpoint(3);
-    web_service.foreach_session([&out](const web::session_context &_session) {
+    /*web_service.foreach_session([&out](const web::session_context &_session) {
       auto shared_session = _session.session.lock();
       if (shared_session) {
         auto copy = out;
@@ -238,7 +259,7 @@ void capture::do_capture(const config &config) {
               ->ws_write(std::move(copy), true, 1);
         }
       }
-    });
+    });*/
     ctx.send_done_time = checkpoint(3);
     return true;
   };

@@ -12,7 +12,8 @@
 
 namespace hcam {
 
-bool send_msg(int fd, unsigned char *content, uint32_t len);
+int send_msg(int fd, const char *content);
+int send_msg(int fd, unsigned char *content, uint32_t len);
 struct message {
   uint32_t size;
   uint32_t capacity;
@@ -23,7 +24,10 @@ struct message {
   message(message &&);
   ~message();
 };
-std::pair<bool, message> recv_msg(int fd);
+std::pair<int, message> recv_msg(int fd);
+//timeout为负数则表示没有timeout，为0表示立即返回，大于0为毫秒
+//返回负数表示错误，返回0表示没有，返回1表示有
+int wait_msg(int fd, uint32_t timeout);
 
 } // namespace hcam
 

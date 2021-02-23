@@ -34,8 +34,8 @@ namespace hcam {
 
 class capture {
 public:
-  capture(web &_web_service);
-  void run();
+  capture();
+  void run(int ipc_fd);
   void stop();
   ~capture();
 
@@ -77,8 +77,6 @@ private:
   bool paused = false;
   std::mutex pause_mtx;
   std::condition_variable pause_cv;
-
-  web &web_service;
 
   //帧速
   uint32_t frame_cost = 0;

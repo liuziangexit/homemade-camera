@@ -1,3 +1,4 @@
+#include "ipc/ipc.h"
 #include "util/logger.h"
 #include "video/capture.h"
 #include "web/web.h"
@@ -5,6 +6,7 @@
 #include <opencv2/core/utility.hpp>
 #include <signal.h>
 #include <stdio.h>
+#include <string>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -21,6 +23,9 @@ int quit = 0;
 enum job_t { CAPTURE = 0, NETWORK = 1, CONTROL = 2 };
 job_t job;
 pid_t children[CONTROL]{0};
+int ipc_socks[2 * 3]{0};
+int *ctl_cap = &ipc_socks[0], *ctl_net = &ipc_socks[2],
+    *cap_net = &ipc_socks[4];
 
 void hcam_exit(int num, bool is_ctl = false) {
   if (is_ctl) {
@@ -31,17 +36,15 @@ void hcam_exit(int num, bool is_ctl = false) {
     // kill children
     for (int i = 0; i < sizeof(children) / sizeof(pid_t); i++) {
       if (children[i]) {
-        //好像给parent发signal时候，也给child发了，所以就不用我们自己发了
-        /*hcam::logger::warn("main", "killing ", children[i]);
-        if (kill(children[i], SIGTERM)) {
+        hcam::logger::warn("main", "killing ", children[i]);
+        if (hcam::send_msg(ipc_socks[i * 2 + 1], "EXIT")) {
           hcam::logger::error("main", "failed to kill child ", i);
-        }*/
+        }
         int status;
         int ret = waitpid(children[i], &status, 0);
         if (ret == -1) {
-          //可能是那个child正好在这之间的时候自己退出了，怎么会这么巧呢？但是是有可能的，是伐
-          hcam::logger::warn("main", "waitpid failed?");
-          continue;
+          hcam::logger::warn("main", "waitpid failed, what happened?");
+          abort();
         }
         if (WIFEXITED(status)) {
           const int es = WEXITSTATUS(status);
@@ -75,25 +78,28 @@ void signal_handler(int signum) {
     break;
   case SIGINT:
   case SIGTERM:
+    if (quit != 0) {
+      return;
+    }
+    quit = 1;
+    hcam::logger::info("main", "signal ", signum, " received, quitting...");
+
+    if (job == CAPTURE) {
+      /*cap->stop();
+      delete cap;*/
+    } else if (job == NETWORK) {
+      web->stop();
+      delete web;
+    }
+    quit = true;
+    quit = 2;
+
     hcam_exit(signum, job == CONTROL);
   }
-  /*if (quit != 0) {
-    return;
-  }
-  quit = 1;
-  hcam::logger::info("main", "signal ", signum, " received, quitting...");
-  cap->stop();
-  delete cap;
-  web->stop();
-  delete web;
-  quit = true;
-  quit = 2;
-  exit(signum);*/
 }
 
-int ipc_socks[2 * 3]{0};
-int *ctl_cap = &ipc_socks[0], *ctl_net = &ipc_socks[2],
-    *cap_net = &ipc_socks[4];
+//不要让child被信号中止，而是parent收到信号之后，通过ipc通知child退出
+void do_nothing_siganl_handler(int signum) {}
 
 int main(int argc, char **argv) {
   //准备ipc用的sock
@@ -115,8 +121,8 @@ int main(int argc, char **argv) {
     }
     if (child == 0) {
       // child
-      signal(SIGINT, signal_handler);
-      signal(SIGTERM, signal_handler);
+      signal(SIGINT, do_nothing_siganl_handler);
+      signal(SIGTERM, do_nothing_siganl_handler);
       goto WORK;
     }
     children[i] = child;
@@ -126,33 +132,49 @@ int main(int argc, char **argv) {
   signal(SIGINT, signal_handler);
   signal(SIGTERM, signal_handler);
   signal(SIGCHLD, signal_handler);
-  // TODO 通过ipc验证刚创建的children是否还活着
+  hcam::logger::info("main", "CAPTURE:", children[CAPTURE],
+                     " NETWORK:", children[NETWORK]);
+  // 通过ipc验证刚创建的children是否还活着
+  for (int i = 0; i < CONTROL; i++) {
+    int sock = ipc_socks[i * 2 + 1];
+    if (hcam::send_msg(sock, "PING")) {
+      hcam::logger::error("main", "send_msg on child process ", children[i],
+                          " failed");
+      hcam_exit(-1, true);
+    }
+    if (hcam::wait_msg(sock, 2000) != 1) {
+      hcam::logger::error("main", "hcam::wait_msg on child process ",
+                          children[i], " failed");
+      hcam_exit(-1, true);
+    }
+    auto response = hcam::recv_msg(sock);
+    if (response.first) {
+      hcam::logger::error("main", "hcam::recv_msg on child process ",
+                          children[i], " failed");
+      hcam_exit(-1, true);
+    }
+    std::string text((char *)response.second.content, response.second.size);
+    if (text != "PONG") {
+      hcam::logger::error("main", "child process ", children[i],
+                          " responded with unexpected message");
+      hcam_exit(-1, true);
+    }
+    hcam::logger::error("main", "child process ", children[i], " online");
+  }
 
   //做工啦
 WORK:
   switch (job) {
   case CAPTURE:
     cv::setNumThreads(hcam::config::get().video_thread_count);
-    hcam::logger::info("main", "capture job!");
-
-    while (quit != 2) {
-      pause();
-    }
-
-    hcam_exit(1);
-    break;
+    cap = new hcam::capture();
+    cap->run(*ctl_cap);
+    hcam_exit(0);
   case NETWORK:
-    hcam::logger::info("main", "network job!");
-
-    while (quit != 2) {
-      pause();
-    }
-
-    hcam_exit(2);
-    break;
+    web = new hcam::web();
+    web->run(*ctl_net);
+    hcam_exit(0);
   case CONTROL:
-    hcam::logger::info("main", "CAPTURE:", children[CAPTURE],
-                       " NETWORK:", children[NETWORK]);
     // FIXME 卧槽，这就是UB吗？
     // std::this_thread::sleep_for(std::chrono::hours::max());
     while (quit != 2) {
@@ -162,12 +184,4 @@ WORK:
   }
   hcam::logger::fatal("main", "illegal job!");
   abort();
-
-  /*
-    web = new hcam::web();
-    web->run();
-
-    cap = new hcam::capture(*web);
-    cap->run();
-*/
 }

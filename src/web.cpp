@@ -1,9 +1,11 @@
 #include "web/web.h"
 #include "assert.h"
 #include "config/config.h"
+#include "ipc/ipc.h"
 #include "util/logger.h"
 #include "web/session.h"
 #include <functional>
+#include <signal.h>
 
 namespace hcam {
 
@@ -73,12 +75,14 @@ web::web()
       io_context(thread_count), //
       acceptor(boost::asio::make_strand(io_context)),
       ssl_acceptor(boost::asio::make_strand(io_context)) {
-  load_server_certificate(ssl_ctx);
+  if (config::get().ssl_enabled) {
+    load_server_certificate(ssl_ctx);
+  }
 }
 
 web::~web() { stop(); }
 
-void web::run() {
+void web::run(int ipc_fd) {
   if (!change_state(STOPPED, STARTING)) {
     logger::error("web", "web start change_state failed");
     return;
@@ -97,17 +101,20 @@ void web::run() {
     return;
   }
 
-  if (!run_acceptor(ssl_acceptor,
-                    // endpoint
-                    boost::asio::ip::tcp::endpoint{
-                        boost::asio::ip::make_address(config::get().web_addr),
-                        (unsigned short)config::get().ssl_port},
-                    // on_accept
-                    std::bind(&web::on_accept, this, true,
-                              std::placeholders::_1, std::placeholders::_2))) {
-    logger::error("web", "web start run_acceptor failed");
-    change_state_certain(STARTING, STOPPED);
-    return;
+  if (config::get().ssl_enabled) {
+    if (!run_acceptor(ssl_acceptor,
+                      // endpoint
+                      boost::asio::ip::tcp::endpoint{
+                          boost::asio::ip::make_address(config::get().web_addr),
+                          (unsigned short)config::get().ssl_port},
+                      // on_accept
+                      std::bind(&web::on_accept, this, true,
+                                std::placeholders::_1,
+                                std::placeholders::_2))) {
+      logger::error("web", "web start run_acceptor failed");
+      change_state_certain(STARTING, STOPPED);
+      return;
+    }
   }
 
   for (int i = 0; i < thread_count; i++) {
@@ -115,6 +122,51 @@ void web::run() {
   }
 
   change_state_certain(STARTING, RUNNING);
+
+  //处理ipc
+  while (true) {
+    auto msg = recv_msg(ipc_fd);
+    if (msg.first) {
+      logger::error("web", "ipc handler read failed, quitting...", msg.first);
+      raise(SIGTERM);
+    }
+    std::string text((char *)msg.second.content, msg.second.size);
+    if (text == "PING") {
+      //心跳
+      if (send_msg(ipc_fd, "PONG")) {
+        // something goes wrong
+        exit(SIGABRT);
+      }
+    } else if (text == "CAPTURED_FRAME") {
+      //直播下发
+      auto frame = recv_msg(ipc_fd);
+      if (frame.first) {
+        logger::error(
+            "web",
+            "ipc handler read CAPTURED_FRAME subsequent failed, quitting...");
+        raise(SIGTERM);
+      }
+      std::vector<unsigned char> out(frame.second.size, (unsigned char)0);
+      memcpy(out.data(), frame.second.content, frame.second.size);
+      this->foreach_session([out](const web::session_context &_session) {
+        auto shared_session = _session.session.lock();
+        if (shared_session) {
+          auto copy = out;
+          if (_session.ssl) {
+            static_cast<session<true> *>(shared_session.get())
+                ->ws_write(std::move(copy), true, 1);
+          } else {
+            static_cast<session<false> *>(shared_session.get())
+                ->ws_write(std::move(copy), true, 1);
+          }
+        }
+      });
+    } else if (text == "EXIT") {
+      logger::info("web", "IPC EXIT, quitting...");
+      this->stop();
+      return;
+    }
+  }
 }
 
 void web::stop() {
