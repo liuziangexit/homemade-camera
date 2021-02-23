@@ -48,6 +48,7 @@ OK-菜单栏点了自动收回去
 OK-icon边缘锯齿处理一下
 ok-自动删除旧录像
 
+-分3个进程：ctl、net、cap，ctl负责console交互和守护net和cap
 -log写到文件里去
 -写个启动脚本之类的
 -pwa下载
