@@ -21,7 +21,6 @@ hcam::web *web;
 int quit = 0;
 
 enum job_t { CAPTURE = 0, NETWORK = 1, CONTROL = 2 };
-job_t job;
 pid_t children[CONTROL]{0};
 int ipc_socks[2 * 3]{0};
 int *ctl_cap = &ipc_socks[0], *ctl_net = &ipc_socks[2],
@@ -65,6 +64,7 @@ void hcam_exit(int num, bool is_ctl = false) {
   }
   hcam::logger::debug("main", getpid(), "(", (is_ctl ? "ctl" : "child"),
                       ") exit");
+  quit = 2;
   exit(num);
 }
 
@@ -88,14 +88,36 @@ void signal_handler(int signum) {
     }
     quit = 1;
     hcam::logger::info("main", "signal ", signum, " received, quitting...");
-    quit = 2;
-
-    hcam_exit(signum, job == CONTROL);
+    hcam_exit(signum, true);
   }
 }
 
 //不要让child被信号中止，而是parent收到信号之后，通过ipc通知child退出
-void do_nothing_siganl_handler(int signum) {}
+void do_nothing_signal_handler(int signum) {}
+
+void work(job_t duty) {
+  assert(duty != CONTROL);
+  //注册啥也不做的信号处理，这样就不会直接被信号杀掉，而是等ctl进程通知我们再死掉
+  signal(SIGINT, do_nothing_signal_handler);
+  signal(SIGTERM, do_nothing_signal_handler);
+  switch (duty) {
+  case CAPTURE:
+    cv::setNumThreads(hcam::config::get().video_thread_count);
+    cap = new hcam::capture(cap_net[0]);
+    cap->run(*ctl_cap);
+    delete cap;
+    hcam_exit(0);
+  case NETWORK:
+    web = new hcam::web(cap_net[1]);
+    web->run(*ctl_net);
+    delete web;
+    hcam_exit(0);
+  case CONTROL:
+    break;
+  }
+  hcam::logger::fatal("main", "illegal job!");
+  abort();
+}
 
 int main(int argc, char **argv) {
   //准备ipc用的sock
@@ -108,7 +130,6 @@ int main(int argc, char **argv) {
 
   //创建工作进程
   for (int i = 0; i < CONTROL; i++) {
-    job = (job_t)i;
     pid_t child = fork();
     if (child == -1) {
       //创建失败
@@ -117,14 +138,15 @@ int main(int argc, char **argv) {
     }
     if (child == 0) {
       // child
-      signal(SIGINT, do_nothing_siganl_handler);
-      signal(SIGTERM, do_nothing_siganl_handler);
-      goto WORK;
+      work((job_t)i);
+      // never reach
+      hcam::logger::fatal("main", "should not reach here");
+      abort();
     }
     children[i] = child;
   }
+
   //开始初始化control进程
-  job = CONTROL;
   signal(SIGINT, signal_handler);
   signal(SIGTERM, signal_handler);
   signal(SIGCHLD, signal_handler);
@@ -158,28 +180,9 @@ int main(int argc, char **argv) {
     hcam::logger::error("main", "child process ", children[i], " online");
   }
 
-  //做工啦
-WORK:
-  switch (job) {
-  case CAPTURE:
-    cv::setNumThreads(hcam::config::get().video_thread_count);
-    cap = new hcam::capture(cap_net[0]);
-    cap->run(*ctl_cap);
-    delete cap;
-    hcam_exit(0);
-  case NETWORK:
-    web = new hcam::web(cap_net[1]);
-    web->run(*ctl_net);
-    delete web;
-    hcam_exit(0);
-  case CONTROL:
-    // FIXME 卧槽，这就是UB吗？
-    // std::this_thread::sleep_for(std::chrono::hours::max());
-    while (quit != 2) {
-      pause();
-    }
-    return 0;
+  // FIXME 卧槽，这就是UB吗？
+  // std::this_thread::sleep_for(std::chrono::hours::max());
+  while (quit != 2) {
+    pause();
   }
-  hcam::logger::fatal("main", "illegal job!");
-  abort();
 }
