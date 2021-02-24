@@ -49,6 +49,7 @@ OK-icon边缘锯齿处理一下
 ok-自动删除旧录像
 ok-分3个进程：ctl、net、cap，ctl负责console交互和守护net和cap
 
+-铁子们，把编译时间打在公屏上
 -web"控制台"(警告报错等、手动重新启动进程、修改配置文件和重启)，不要"设置"了
 -检查每个exit和abort调用
 -log的模块名现在应该是process名，而且是汇总到ctl去写到文件，也就是说不用显式指明process名
