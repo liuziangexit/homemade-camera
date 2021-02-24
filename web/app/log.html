@@ -2,14 +2,31 @@
     <p style="font-size: 2em;margin-bottom: 0;font-family: sans-serif bold">日志</p>
     <div class="btn-toolbar mb-2 mb-md-0">
         <div class="btn-group mr-2">
-            <button id="fetchBtn" type="button" disabled="disabled" onclick="fetchLog()"
+            <button id="reboot" type="button" disabled="disabled" onclick=""
                     class="btn btn-sm btn-outline-secondary">
-                <span data-feather="refresh-cw"></span>
+                <span data-feather="power"></span>
                 更新
             </button>
         </div>
     </div>
 </div>
-<textarea id="logtxt" rows="25"
-          style="visibility: hidden;">
-</textarea>
+<div class="table-responsive">
+    <table class="table table-striped table-sm">
+        <thead>
+        <tr>
+            <th style="border-top: none">等级</th>
+            <th style="border-top: none">组件</th>
+            <th style="border-top: none">时间</th>
+            <th style="border-top: none">描述</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td>警告</td>
+            <td>CAPTURE</td>
+            <td>2021/10/10</td>
+            <td>失火啦！</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
