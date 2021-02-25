@@ -15,9 +15,6 @@
 #include <thread>
 #include <unistd.h>
 
-hcam::capture *cap;
-hcam::web *web;
-
 int quit = 0;
 
 enum job_t { BAD_JOB = 99, CAPTURE = 0, NETWORK = 1, END = 2 };
@@ -33,12 +30,6 @@ job_t duty_by_pid(pid_t pid) {
       return (job_t)i;
   }
   return BAD_JOB;
-}
-
-void child_exit(int num) {
-  hcam::logger::info("main", getpid(), "(child) exit");
-  quit = 2;
-  exit(num);
 }
 
 void ctl_exit(int num) {
@@ -147,22 +138,20 @@ void signal_handler(int signum) {
 //不要让child被信号中止，而是parent收到信号之后，通过ipc通知child退出
 void do_nothing_signal_handler(int signum) {}
 
+extern void net_proc(int ctl_fd, int cap_fd);
+extern void cap_proc(int ctl_fd, int net_fd);
+
 void work(job_t duty) {
   //注册啥也不做的信号处理，这样就不会直接被信号杀掉，而是等ctl进程通知我们再死掉
   signal(SIGINT, do_nothing_signal_handler);
   signal(SIGTERM, do_nothing_signal_handler);
   switch (duty) {
   case CAPTURE:
-    cv::setNumThreads(hcam::config::get().video_thread_count);
-    cap = new hcam::capture(cap_net[0]);
-    cap->run(*ctl_cap);
-    delete cap;
-    child_exit(0);
+    net_proc(ctl_cap[0], cap_net[0]);
+    abort();
   case NETWORK:
-    web = new hcam::web(cap_net[1]);
-    web->run(*ctl_net);
-    delete web;
-    child_exit(0);
+    cap_proc(ctl_net[0], cap_net[1]);
+    abort();
   }
   hcam::logger::fatal("main", "illegal job!");
   abort();
