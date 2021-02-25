@@ -1,5 +1,7 @@
 {
   "log-level": 0,
+  "log-file": "log.txt",
+  "log-fopen-mode": "wb",
   "disable-log-module": [
   ],
   "video-thread-count": 4,

@@ -42,6 +42,8 @@ bool config::read(const std::string &filename) {
     js = json::parse(raw);
 
     this->log_level = (log_level_t)js["log-level"].get<int>();
+    this->log_file = js["log-file"].get<std::string>();
+    this->log_fopen_mode = js["log-fopen-mode"].get<std::string>();
     this->disable_log_module =
         js["disable-log-module"].get<std::set<std::string>>();
     this->video_thread_count = js["video-thread-count"].get<int>();

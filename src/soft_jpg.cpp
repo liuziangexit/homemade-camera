@@ -11,20 +11,20 @@ std::pair<bool, cv::Mat> soft_jpg::decode(unsigned char *src, uint32_t len) {
   if (tjDecompressHeader2(_jpegDecompressor, src, len, &width, &height,
                           &jpegSubsamp)) {
     if (tjGetErrorCode(_jpegDecompressor) != TJERR_WARNING) {
-      logger::fatal("cap", "tjDecompressHeader2 failed: ", tjGetErrorStr());
+      logger::error("tjDecompressHeader2 failed: ", tjGetErrorStr());
       return std::pair<bool, cv::Mat>(false, cv::Mat());
     } else {
-      logger::warn("cap", "tjDecompressHeader2 warning: ", tjGetErrorStr());
+      logger::warn("tjDecompressHeader2 warning: ", tjGetErrorStr());
     }
   }
   cv::Mat mat(height, width, CV_8UC3);
   if (tjDecompress2(_jpegDecompressor, src, len, mat.data, width, 0 /*pitch*/,
                     height, TJPF_BGR, TJFLAG_FASTDCT)) {
     if (tjGetErrorCode(_jpegDecompressor) != TJERR_WARNING) {
-      logger::fatal("cap", "tjDecompress2 failed: ", tjGetErrorStr());
+      logger::error("tjDecompress2 failed: ", tjGetErrorStr());
       return std::pair<bool, cv::Mat>(false, cv::Mat());
     } else {
-      logger::warn("cap", "tjDecompress2 warning: ", tjGetErrorStr());
+      logger::warn("tjDecompress2 warning: ", tjGetErrorStr());
     }
   }
   return std::pair<bool, cv::Mat>(true, mat);

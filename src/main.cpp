@@ -14,57 +14,58 @@
 int quit = 0;
 
 enum job_t { BAD_JOB = 99, CAPTURE = 0, NETWORK = 1, LOGGER = 2, END = 3 };
+const char *names[] = {"CAPTURE", "NETWORK", "LOGGER "};
+pid_t pids[END]{0};
 pid_t dead_children[END]{0};
-pid_t children[END]{0};
 
+//现在的一些逻辑是基于unix domain sock绝不会出错这一前提之下的...
 //所有其他进程对ctl
 int ctl_socks[END * 2]{0};
-/*int *ctl_cap = &ctl_socks[0], *ctl_net = &ctl_socks[2],;*/
 //所有其他进程对log
-int log_socks[(END)*2]{0};
+int log_socks[END * 2]{0};
 // cap对net
 int cap_net[2];
 
 job_t duty_by_pid(pid_t pid) {
-  for (int i = 0; i < sizeof(children) / sizeof(pid_t); i++) {
-    if (children[i] == pid)
+  for (int i = 0; i < sizeof(pid) / sizeof(pid_t); i++) {
+    if (pids[i] == pid)
       return (job_t)i;
   }
   return BAD_JOB;
 }
 
 void ctl_exit(int num) {
-  hcam::logger::info("main", "ctl_exit due to ", num);
+  hcam::logger::info("ctl_exit due to ", num);
   // unregister handler
   signal(SIGINT, SIG_DFL);
   signal(SIGTERM, SIG_DFL);
   signal(SIGCHLD, SIG_DFL);
   // kill children
-  hcam::logger::debug("main", "terminating child processes...");
-  for (int i = 0; i < sizeof(children) / sizeof(pid_t); i++) {
-    if (children[i]) {
-      hcam::logger::debug("main", "killing ", children[i]);
+  hcam::logger::debug("terminating child processes...");
+  for (int i = 0; i < sizeof(pids) / sizeof(pid_t); i++) {
+    if (pids[i]) {
+      hcam::logger::debug("killing ", names[i], " ", pids[i]);
       if (hcam::ipc::send(ctl_socks[i * 2 + 1], "EXIT")) {
-        hcam::logger::error("main", "failed to kill child ", i);
+        hcam::logger::error("failed to kill child ", names[i], " ", pids[i]);
       }
       int status;
-      int ret = waitpid(children[i], &status, 0);
+      int ret = waitpid(pids[i], &status, 0);
       if (ret == -1) {
         if (errno == ECHILD) {
-          hcam::logger::warn("main", "child ", i, " already dead");
+          hcam::logger::warn("child ", names[i], " ", pids[i], " already dead");
           continue;
         }
-        hcam::logger::fatal("main", "waitpid failed");
+        hcam::logger::fatal("waitpid failed");
         perror("waitpid failed");
         abort();
       }
       if (WIFEXITED(status)) {
         const int es = WEXITSTATUS(status);
-        hcam::logger::debug("main", "child ", children[i], " exit status was ",
-                            es);
+        hcam::logger::debug("child ", names[i], " ", pids[i],
+                            " exit status was ", es);
       } else {
         //应该不会，如果这样了再看看怎么整
-        hcam::logger::fatal("main", "unexpected waitpid return value");
+        hcam::logger::fatal("unexpected waitpid return value");
         abort();
       }
     }
@@ -78,7 +79,7 @@ void ctl_exit(int num) {
   }
   close(cap_net[0]);
   close(cap_net[1]);
-  hcam::logger::info("main", getpid(), "(ctl) exit");
+  // hcam::logger::info( getpid(), "(ctl) exit");
   quit = 2;
   exit(num);
 }
@@ -97,35 +98,35 @@ void signal_handler(int signum) {
       //有个进程挂了！把它扶起来！在一个时间段内最多拉3次，如果还阿斗，那么就不扶了
       if (WIFEXITED(status)) {
         const int es = WEXITSTATUS(status);
-        hcam::logger::warn("main", "child ", pid,
-                           " exits unexpectedly, status was ", es);
         job_t d = duty_by_pid(pid);
         if (d == BAD_JOB) {
-          hcam::logger::warn("main", "duty_by_pid failed, quitting...");
+          hcam::logger::warn("duty_by_pid failed, quitting...");
           ctl_exit(251);
         }
+        hcam::logger::warn("child ", names[d], " ", pids[d],
+                           " exits unexpectedly, status was ", es);
         if (dead_children[d]) {
           // failed to respawned job, ignore it
           continue;
         }
-        hcam::logger::warn("main", "trying to respawn job ", d);
+        hcam::logger::warn("trying to respawn job ", names[d]);
         pid_t child = born_child(d);
         if (child == -1) {
-          hcam::logger::warn("main", "failed to create job ", d,
+          hcam::logger::warn("failed to create job ", names[d],
                              ", quitting...");
           ctl_exit(250);
         }
         int pong = ping_child(d);
         if (pong) {
-          hcam::logger::warn("main", "failed to respawn job ", d,
+          hcam::logger::warn("failed to respawn job ", names[d],
                              ", keep running without it...");
           dead_children[d] = 1;
           /*ctl_exit(244);
           abort();*/
         } else {
-          hcam::logger::warn("main", "job ", d, " respawned");
+          hcam::logger::warn("job ", names[d], " ", child, " respawned");
         }
-        children[d] = child;
+        pids[d] = child;
       }
     }
     break;
@@ -135,7 +136,7 @@ void signal_handler(int signum) {
       return;
     }
     quit = 1;
-    hcam::logger::info("main", "signal ", signum, " received, quitting...");
+    hcam::logger::info("signal ", signum, " received, quitting...");
     ctl_exit(signum);
   }
 }
@@ -144,9 +145,10 @@ void signal_handler(int signum) {
 //不要让child被信号中止，而是parent收到信号之后，通过ipc通知child退出
 void do_nothing_signal_handler(int signum) {}
 
-extern void net_proc(int ctl_fd, int cap_fd);
-extern void cap_proc(int ctl_fd, int net_fd);
-extern void logger_proc(int ctl_fd);
+extern void net_proc(int ctl_fd, int log_fd, int cap_fd);
+extern void cap_proc(int ctl_fd, int log_fd, int net_fd);
+[[noreturn]] extern void logger_proc(int ctl_fd, int *client_fds,
+                                     const char **client_names, int client_cnt);
 
 void work(job_t duty) {
   //注册啥也不做的信号处理，这样就不会直接被信号杀掉，而是等ctl进程通知我们再死掉
@@ -154,16 +156,20 @@ void work(job_t duty) {
   signal(SIGTERM, do_nothing_signal_handler);
   switch (duty) {
   case CAPTURE:
-    net_proc(ctl_socks[duty * 2], cap_net[0]);
+    cap_proc(ctl_socks[duty * 2], log_socks[duty * 2], cap_net[1]);
     break;
   case NETWORK:
-    cap_proc(ctl_socks[duty * 2], cap_net[1]);
+    net_proc(ctl_socks[duty * 2], log_socks[duty * 2], cap_net[0]);
     break;
   case LOGGER:
-    logger_proc(ctl_socks[duty * 2]);
+    int client_fds[END];
+    for (int i = 0; i < END; i++) {
+      client_fds[i] = log_socks[i * 2 + 1];
+    }
+    logger_proc(ctl_socks[duty * 2], client_fds, names, END);
     break;
   }
-  hcam::logger::fatal("main", "illegal job!");
+  hcam::logger::fatal("illegal job!");
   abort();
 }
 
@@ -176,7 +182,7 @@ pid_t born_child(job_t duty) {
     // child
     work(duty);
     // never reach
-    hcam::logger::fatal("main", "should not reach here");
+    hcam::logger::fatal("should not reach here");
     abort();
   } else {
     return child;
@@ -226,15 +232,19 @@ int main(int argc, char **argv) {
     }
   }
 
+  //开始我自己的logger
+  //用了LOGGER的位置，因为他们自己不需要这个log sock
+  hcam::logger::start_logger(log_socks[LOGGER * 2]);
+
   //创建工作进程
   for (int i = 0; i < END; i++) {
     pid_t child = born_child((job_t)i);
     assert(child != 0);
     if (child == -1) {
-      hcam::logger::info("main", "failed to create job ", i, ", quitting...");
+      hcam::logger::info("failed to create job ", names[i], ", quitting...");
       ctl_exit(255);
     }
-    children[i] = child;
+    pids[i] = child;
   }
 
   //开始初始化control进程
@@ -245,10 +255,10 @@ int main(int argc, char **argv) {
   for (int i = 0; i < END; i++) {
     int ret = ping_child((job_t)i);
     if (ret) {
-      hcam::logger::fatal("main", "failed to contact child ", i);
+      hcam::logger::fatal("failed to contact child ", names[i]);
       ctl_exit(233);
     }
-    hcam::logger::info("main", "child ", i, " online");
+    hcam::logger::info("child ", names[i], " ", pids[i], " online");
   }
 
   // FIXME 卧槽，这就是UB吗？

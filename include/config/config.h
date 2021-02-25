@@ -15,6 +15,8 @@ struct config {
   enum log_level_t { DEBUG, INFO, WARN, ERROR, FATAL };
   log_level_t
       log_level; //只输出log_level和比它更高的log。比如，log_level==INFO，那么DEBUG不会输出
+  std::string log_file;       //日志文件
+  std::string log_fopen_mode; //用fopen打开日志文件时候的mode参数
   std::set<std::string> disable_log_module; //不输出log的模块
   uint32_t video_thread_count;              //线程数
   uint32_t web_thread_count;                //线程数

@@ -48,7 +48,7 @@ private:
       return false;
     if (ws_stream)
       return true;
-    logger::fatal("web", "is_websocket: session invalid state!");
+    logger::fatal("is_websocket: session invalid state!");
     abort();
   }
 
@@ -64,7 +64,7 @@ private:
 
   void on_http_ready(boost::beast::error_code ec) {
     if (ec) {
-      logger::debug("web", "on_http_ready failed");
+      logger::debug("on_http_ready failed");
       return;
     }
     boost::beast::get_lowest_layer(*base_stream)
@@ -74,7 +74,7 @@ private:
 
   void on_ws_handshake(boost::beast::error_code ec) {
     if (ec) {
-      logger::debug("web", "on_ws_handshake failed");
+      logger::debug("on_ws_handshake failed");
       return;
     }
     ws_read();
@@ -101,8 +101,7 @@ private:
     // This means they closed the connection
     if (ec) {
       if (ec != boost::beast::http::error::end_of_stream) {
-        hcam::logger::debug("web", this->remote,
-                            " HTTP read failed: ", ec.message());
+        hcam::logger::debug(this->remote, " HTTP read failed: ", ec.message());
       }
       return;
     }
@@ -205,7 +204,7 @@ private:
   void on_http_write(bool should_close, boost::beast::error_code ec,
                      std::size_t bytes_transferred) {
     if (ec) {
-      hcam::logger::debug("web", remote, " HTTP write failed: ", ec.message());
+      hcam::logger::debug(remote, " HTTP write failed: ", ec.message());
       return;
     }
 
@@ -249,7 +248,7 @@ private:
                .insert(web::session_map_t::value_type{
                    remote, web::session_context{SSL, this->weak_from_this()}})
                .second) {
-        logger::error("web", "map insert failed");
+        logger::error("map insert failed");
         reply("internal error");
         return;
       }
@@ -296,7 +295,7 @@ public:
       : service(_service), remote(_remote) {
     base_stream.reset(new UNDERLYING_STREAM(std::forward<ARGS>(args)...));
     auto total = ++service.online;
-    logger::info("web", remote, " new connection online, total: ", total);
+    logger::info(remote, " new connection online, total: ", total);
   }
 
   virtual ~session() {
@@ -312,7 +311,7 @@ public:
       boost::beast::get_lowest_layer(*base_stream).close();
     }
     auto remain = --service.online;
-    logger::info("web", remote, " connection closed, total: ", remain);
+    logger::info(remote, " connection closed, total: ", remain);
   }
 
   void run() {
@@ -323,7 +322,7 @@ public:
           [this, shared_this =
                      this->shared_from_this()](boost::beast::error_code ec) {
             if (ec) {
-              hcam::logger::debug("web", this->remote, " SSL handshake error, ",
+              hcam::logger::debug(this->remote, " SSL handshake error, ",
                                   ec.message());
             }
             on_http_ready(ec);

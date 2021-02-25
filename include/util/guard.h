@@ -8,8 +8,7 @@ namespace hcam {
 
 class guard {
 public:
-  template <typename F> guard(F f) : fun(std::move(f)) {
-  }
+  template <typename F> guard(F f) : fun(std::move(f)) {}
 
   ~guard() { fun(); }
 

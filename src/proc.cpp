@@ -3,12 +3,14 @@
 //
 
 #include "ipc/proc.h"
+#include "util/logger.h"
 
 namespace hcam {
 
 namespace ipc {
 void child_exit(int num) {
-  hcam::logger::info("main", getpid(), "(child) exit");
+  hcam::logger::info(getpid(), "(child) exit");
+  hcam::logger::stop_logger();
   exit(num);
 }
 } // namespace ipc
