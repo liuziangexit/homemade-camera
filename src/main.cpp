@@ -13,12 +13,17 @@
 
 int quit = 0;
 
-enum job_t { BAD_JOB = 99, CAPTURE = 0, NETWORK = 1, END = 2 };
+enum job_t { BAD_JOB = 99, CAPTURE = 0, NETWORK = 1, LOGGER = 2, END = 3 };
 pid_t dead_children[END]{0};
 pid_t children[END]{0};
-int ipc_socks[2 * 3]{0};
-int *ctl_cap = &ipc_socks[0], *ctl_net = &ipc_socks[2],
-    *cap_net = &ipc_socks[4];
+
+//所有其他进程对ctl
+int ctl_socks[END * 2]{0};
+/*int *ctl_cap = &ctl_socks[0], *ctl_net = &ctl_socks[2],;*/
+//所有其他进程对log
+int log_socks[(END)*2]{0};
+// cap对net
+int cap_net[2];
 
 job_t duty_by_pid(pid_t pid) {
   for (int i = 0; i < sizeof(children) / sizeof(pid_t); i++) {
@@ -39,7 +44,7 @@ void ctl_exit(int num) {
   for (int i = 0; i < sizeof(children) / sizeof(pid_t); i++) {
     if (children[i]) {
       hcam::logger::debug("main", "killing ", children[i]);
-      if (hcam::ipc::send(ipc_socks[i * 2 + 1], "EXIT")) {
+      if (hcam::ipc::send(ctl_socks[i * 2 + 1], "EXIT")) {
         hcam::logger::error("main", "failed to kill child ", i);
       }
       int status;
@@ -65,9 +70,14 @@ void ctl_exit(int num) {
     }
   }
   // close ipc socks
-  for (int i = 0; i < sizeof(ipc_socks) / sizeof(int); i++) {
-    close(ipc_socks[i]);
+  for (int i = 0; i < sizeof(ctl_socks) / sizeof(int); i++) {
+    close(ctl_socks[i]);
   }
+  for (int i = 0; i < sizeof(log_socks) / sizeof(int); i++) {
+    close(log_socks[i]);
+  }
+  close(cap_net[0]);
+  close(cap_net[1]);
   hcam::logger::info("main", getpid(), "(ctl) exit");
   quit = 2;
   exit(num);
@@ -136,6 +146,7 @@ void do_nothing_signal_handler(int signum) {}
 
 extern void net_proc(int ctl_fd, int cap_fd);
 extern void cap_proc(int ctl_fd, int net_fd);
+extern void logger_proc(int ctl_fd);
 
 void work(job_t duty) {
   //注册啥也不做的信号处理，这样就不会直接被信号杀掉，而是等ctl进程通知我们再死掉
@@ -143,10 +154,13 @@ void work(job_t duty) {
   signal(SIGTERM, do_nothing_signal_handler);
   switch (duty) {
   case CAPTURE:
-    net_proc(ctl_cap[0], cap_net[0]);
+    net_proc(ctl_socks[duty * 2], cap_net[0]);
     break;
   case NETWORK:
-    cap_proc(ctl_net[0], cap_net[1]);
+    cap_proc(ctl_socks[duty * 2], cap_net[1]);
+    break;
+  case LOGGER:
+    logger_proc(ctl_socks[duty * 2]);
     break;
   }
   hcam::logger::fatal("main", "illegal job!");
@@ -170,7 +184,7 @@ pid_t born_child(job_t duty) {
 }
 
 int ping_child(job_t j) {
-  int sock = ipc_socks[j * 2 + 1];
+  int sock = ctl_socks[j * 2 + 1];
   if (hcam::ipc::send(sock, "PING")) {
     return 1;
   }
@@ -193,8 +207,20 @@ void proc_name() {}
 
 int main(int argc, char **argv) {
   //准备ipc用的sock
-  for (int i = 0; i < sizeof(ipc_socks) / sizeof(int) / 2; i++) {
-    if (socketpair(AF_UNIX, SOCK_STREAM, 0, &ipc_socks[i * 2])) {
+  for (int i = 0; i < sizeof(ctl_socks) / sizeof(int) / 2; i++) {
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, &ctl_socks[i * 2])) {
+      perror("socketpair failed");
+      abort();
+    }
+  }
+  for (int i = 0; i < sizeof(log_socks) / sizeof(int) / 2; i++) {
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, &log_socks[i * 2])) {
+      perror("socketpair failed");
+      abort();
+    }
+  }
+  for (int i = 0; i < sizeof(cap_net) / sizeof(int) / 2; i++) {
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, &cap_net[i * 2])) {
       perror("socketpair failed");
       abort();
     }
