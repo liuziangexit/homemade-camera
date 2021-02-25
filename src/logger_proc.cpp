@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 using namespace hcam;
+//这个文件里不能用hcam::logger!
 
 int max(int *arr, int cnt) {
   int m = INT_MIN;
@@ -67,7 +68,7 @@ std::pair<bool, std::string> process_message(int level,
             config::get().log_fopen_mode.c_str()),
       [](FILE *p) { fclose(p); });
   if (!fp) {
-    std::cout << "unable to open log file, logger process quitting...";
+    std::cout << "unable to open log file, logger process quitting...\r\n";
     ipc::child_exit(1);
   }
   while (true) {
@@ -89,7 +90,7 @@ std::pair<bool, std::string> process_message(int level,
     if (ret == -1) {
       if (EINTR == errno)
         goto SELECT;
-      logger::info("select failed, quitting...");
+      std::cout << "select failed, quitting...\r\n";
       ipc::child_exit(77);
     }
 
@@ -97,7 +98,8 @@ std::pair<bool, std::string> process_message(int level,
     if (FD_ISSET(ctl_fd, &fds)) {
       auto msg = ipc::recv(ctl_fd);
       if (msg.first) {
-        logger::error("ipc handler read failed, quitting...", msg.first);
+        std::cout << "ipc handler read failed, quitting..." << msg.first
+                  << "\r\n";
         ipc::child_exit(78);
       }
       std::string text((char *)msg.second.content, msg.second.size);
@@ -108,7 +110,7 @@ std::pair<bool, std::string> process_message(int level,
           ipc::child_exit(88);
         }
       } else if (text == "EXIT") {
-        logger::debug("IPC EXIT, quitting...");
+        std::cout << "IPC EXIT, quitting...\r\n";
         ipc::child_exit(79);
       }
     } else {
@@ -174,11 +176,13 @@ std::pair<bool, std::string> process_message(int level,
         std::cout << log.second;
         if (fwrite(log.second.data(), 1, log.second.size(), fp.get()) !=
             log.second.size()) {
-          std::cout << "unable to write log file, logger process quitting...";
+          std::cout
+              << "unable to write log file, logger process quitting...\r\n";
           ipc::child_exit(2);
         }
         if (fflush(fp.get())) {
-          std::cout << "unable to flush log file, logger process quitting...";
+          std::cout
+              << "unable to flush log file, logger process quitting...\r\n";
           ipc::child_exit(3);
         }
       }
