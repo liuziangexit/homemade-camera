@@ -12,8 +12,9 @@
 
 namespace hcam {
 
-int send_msg(int fd, const char *content);
-int send_msg(int fd, unsigned char *content, uint32_t len);
+namespace ipc {
+int send(int fd, const char *content);
+int send(int fd, unsigned char *content, uint32_t len);
 struct message {
   uint32_t size;
   uint32_t capacity;
@@ -24,11 +25,11 @@ struct message {
   message(message &&);
   ~message();
 };
-std::pair<int, message> recv_msg(int fd);
-//timeout为负数则表示没有timeout，为0表示立即返回，大于0为毫秒
+std::pair<int, message> recv(int fd);
+// timeout为负数则表示没有timeout，为0表示立即返回，大于0为毫秒
 //返回负数表示错误，返回0表示没有，返回1表示有
-int wait_msg(int fd, int32_t timeout);
-
+int wait(int fd, int32_t timeout);
+} // namespace ipc
 } // namespace hcam
 
 #endif // HOMECAM_IPC_H

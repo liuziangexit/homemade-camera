@@ -125,7 +125,7 @@ void web::run(int ipc_fd) {
   change_state_certain(STARTING, RUNNING);
 
   //处理ipc
-  if (send_msg(cap_web_fd, "READY")) {
+  if (ipc::send(cap_web_fd, "READY")) {
     logger::error("web", "unable to send first READY message");
     return;
   }
@@ -151,7 +151,7 @@ void web::run(int ipc_fd) {
     }
 
     if (FD_ISSET(ipc_fd, &fds)) {
-      auto msg = recv_msg(ipc_fd);
+      auto msg = ipc::recv(ipc_fd);
       if (msg.first) {
         logger::error("web", "ipc handler read ipc_fd failed, quitting...",
                       msg.first);
@@ -160,7 +160,7 @@ void web::run(int ipc_fd) {
       std::string text((char *)msg.second.content, msg.second.size);
       if (text == "PING") {
         //心跳
-        if (send_msg(ipc_fd, "PONG")) {
+        if (ipc::send(ipc_fd, "PONG")) {
           // something goes wrong
           exit(SIGABRT);
         }
@@ -169,7 +169,7 @@ void web::run(int ipc_fd) {
         return;
       }
     } else if (FD_ISSET(cap_web_fd, &fds)) {
-      auto msg = recv_msg(cap_web_fd);
+      auto msg = ipc::recv(cap_web_fd);
       if (msg.first) {
         logger::error("web", "ipc handler read cap_web_fd failed, quitting...",
                       msg.first);
@@ -190,7 +190,7 @@ void web::run(int ipc_fd) {
           }
         }
       });
-      if (send_msg(cap_web_fd, "READY")) {
+      if (ipc::send(cap_web_fd, "READY")) {
         return;
       }
     }

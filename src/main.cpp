@@ -52,7 +52,7 @@ void ctl_exit(int num) {
   for (int i = 0; i < sizeof(children) / sizeof(pid_t); i++) {
     if (children[i]) {
       hcam::logger::debug("main", "killing ", children[i]);
-      if (hcam::send_msg(ipc_socks[i * 2 + 1], "EXIT")) {
+      if (hcam::ipc::send(ipc_socks[i * 2 + 1], "EXIT")) {
         hcam::logger::error("main", "failed to kill child ", i);
       }
       int status;
@@ -186,13 +186,13 @@ pid_t born_child(job_t duty) {
 
 int ping_child(job_t j) {
   int sock = ipc_socks[j * 2 + 1];
-  if (hcam::send_msg(sock, "PING")) {
+  if (hcam::ipc::send(sock, "PING")) {
     return 1;
   }
-  if (hcam::wait_msg(sock, 2000) != 1) {
+  if (hcam::ipc::wait(sock, 2000) != 1) {
     return 2;
   }
-  auto response = hcam::recv_msg(sock);
+  auto response = hcam::ipc::recv(sock);
   if (response.first) {
     return 3;
   }

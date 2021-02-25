@@ -79,7 +79,7 @@ void capture::run(int ipc_fd) {
 
   //处理ipc
   while (true) {
-    auto msg = recv_msg(ipc_fd);
+    auto msg = ipc::recv(ipc_fd);
     if (msg.first) {
       logger::error("cap", "ipc handler read failed, quitting...", msg.first);
       raise(SIGTERM);
@@ -87,7 +87,7 @@ void capture::run(int ipc_fd) {
     std::string text((char *)msg.second.content, msg.second.size);
     if (text == "PING") {
       //心跳
-      if (send_msg(ipc_fd, "PONG")) {
+      if (ipc::send(ipc_fd, "PONG")) {
         // something goes wrong
         exit(SIGABRT);
       }
@@ -225,7 +225,7 @@ void capture::do_capture(const config &config) {
     }
     auto ret = wait_msg(cap_web_fd, 0);
     if (ret == 1) {
-      auto ready_msg = recv_msg(cap_web_fd);
+      auto ready_msg = recv(cap_web_fd);
       if (ready_msg.first == 0) {
         std::string text((char *)ready_msg.second.content,
                          ready_msg.second.size);
@@ -282,14 +282,14 @@ void capture::do_capture(const config &config) {
     if (!auto_adjust_socket_snd_buffer(ctx.captured_frame->length)) {
       return false;
     }
-    auto ret = wait_msg(cap_web_fd, 0);
+    auto ret = ipc::wait(cap_web_fd, 0);
     if (ret == 1) {
-      auto ready_msg = recv_msg(cap_web_fd);
+      auto ready_msg = ipc::recv(cap_web_fd);
       if (ready_msg.first == 0) {
         std::string text((char *)ready_msg.second.content,
                          ready_msg.second.size);
         if (text == "READY") {
-          if (send_msg(cap_web_fd, out.data(), ctx.captured_frame->length)) {
+          if (ipc::send(cap_web_fd, out.data(), ctx.captured_frame->length)) {
             logger::warn("cap", "send frame to web failed");
           }
         }
