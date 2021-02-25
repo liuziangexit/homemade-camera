@@ -3,6 +3,7 @@
 #include "json/json.hpp"
 #include <config/config.h>
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <opencv2/core/types.hpp>
 #include <stdexcept>

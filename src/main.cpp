@@ -1,16 +1,12 @@
 #include "ipc/ipc.h"
 #include "util/logger.h"
-#include "video/capture.h"
 #include "web/web.h"
-#include <iostream>
-#include <opencv2/core/utility.hpp>
 #include <signal.h>
 #include <stdio.h>
 #include <string>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <sys/types.h> /* See NOTES */
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
@@ -148,10 +144,10 @@ void work(job_t duty) {
   switch (duty) {
   case CAPTURE:
     net_proc(ctl_cap[0], cap_net[0]);
-    abort();
+    break;
   case NETWORK:
     cap_proc(ctl_net[0], cap_net[1]);
-    abort();
+    break;
   }
   hcam::logger::fatal("main", "illegal job!");
   abort();
