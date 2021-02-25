@@ -1,5 +1,7 @@
 {
   "log-level": 0,
+  "log-file": "log.txt",
+  "log-fopen-mode": "wb",
   "disable-log-module": [
   ],
   "video-thread-count": 4,
@@ -17,6 +19,7 @@
   "font-height": 30,
   "web-addr": "0.0.0.0",
   "port": 8080,
+  "ssl-enabled": false,
   "ssl-port": 8082,
   "ssl-cert": "/Users/liuziang/Documents/hcam0.liuziangexit.com/Nginx/1_hcam0.liuziangexit.com_bundle.crt",
   "ssl-key": "/Users/liuziang/Documents/hcam0.liuziangexit.com/Nginx/2_hcam0.liuziangexit.com.key",

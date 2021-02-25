@@ -3,6 +3,7 @@
 #include "json/json.hpp"
 #include <config/config.h>
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <opencv2/core/types.hpp>
 #include <stdexcept>
@@ -41,6 +42,8 @@ bool config::read(const std::string &filename) {
     js = json::parse(raw);
 
     this->log_level = (log_level_t)js["log-level"].get<int>();
+    this->log_file = js["log-file"].get<std::string>();
+    this->log_fopen_mode = js["log-fopen-mode"].get<std::string>();
     this->disable_log_module =
         js["disable-log-module"].get<std::set<std::string>>();
     this->video_thread_count = js["video-thread-count"].get<int>();
@@ -71,6 +74,7 @@ bool config::read(const std::string &filename) {
     this->font_height = js["font-height"].get<int>();
     this->web_addr = js["web-addr"].get<std::string>();
     this->port = js["port"].get<int>();
+    this->ssl_enabled = js["ssl-enabled"].get<bool>();
     this->ssl_port = js["ssl-port"].get<int>();
     this->ssl_cert = js["ssl-cert"].get<std::string>();
     this->ssl_key = js["ssl-key"].get<std::string>();

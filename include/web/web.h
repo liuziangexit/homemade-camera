@@ -15,6 +15,9 @@
 #include <vector>
 
 namespace hcam {
+
+void run_net_ipc_handler(int ipc_fd);
+
 template <bool SSL> class session;
 class web {
 public:
@@ -57,11 +60,12 @@ private:
 
   std::mutex subscribed_mut;
   session_map_t subscribed;
+  int cap_web_fd;
 
 public:
-  web();
+  web(int cap_web_fd);
   ~web();
-  void run();
+  void run(int ipc_fd);
   void stop();
   void foreach_session(std::function<void(const session_context &)> viewer);
 

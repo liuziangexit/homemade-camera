@@ -13,11 +13,11 @@ namespace hcam {
 inline void load_server_certificate(boost::asio::ssl::context &ctx) {
   std::vector<uint8_t> cert, key;
   if (!read_file(config::get().ssl_cert, cert)) {
-    logger::fatal("web", "load ssl cert failed");
+    logger::fatal("load ssl cert failed");
     abort();
   }
   if (!read_file(config::get().ssl_key, key)) {
-    logger::fatal("web", "load ssl key failed");
+    logger::fatal("load ssl key failed");
     abort();
   }
 

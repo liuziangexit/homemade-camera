@@ -1,9 +1,11 @@
 #include "web/web.h"
 #include "assert.h"
 #include "config/config.h"
+#include "ipc/ipc.h"
 #include "util/logger.h"
 #include "web/session.h"
 #include <functional>
+#include <signal.h>
 
 namespace hcam {
 
@@ -16,7 +18,7 @@ void wrap(
     if (!on_accept(ec, std::move(socket)))
       return;
   } catch (const std::exception &ex) {
-    logger::fatal("web", "on_accept throws an exception! ", ex.what());
+    logger::fatal("on_accept throws an exception! ", ex.what());
     abort();
   }
   _acceptor.async_accept(
@@ -58,7 +60,7 @@ bool run_acceptor(
   if (ec) {
     throw std::runtime_error("acceptor_.listen");
   }
-  hcam::logger::info("web", "listening at ", endpoint);
+  hcam::logger::info("listening at ", endpoint);
   _acceptor.async_accept(
       boost::asio::make_strand(_acceptor.get_executor()),
       [&_acceptor, on_accept](boost::beast::error_code ec,
@@ -68,19 +70,22 @@ bool run_acceptor(
   return true;
 }
 
-web::web()
+web::web(int cap_web_fd)
     : state{STOPPED}, thread_count(config::get().web_thread_count),
       io_context(thread_count), //
       acceptor(boost::asio::make_strand(io_context)),
-      ssl_acceptor(boost::asio::make_strand(io_context)) {
-  load_server_certificate(ssl_ctx);
+      ssl_acceptor(boost::asio::make_strand(io_context)),
+      cap_web_fd(cap_web_fd) {
+  if (config::get().ssl_enabled) {
+    load_server_certificate(ssl_ctx);
+  }
 }
 
 web::~web() { stop(); }
 
-void web::run() {
+void web::run(int ipc_fd) {
   if (!change_state(STOPPED, STARTING)) {
-    logger::error("web", "web start change_state failed");
+    logger::error("web start change_state failed");
     return;
   }
 
@@ -92,22 +97,25 @@ void web::run() {
                     // on_accept
                     std::bind(&web::on_accept, this, false,
                               std::placeholders::_1, std::placeholders::_2))) {
-    logger::error("web", "web start run_acceptor failed");
+    logger::error("web start run_acceptor failed");
     change_state_certain(STARTING, STOPPED);
     return;
   }
 
-  if (!run_acceptor(ssl_acceptor,
-                    // endpoint
-                    boost::asio::ip::tcp::endpoint{
-                        boost::asio::ip::make_address(config::get().web_addr),
-                        (unsigned short)config::get().ssl_port},
-                    // on_accept
-                    std::bind(&web::on_accept, this, true,
-                              std::placeholders::_1, std::placeholders::_2))) {
-    logger::error("web", "web start run_acceptor failed");
-    change_state_certain(STARTING, STOPPED);
-    return;
+  if (config::get().ssl_enabled) {
+    if (!run_acceptor(ssl_acceptor,
+                      // endpoint
+                      boost::asio::ip::tcp::endpoint{
+                          boost::asio::ip::make_address(config::get().web_addr),
+                          (unsigned short)config::get().ssl_port},
+                      // on_accept
+                      std::bind(&web::on_accept, this, true,
+                                std::placeholders::_1,
+                                std::placeholders::_2))) {
+      logger::error("web start run_acceptor failed");
+      change_state_certain(STARTING, STOPPED);
+      return;
+    }
   }
 
   for (int i = 0; i < thread_count; i++) {
@@ -115,12 +123,85 @@ void web::run() {
   }
 
   change_state_certain(STARTING, RUNNING);
+
+  //处理ipc
+  if (ipc::send(cap_web_fd, "READY")) {
+    logger::error("unable to send first READY message");
+    return;
+  }
+  while (true) {
+    int ret;
+    fd_set fds;
+
+    int max_fd = ipc_fd;
+    if (cap_web_fd > ipc_fd) {
+      max_fd = cap_web_fd;
+    }
+
+  SELECT:
+    FD_ZERO(&fds);
+    FD_SET(ipc_fd, &fds);
+    FD_SET(cap_web_fd, &fds);
+    ret = select(max_fd + 1, &fds, NULL, NULL, NULL);
+    if (ret == -1) {
+      if (EINTR == errno)
+        goto SELECT;
+      logger::info("select failed, quitting...");
+      return;
+    }
+
+    if (FD_ISSET(ipc_fd, &fds)) {
+      auto msg = ipc::recv(ipc_fd);
+      if (msg.first) {
+        logger::error("ipc handler read ipc_fd failed, quitting...", msg.first);
+        return;
+      }
+      std::string text((char *)msg.second.content, msg.second.size);
+      if (text == "PING") {
+        //心跳
+        if (ipc::send(ipc_fd, "PONG")) {
+          // something goes wrong
+          exit(SIGABRT);
+        }
+      } else if (text == "EXIT") {
+        logger::debug("IPC EXIT, quitting...");
+        return;
+      }
+    } else if (FD_ISSET(cap_web_fd, &fds)) {
+      auto msg = ipc::recv(cap_web_fd);
+      if (msg.first) {
+        logger::error("ipc handler read cap_web_fd failed, quitting...",
+                      msg.first);
+        return;
+      }
+      this->foreach_session([msg](const web::session_context &_session) {
+        auto shared_session = _session.session.lock();
+        if (shared_session) {
+          // FIXME 这拷贝是O(n)的，害怕。。其实用引用计数可以消掉
+          std::vector<unsigned char> copy(msg.second.size, ' ');
+          memcpy(copy.data(), msg.second.content, msg.second.size);
+          if (_session.ssl) {
+            static_cast<session<true> *>(shared_session.get())
+                ->ws_write(std::move(copy), true, 1);
+          } else {
+            static_cast<session<false> *>(shared_session.get())
+                ->ws_write(std::move(copy), true, 1);
+          }
+        }
+      });
+      if (ipc::send(cap_web_fd, "READY")) {
+        return;
+      }
+    }
+  }
+  /*STOP:*/
+  /*this->stop();*/
 }
 
 void web::stop() {
-  logger::info("web", "web stopping");
+  logger::info("web stopping");
   if (!change_state(RUNNING, CLOSING)) {
-    logger::debug("web", "stop change_state failed");
+    logger::debug("stop change_state failed");
     return;
   }
   io_context.stop();
@@ -136,7 +217,7 @@ void web::stop() {
   assert(online == 0);
   assert(subscribed.empty());
   change_state_certain(CLOSING, STOPPED);
-  logger::info("web", "web stopped");
+  logger::info("web stopped");
 }
 
 bool web::change_state(state_t expect, state_t desired) {
@@ -153,8 +234,8 @@ void web::change_state_certain(state_t expect, state_t desired) {
 bool web::on_accept(bool ssl, boost::beast::error_code ec,
                     boost::asio::ip::tcp::socket socket) {
   if (ec) {
-    logger::error("web", //
-                  "accept new connection failed, ", ec.message());
+    logger::error( //
+        "accept new connection failed, ", ec.message());
     return false;
   }
 
@@ -162,8 +243,8 @@ bool web::on_accept(bool ssl, boost::beast::error_code ec,
   try {
     endpoint = socket.remote_endpoint();
   } catch (const std::exception &e) {
-    logger::debug("web", //
-                  "accept new connection failed, ", e.what());
+    logger::debug( //
+        "accept new connection failed, ", e.what());
     return true;
   }
 

@@ -34,8 +34,8 @@ namespace hcam {
 
 class capture {
 public:
-  capture(web &_web_service);
-  void run();
+  capture(int cap_web_fd);
+  void run(int ipc_fd);
   void stop();
   ~capture();
 
@@ -78,8 +78,6 @@ private:
   std::mutex pause_mtx;
   std::condition_variable pause_cv;
 
-  web &web_service;
-
   //帧速
   uint32_t frame_cost = 0;
   //总处理帧数
@@ -94,6 +92,8 @@ private:
   uint32_t display_fps = 0;
   //此周期是否掉帧
   bool low_fps = false;
+
+  int cap_web_fd;
 
   static std::string read_log(std::string dir) {
     trim(dir);

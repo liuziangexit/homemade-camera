@@ -40,3 +40,5 @@ cmake-build-release
 3rd-party/libjpeg-turbo/install
 video/*.jpg
 video/*.json
+3rd-party/opencv/CMakeCache.txt
+3rd-party/opencv/CMakeFiles/cmake.check_cache

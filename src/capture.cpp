@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <atomic>
 #include <future>
+#include <ipc/ipc.h>
 #include <math.h>
 #include <memory>
 #include <opencv2/core.hpp>
@@ -35,11 +36,11 @@ std::string map_fs(const std::string &base, const std::string &file) {
   return result;
 }
 
-capture::capture(web &_web_service)
-    : _config(config::get()), web_service(_web_service) {}
+capture::capture(int cap_web_fd)
+    : _config(config::get()), cap_web_fd(cap_web_fd) {}
 capture::~capture() { stop(); }
 
-void capture::run() {
+void capture::run(int ipc_fd) {
   {
     int expect = STOPPED;
     if (!state.compare_exchange_strong(expect, RUNNING))
@@ -47,7 +48,7 @@ void capture::run() {
   }
   auto json_string = read_log(_config.save_location);
   if (!log.parse(json_string)) {
-    logger::fatal("cap", "log parse failed");
+    logger::fatal("log parse failed");
     abort();
   }
 
@@ -57,7 +58,7 @@ void capture::run() {
     directory_size +=
         file_length(map_fs(config::get().save_location, p.filename), succ);
     if (!succ) {
-      logger::fatal("cap", "can not retrieve info of ",
+      logger::error("can not retrieve info of ",
                     map_fs(config::get().save_location, p.filename));
       internal_stop_avoid_deadlock();
       return;
@@ -65,7 +66,7 @@ void capture::run() {
     directory_size +=
         file_length(map_fs(config::get().save_location, p.preview), succ);
     if (!succ) {
-      logger::fatal("cap", "can not retrieve info of ",
+      logger::error("can not retrieve info of ",
                     map_fs(config::get().save_location, p.preview));
       internal_stop_avoid_deadlock();
       return;
@@ -75,20 +76,40 @@ void capture::run() {
   capture_thread = std::thread([this] { this->do_capture(this->_config); });
   decode_thread = std::thread([this] { this->do_decode(this->_config); });
   write_thread = std::thread([this] { this->do_write(this->_config); });
+
+  //处理ipc
+  while (true) {
+    auto msg = ipc::recv(ipc_fd);
+    if (msg.first) {
+      logger::error("ipc handler read failed, quitting...", msg.first);
+      return;
+    }
+    std::string text((char *)msg.second.content, msg.second.size);
+    if (text == "PING") {
+      //心跳
+      if (ipc::send(ipc_fd, "PONG")) {
+        // something goes wrong
+        return;
+      }
+    } else if (text == "EXIT") {
+      logger::debug("IPC EXIT, quitting...");
+      return;
+    }
+  }
 }
 
 void capture::stop() {
-  logger::debug("cap", "stopping capture");
+  logger::info("stopping capture");
   {
     int expect = RUNNING;
     if (!state.compare_exchange_strong(expect, STOPPING)) {
-      logger::debug("cap", "stop failed, expect state ", RUNNING,
-                    ", actual state ", expect);
+      logger::debug("stop failed, expect state ", RUNNING, ", actual state ",
+                    expect);
       return;
     }
   }
   if (!write_log(_config.save_location, log.to_str())) {
-    logger::error("cap", "write log failed");
+    logger::error("write log failed");
   }
   if (std::this_thread::get_id() != capture_thread.get_id()) {
     if (capture_thread.joinable())
@@ -103,7 +124,7 @@ void capture::stop() {
       write_thread.join();
   }
   state = STOPPED;
-  logger::info("cap", "capture stopped");
+  logger::info("capture stopped");
 }
 
 void capture::internal_stop_avoid_deadlock() {
@@ -119,7 +140,7 @@ bool capture::pause_others() {
     return false;
   paused = true;
   pause_time = checkpoint(3);
-  logger::warn("cap", "pause others!");
+  logger::warn("pause others!");
   return true;
 }
 
@@ -136,14 +157,39 @@ void capture::wait_pause() {
   bool pause_requested = false;
   if (paused) {
     pause_requested = true;
-    logger::warn("cap", "wait pause!");
+    logger::warn("wait pause!");
   }
   pause_cv.wait(l, [this] { return !paused; });
   if (pause_requested)
-    logger::warn("cap", "resumed!");
+    logger::warn("resumed!");
 }
 
 void capture::do_capture(const config &config) {
+  int sock_snd_buffer_len;
+  socklen_t optlen = sizeof(sock_snd_buffer_len);
+
+  if (getsockopt(cap_web_fd, SOL_SOCKET, SO_SNDBUF, &sock_snd_buffer_len,
+                 &optlen) == -1) {
+    this->internal_stop_avoid_deadlock();
+    return;
+  }
+
+  auto auto_adjust_socket_snd_buffer = [&sock_snd_buffer_len,
+                                        this](int jpg_len) {
+    if (sock_snd_buffer_len < jpg_len * 2) {
+      //这里需要把sock的send缓冲区开到比图片还要大，不然的话有可能send时候就阻塞直到那边开始read了
+      //如果那边read还好说，如果那边都崩溃了，没人去read，这个send就卡住了！
+      //为什么不应async的sock呢，因为这种unix sock没有async实现！
+      // FIXME 这里会不会整型溢出？先不管
+      sock_snd_buffer_len = jpg_len * 2;
+      if (-1 == setsockopt(cap_web_fd, SOL_SOCKET, SO_SNDBUF,
+                           &sock_snd_buffer_len, sizeof(sock_snd_buffer_len))) {
+        return false;
+      }
+    }
+    return true;
+  };
+
 #ifdef USE_V4L_CAPTURE
   v4l_capture capture;
   if (capture.open(config.device,
@@ -151,18 +197,19 @@ void capture::do_capture(const config &config) {
                                         (uint32_t)config.resolution.height,
                                         (uint32_t)config.fps,
                                         config.cam_pix_fmt})) {
-    logger::error("cap", "VideoCapture open failed");
+    logger::error("VideoCapture open failed");
     this->internal_stop_avoid_deadlock();
     return;
   }
 
-  auto process = [&capture, this](frame_context &ctx) -> bool {
+  auto process = [&capture, this,
+                  auto_adjust_socket_snd_buffer](frame_context &ctx) -> bool {
     ctx.capture_time = checkpoint(3);
     time(&ctx.frame_time);
     std::pair<bool, std::shared_ptr<v4l_capture::buffer>> packet =
         capture.read();
     if (!packet.first) {
-      logger::error("cap", "VideoCapture read failed");
+      logger::error("VideoCapture read failed");
       return false;
     }
     ctx.captured_frame = std::move(packet.second);
@@ -171,25 +218,30 @@ void capture::do_capture(const config &config) {
     std::vector<unsigned char> out(ctx.captured_frame->length,
                                    (unsigned char)0);
     memcpy(out.data(), ctx.captured_frame->data, ctx.captured_frame->length);
-    web_service.foreach_session([&out](const web::session_context &_session) {
-      auto shared_session = _session.session.lock();
-      if (shared_session) {
-        auto copy = out;
-        if (_session.ssl) {
-          static_cast<session<true> *>(shared_session.get())
-              ->ws_write(std::move(copy), true, 1);
-        } else {
-          static_cast<session<false> *>(shared_session.get())
-              ->ws_write(std::move(copy), true, 1);
+
+    if (!auto_adjust_socket_snd_buffer(ctx.captured_frame->length)) {
+      return false;
+    }
+    auto ret = ipc::send(cap_web_fd, 0);
+    if (ret == 1) {
+      auto ready_msg = ipc::recv(cap_web_fd);
+      if (ready_msg.first == 0) {
+        std::string text((char *)ready_msg.second.content,
+                         ready_msg.second.size);
+        if (text == "READY") {
+          if (ipc::send(cap_web_fd, out.data(), ctx.captured_frame->length)) {
+            logger::warn("send frame to web failed");
+          }
         }
       }
-    });
+    }
 
     ctx.send_done_time = checkpoint(3);
 
     return true;
   };
 #else
+  logger::info("opening cv::VideoCapture");
   cv::VideoCapture capture;
   if (config.device.empty()) {
     if (!capture.open(0))
@@ -198,13 +250,15 @@ void capture::do_capture(const config &config) {
     if (!capture.open(config.device))
       throw std::runtime_error("capture open failed");
   }
+  logger::info("cv::VideoCapture opened");
 
-  auto process = [&capture, this](frame_context &ctx) -> bool {
+  auto process = [&capture, this,
+                  auto_adjust_socket_snd_buffer](frame_context &ctx) -> bool {
     ctx.capture_time = checkpoint(3);
     time(&ctx.frame_time);
     cv::Mat mat;
     if (!capture.read(mat)) {
-      logger::error("cap", "!VideoCapture read failed");
+      logger::error("!VideoCapture read failed");
       return false;
     }
     // FIXME 这里有奇怪的问题，鬼知道咋回事
@@ -226,19 +280,22 @@ void capture::do_capture(const config &config) {
     memcpy(ctx.captured_frame->data, out.data(), ctx.captured_frame->length);
 
     ctx.send_time = checkpoint(3);
-    web_service.foreach_session([&out](const web::session_context &_session) {
-      auto shared_session = _session.session.lock();
-      if (shared_session) {
-        auto copy = out;
-        if (_session.ssl) {
-          static_cast<session<true> *>(shared_session.get())
-              ->ws_write(std::move(copy), true, 1);
-        } else {
-          static_cast<session<false> *>(shared_session.get())
-              ->ws_write(std::move(copy), true, 1);
+    if (!auto_adjust_socket_snd_buffer(ctx.captured_frame->length)) {
+      return false;
+    }
+    auto ret = ipc::wait(cap_web_fd, 0);
+    if (ret == 1) {
+      auto ready_msg = ipc::recv(cap_web_fd);
+      if (ready_msg.first == 0) {
+        std::string text((char *)ready_msg.second.content,
+                         ready_msg.second.size);
+        if (text == "READY") {
+          if (ipc::send(cap_web_fd, out.data(), ctx.captured_frame->length)) {
+            logger::warn("send frame to web failed");
+          }
         }
       }
-    });
+    }
     ctx.send_done_time = checkpoint(3);
     return true;
   };
@@ -259,14 +316,14 @@ void capture::do_capture(const config &config) {
       if (save_preview) {
         FILE *fp = fopen(preview_filename.c_str(), "wb");
         if (!fp) {
-          logger::fatal("cap", "do_capture write jpg preview failed(fopen)");
+          logger::error("do_capture write jpg preview failed(fopen)");
           this->internal_stop_avoid_deadlock();
           return;
         }
         auto actual_write =
             fwrite(ctx.captured_frame->data, 1, ctx.captured_frame->length, fp);
         if (actual_write != ctx.captured_frame->length) {
-          logger::fatal("cap", "do_capture write jpg preview failed(fwrite)");
+          logger::error("do_capture write jpg preview failed(fwrite)");
           fclose(fp);
           this->internal_stop_avoid_deadlock();
           return;
@@ -303,7 +360,7 @@ void capture::do_decode(const config &config) {
         jpg_decoder.decode((unsigned char *)(ctx.captured_frame->data),
                            ctx.captured_frame->length);
     if (!decoded.first) {
-      logger::error("cap", "JPG decode failed");
+      logger::error("JPG decode failed");
       return false;
     }
     ctx.decoded_frame = std::move(decoded.second);
@@ -334,8 +391,7 @@ void capture::do_decode(const config &config) {
     }
     auto capture2decode_queue_size = capture2decode_queue.size();
     if (capture2decode_queue_size > WARN_QUEUE_CNT) {
-      logger::warn("cap",
-                   "capture2decode_queue size: ", capture2decode_queue_size);
+      logger::warn("capture2decode_queue size: ", capture2decode_queue_size);
     }
     lc2d.unlock();
 
@@ -385,7 +441,7 @@ void capture::do_write(const config &config) {
 
   cv::Ptr<cv::freetype::FreeType2> freetype = cv::freetype::createFreeType2();
   if (freetype.empty()) {
-    logger::error("cap", "create freetype2 instance failed");
+    logger::error("create freetype2 instance failed");
     this->stop();
   }
   freetype->loadFontData("Helvetica.ttc", 0);
@@ -410,7 +466,7 @@ void capture::do_write(const config &config) {
         out_filename = video_filename;
         return true;
       } else {
-        logger::error("cap", "VideoWriter open ", video_filename, " failed ",
+        logger::error("VideoWriter open ", video_filename, " failed ",
                       tried + 1);
       }
     }
@@ -420,7 +476,7 @@ void capture::do_write(const config &config) {
 OPEN_WRITER:
   if (directory_size >= (uint64_t)config::get().max_storage * (uint64_t)1024 *
                             (uint64_t)1024 * (uint64_t)1024) {
-    logger::info("cap", "max_storage limit reached(", directory_size,
+    logger::info("max_storage limit reached(", directory_size,
                  "), pause and removing old video(s)");
     pause_others();
     while (directory_size >= (uint64_t)config::get().max_storage *
@@ -428,7 +484,7 @@ OPEN_WRITER:
                                  (uint64_t)1024) {
       if (log.rows.size() == 1) {
         //防止删到正在写的文件
-        logger::fatal("cap", "running out of disk space");
+        logger::error("running out of disk space");
         resume_others();
         internal_stop_avoid_deadlock();
         return;
@@ -438,7 +494,7 @@ OPEN_WRITER:
       auto total_removed = file_length(
           map_fs(config::get().save_location, video_info.preview), succ);
       if (!succ) {
-        logger::fatal("cap", "can not retrieve info of ",
+        logger::error("can not retrieve info of ",
                       map_fs(config::get().save_location, video_info.preview));
         resume_others();
         internal_stop_avoid_deadlock();
@@ -447,7 +503,7 @@ OPEN_WRITER:
       total_removed += file_length(
           map_fs(config::get().save_location, video_info.filename), succ);
       if (!succ) {
-        logger::fatal("cap", "can not retrieve info of ",
+        logger::error("can not retrieve info of ",
                       map_fs(config::get().save_location, video_info.filename));
         resume_others();
         internal_stop_avoid_deadlock();
@@ -456,11 +512,11 @@ OPEN_WRITER:
 
       if (remove(map_fs(config::get().save_location, video_info.filename)
                      .c_str()) == 0) {
-        logger::info("cap", "remove ",
+        logger::info("remove ",
                      map_fs(config::get().save_location, video_info.filename),
                      " ok");
       } else {
-        logger::fatal("cap", "remove ",
+        logger::error("remove ",
                       map_fs(config::get().save_location, video_info.filename),
                       " failed");
         resume_others();
@@ -469,11 +525,11 @@ OPEN_WRITER:
       }
       if (remove(map_fs(config::get().save_location, video_info.preview)
                      .c_str()) == 0) {
-        logger::info("cap", "remove ",
+        logger::info("remove ",
                      map_fs(config::get().save_location, video_info.preview),
                      " ok");
       } else {
-        logger::fatal("cap", "remove ",
+        logger::error("remove ",
                       map_fs(config::get().save_location, video_info.preview),
                       " failed");
         resume_others();
@@ -482,7 +538,7 @@ OPEN_WRITER:
       }
       directory_size -= total_removed;
     }
-    logger::info("cap", "necessarily disk space reclaimed");
+    logger::info("necessarily disk space reclaimed");
     resume_others();
   }
 
@@ -490,7 +546,7 @@ OPEN_WRITER:
   time(&tm);
   std::string filename;
   if (!prepare_write(tm, writer, filename)) {
-    logger::error("cap", "prepare_writer failed");
+    logger::error("prepare_writer failed");
     this->stop();
   }
 
@@ -501,13 +557,13 @@ OPEN_WRITER:
                                     preview_filename.size()),
             config.duration, mktime(localt), true);
     if (!write_log(_config.save_location, log.to_str())) {
-      logger::error("cap", "write log failed");
+      logger::error("write log failed");
     }
   };
 
   uint64 task_begin = 0;
-  logger::info("cap", "video file change to ", filename);
-  logger::debug("cap", "writer backend:", writer.getBackendName(),
+  logger::info("video file change to ", filename);
+  logger::debug("writer backend:", writer.getBackendName(),
                 " codec:", codec_to_string(config.output_codec), " fps:", fps,
                 " resolution:", frame_size);
   do_log();
@@ -526,7 +582,7 @@ OPEN_WRITER:
     }
     auto decode2write_queue_size = decode2write_queue.size();
     if (decode2write_queue_size > WARN_QUEUE_CNT) {
-      logger::warn("cap", "decode2write_queue size: ", decode2write_queue_size);
+      logger::warn("decode2write_queue size: ", decode2write_queue_size);
     }
     l.unlock();
 
@@ -568,7 +624,7 @@ OPEN_WRITER:
           display_fps = frame_cnt - frame_cnt_base;
           low_fps = display_fps < fps * 95 / 100;
           if (low_fps) {
-            logger::warn("cap", "frame drop detected, fps: ", display_fps);
+            logger::warn("frame drop detected, fps: ", display_fps);
           }
 
           base_time = current_time;
@@ -600,15 +656,15 @@ OPEN_WRITER:
     try {
       writer.write(frame);
     } catch (const cv::Exception &ex) {
-      logger::fatal("cap", "writer.write failed");
+      logger::error("writer.write failed");
       internal_stop_avoid_deadlock();
       break;
     } catch (const std::exception &ex) {
-      logger::fatal("cap", "writer.write failed");
+      logger::error("writer.write failed");
       internal_stop_avoid_deadlock();
       break;
     } catch (...) {
-      logger::fatal("cap", "writer.write failed");
+      logger::error("writer.write failed");
       internal_stop_avoid_deadlock();
       break;
     }
@@ -634,7 +690,7 @@ OPEN_WRITER:
            "ms, process:", ctx.write_time - ctx.process_time,
            "ms, write:", ctx.done_time - ctx.write_time, "ms)");*/
     } else {
-      /*logger::debug("cap", "cost ", frame_cost, "ms");*/
+      /*logger::debug( "cost ", frame_cost, "ms");*/
     }
 
     frame_cnt++;
@@ -644,13 +700,13 @@ OPEN_WRITER:
       bool succ;
       directory_size += file_length(filename, succ);
       if (!succ) {
-        logger::fatal("cap", "can not retrieve info of ", filename);
+        logger::error("can not retrieve info of ", filename);
         internal_stop_avoid_deadlock();
         return;
       }
       directory_size += file_length(preview_filename, succ);
       if (!succ) {
-        logger::fatal("cap", "can not retrieve info of ", preview_filename);
+        logger::error("can not retrieve info of ", preview_filename);
         internal_stop_avoid_deadlock();
         return;
       }

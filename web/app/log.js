@@ -1,10 +1,16 @@
 function runLogUI() {
-    httpGetAsync("/nohup.out", txt => {
-        logtxt.textContent = txt;
-        logtxt.style = "width: 100%;-webkit-box-sizing: border-box;-moz-box-sizing: border-box;box-sizing: border-box;";
-        document.getElementById("fetchBtn").removeAttribute("disabled");
-    });
+    fetchLog();
 }
 
+var mut = 0;
+
 function fetchLog() {
+    if (mut != 0) {
+        return;
+    }
+    mut = 1;
+    httpGetAsync("/log", txt => {
+        document.getElementById("fetch").removeAttribute("disabled");
+        mut = 0;
+    });
 }
