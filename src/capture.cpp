@@ -222,14 +222,14 @@ void capture::do_capture(const config &config) {
     if (!auto_adjust_socket_snd_buffer(ctx.captured_frame->length)) {
       return false;
     }
-    auto ret = wait_msg(cap_web_fd, 0);
+    auto ret = ipc::send(cap_web_fd, 0);
     if (ret == 1) {
-      auto ready_msg = recv(cap_web_fd);
+      auto ready_msg = ipc::recv(cap_web_fd);
       if (ready_msg.first == 0) {
         std::string text((char *)ready_msg.second.content,
                          ready_msg.second.size);
         if (text == "READY") {
-          if (send_msg(cap_web_fd, out.data(), ctx.captured_frame->length)) {
+          if (ipc::send(cap_web_fd, out.data(), ctx.captured_frame->length)) {
             logger::warn("send frame to web failed");
           }
         }
