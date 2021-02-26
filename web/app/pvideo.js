@@ -45,7 +45,7 @@ var prevBtn;
 function runVideoUI() {
     nextBtn = document.getElementById("nextBtn");
     prevBtn = document.getElementById("prevBtn");
-    httpGetAsync("/video/file_log.json", txt => {
+    httpAsync("/video/file_log.json", "GET", null, txt => {
         files = JSON.parse(txt);
         displayPage();
         //不知道为啥，file.length%2==0的时候，最后一个元素就没有对齐了

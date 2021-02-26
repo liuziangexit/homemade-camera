@@ -1,8 +1,10 @@
 #include "ipc/ipc.h"
+#include "util/file_helper.h"
 #include "util/logger.h"
 #include "web/web.h"
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string>
 #include <sys/resource.h>
 #include <sys/socket.h>
@@ -10,6 +12,7 @@
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
+#include <vector>
 
 int quit = 0;
 
@@ -287,6 +290,7 @@ int main(int argc, char **argv) {
   signal(SIGINT, SIG_IGN);
   signal(SIGTERM, SIG_IGN);
   signal(SIGCHLD, SIG_IGN);
+  hcam::config::get();
   start_workers();
 
   //开始我自己的logger
@@ -327,7 +331,25 @@ int main(int argc, char **argv) {
       std::cout << "start_workers\r\n";
       //为了避免拷贝此线程的logger context过去
       //先关掉logger，消掉logger context
+      bool new_config_ok = true;
       hcam::logger::stop_logger();
+
+      hcam::config new_cfg;
+      if (!new_cfg.read("config_new.json")) {
+        new_config_ok = false;
+      } else {
+        std::vector<uint8_t> data;
+        if (!hcam::read_file("config_new.json", data)) {
+          std::cout << "hcam::read_file config_new.json failed!!!";
+          abort();
+        }
+        if (!hcam::write_file("config.json", data.data(), data.size())) {
+          std::cout << "hcam::write_file config_new.json failed!!!";
+          abort();
+        }
+        remove("config_new.json");
+        hcam::config::get_lazy().set_instance(new_cfg);
+      }
       start_workers();
       hcam::logger::start_logger(log_socks[LOGGER * 2]);
       std::cout << "start_workers ok\r\n";
@@ -340,7 +362,12 @@ int main(int argc, char **argv) {
         ctl_exit(254);
       }
       std::cout << "verify_workers ok\r\n";
-      hcam::logger::info("RELOAD CONFIG ok!!!");
+      if (new_config_ok) {
+        hcam::logger::info("RELOAD CONFIG ok!!!");
+      } else {
+        hcam::logger::info(
+            "RELOAD CONFIG failed, currently using previous configuration");
+      }
     }
   }
 }

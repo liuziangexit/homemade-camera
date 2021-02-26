@@ -102,7 +102,7 @@ function fetchLog() {
         return;
     }
     mut = 1;
-    httpGetAsync("/log", txt => {
+    httpAsync("/log", "GET", null, txt => {
         document.getElementById("fetch").removeAttribute("disabled");
         displayLog(txt);
         mut = 0;

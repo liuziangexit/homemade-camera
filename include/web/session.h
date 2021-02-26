@@ -1,5 +1,6 @@
 #ifndef HCAM_SESSION_H
 #define HCAM_SESSION_H
+#include "util/file_helper.h"
 #include "util/logger.h"
 #include "web/web.h"
 #include <boost/asio/any_io_executor.hpp>
@@ -170,6 +171,39 @@ private:
       res.prepare_payload();
       this->http_write(std::move(res));
       net_reload();
+      return;
+    } else if (target == "/newconfig") {
+      if (http_request.method_string() == "POST") {
+        auto body = http_request.body();
+
+        if (!write_file("config_new.json", body.data(), body.size())) {
+          boost::beast::http::response<boost::beast::http::string_body> res{
+              boost::beast::http::status::internal_server_error,
+              http_request.version()};
+          res.set(boost::beast::http::field::content_type, "text/html");
+          res.keep_alive(http_request.keep_alive());
+          res.body() = "can not write file";
+          res.prepare_payload();
+          this->http_write(std::move(res));
+        } else {
+          boost::beast::http::response<boost::beast::http::string_body> res{
+              boost::beast::http::status::ok, http_request.version()};
+          res.set(boost::beast::http::field::content_type, "text/html");
+          res.keep_alive(http_request.keep_alive());
+          res.body() = "ok";
+          res.prepare_payload();
+          this->http_write(std::move(res));
+          logger::info("/newconfig OK");
+        }
+      } else {
+        boost::beast::http::response<boost::beast::http::string_body> res{
+            boost::beast::http::status::bad_request, http_request.version()};
+        res.set(boost::beast::http::field::content_type, "text/html");
+        res.keep_alive(http_request.keep_alive());
+        res.body() = "";
+        res.prepare_payload();
+        this->http_write(std::move(res));
+      }
       return;
     }
 

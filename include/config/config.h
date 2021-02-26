@@ -11,6 +11,7 @@ namespace hcam {
 struct config {
   static liuziangexit_lazy::lazy_t<config, std::string> lazy;
   static config get() { return lazy.get_instance(); }
+  static decltype(lazy) &get_lazy() { return lazy; }
 
   enum log_level_t { DEBUG, INFO, WARN, ERROR, FATAL };
   log_level_t
@@ -51,13 +52,13 @@ struct config {
 
   friend typename liuziangexit_lazy::lazy_t<config, std::string>;
 
+  config() = default;
   config(const config &) = default;
   config(config &&) = default;
+  bool read(const std::string &);
 
 private:
   config(const std::string &);
-
-  bool read(const std::string &);
 
   bool write(const std::string &);
 };

@@ -10,6 +10,7 @@
  *
  * Requires C++17.
  *
+ * TODO 直接存lazy对象里就好了，不要再用alloctor去分配空间了
  */
 #pragma once
 #ifndef _liuziangexit_lazy
@@ -22,6 +23,7 @@
 #include <new>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 
 namespace liuziangexit_lazy {
 
@@ -29,35 +31,34 @@ namespace detail {
 
 template <std::size_t...> struct sequence {};
 
-template <std::size_t _Size, std::size_t... _Sequence>
+template <std::size_t Size, std::size_t... Sequence>
 struct make_integer_sequence
-    : make_integer_sequence<_Size - 1, _Size - 1, _Sequence...> {};
+    : make_integer_sequence<Size - 1, Size - 1, Sequence...> {};
 
-template <std::size_t... _Sequence>
-struct make_integer_sequence<0, _Sequence...> {
-  using type = sequence<_Sequence...>;
+template <std::size_t... Sequence>
+struct make_integer_sequence<0, Sequence...> {
+  using type = sequence<Sequence...>;
 };
 
-template <typename _Func, typename _Tuple, std::size_t... index>
-constexpr void do_call(const _Func &func, _Tuple &&tuple, sequence<index...>) {
-  func(std::get<index>(std::forward<_Tuple>(tuple))...);
+template <typename Func, typename Tuple, std::size_t... index>
+constexpr void do_call(const Func &func, Tuple &&tuple, sequence<index...>) {
+  func(std::get<index>(std::forward<Tuple>(tuple))...);
 }
 
-template <typename _Func, typename _Tuple>
-constexpr void function_call(const _Func &func, _Tuple &&tuple) {
-  do_call(func, std::forward<_Tuple>(tuple),
+template <typename Func, typename Tuple>
+constexpr void function_call(const Func &func, Tuple &&tuple) {
+  do_call(func, std::forward<Tuple>(tuple),
           typename make_integer_sequence<
-              std::tuple_size_v<std::remove_reference_t<_Tuple>>>::type());
+              std::tuple_size_v<std::remove_reference_t<Tuple>>>::type());
 }
 
 } // namespace detail
 
-template <typename _Ty, typename _Alloc, typename... _ConstructorArgs>
-class lazy {
+template <typename Ty, typename Alloc, typename... ConstructorArgs> class lazy {
 public:
   using value_type =
-      typename std::remove_reference_t<typename std::remove_cv_t<_Ty>>;
-  using allocator_type = _Alloc;
+      typename std::remove_reference_t<typename std::remove_cv_t<Ty>>;
+  using allocator_type = Alloc;
   using reference = value_type &;
   using const_reference = const value_type &;
   using pointer = value_type *;
@@ -69,7 +70,7 @@ public:
       "lazy::value_type should equals to lazy::allocator_type::value_type");
 
 private:
-  using constructor_arguments_tuple = std::tuple<_ConstructorArgs...>;
+  using constructor_arguments_tuple = std::tuple<ConstructorArgs...>;
 
 public:
   /*
@@ -81,13 +82,13 @@ public:
    This deduction makes variable 'args' becomes a forwarding reference but not
    a rvalue reference.
   */
-  template <typename... _DeductionTrigger>
+  template <typename... DeductionTrigger>
   constexpr explicit lazy(const allocator_type &alloc,
-                          _DeductionTrigger &&...args)
+                          DeductionTrigger &&...args)
       : m_instance(nullptr), //
         m_allocator(alloc),  //
         m_constructor_arguments(
-            std::make_tuple(std::forward<_DeductionTrigger>(args)...)) {}
+            std::make_tuple(std::forward<DeductionTrigger>(args)...)) {}
 
   lazy(const lazy &) = delete;
 
@@ -150,16 +151,36 @@ public:
         m_instance.store(instance, std::memory_order::memory_order_release);
       }
     }
-#ifdef __cpp_lib_launder
-    return *std::launder(instance);
-#else
     return *instance;
-#endif
   }
 
   // Indicates whether a value has been created.
   bool is_instance_created() {
     return m_instance.load(std::memory_order::memory_order_acquire);
+  }
+
+  bool set_instance(value_type &&val) {
+    return emplace_instance(std::move(val));
+  }
+
+  bool set_instance(value_type &val) { return emplace_instance(val); }
+
+  template <typename... ARGS> bool emplace_instance(ARGS &&...args) {
+    bool first_time;
+    std::lock_guard<std::mutex> guard(m_lock);
+    value_type *instance =
+        m_instance.load(std::memory_order::memory_order_relaxed);
+    if (!instance) {
+      // allocate memory
+      instance = this->m_allocator.allocate(1);
+      first_time = true;
+    } else {
+      instance->~value_type();
+      first_time = false;
+    }
+    instance = new (instance) value_type(std::forward<ARGS>(args)...);
+    m_instance.store(instance, std::memory_order::memory_order_release);
+    return first_time;
   }
 
 private:
@@ -169,18 +190,17 @@ private:
   std::mutex m_lock;
 };
 
-template <typename _Ty, typename... _ConstructorArgs>
-auto make_lazy(_ConstructorArgs &&...constructor_args) {
-  return lazy<_Ty, std::allocator<_Ty>,
-              std::remove_reference_t<std::remove_cv_t<_ConstructorArgs>>...>(
-      std::allocator<_Ty>(),
-      std::forward<_ConstructorArgs>(constructor_args)...);
+template <typename Ty, typename... ConstructorArgs>
+auto make_lazy(ConstructorArgs &&...constructor_args) {
+  return lazy<Ty, std::allocator<Ty>,
+              std::remove_reference_t<std::remove_cv_t<ConstructorArgs>>...>(
+      std::allocator<Ty>(), std::forward<ConstructorArgs>(constructor_args)...);
 }
 
-template <typename _Ty, typename... _ConstructorArgs>
+template <typename Ty, typename... ConstructorArgs>
 using lazy_t =
-    lazy<_Ty, std::allocator<_Ty>,
-         std::remove_reference_t<std::remove_cv_t<_ConstructorArgs>>...>;
+    lazy<Ty, std::allocator<Ty>,
+         std::remove_reference_t<std::remove_cv_t<ConstructorArgs>>...>;
 
 } // namespace liuziangexit_lazy
 #endif

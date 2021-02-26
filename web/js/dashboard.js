@@ -1,10 +1,10 @@
-function httpGetAsync(theUrl, callback) {
+function httpAsync(theUrl, method, data, callback) {
     var xhr = new XMLHttpRequest();
     if ("withCredentials" in xhr) {
-        xhr.open("GET", theUrl, true);
+        xhr.open(method, theUrl, true);
     } else if (typeof XDomainRequest != "undefined") {
         xhr = new XDomainRequest();
-        xhr.open("GET", theUrl);
+        xhr.open(method, theUrl);
     } else {
         return false;
     }
@@ -12,9 +12,13 @@ function httpGetAsync(theUrl, callback) {
         if (xhr.readyState == 4 && xhr.status == 200)
             callback(xhr.responseText);
     }
-    xhr.send();
+    if (data) {
+        xhr.send(data);
+    } else {
+        xhr.send();
+    }
     return true;
-};
+}
 
 var activeTab;
 var prevTab;
@@ -38,7 +42,7 @@ function tabClick(tabName, label, url, callback, dtor) {
     document.getElementById("loading-div").style = "height:100%";
     document.getElementById("loading-label").innerText = label;
 
-    httpGetAsync(url, txt => {
+    httpAsync(url, "GET", null, txt => {
         var eCopy;
         try {
             prevTab = activeTab;
