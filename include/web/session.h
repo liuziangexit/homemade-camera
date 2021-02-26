@@ -19,6 +19,8 @@
 
 #include "http_file_handler.h"
 
+extern void net_reload();
+
 namespace hcam {
 
 template <bool SSL>
@@ -158,6 +160,16 @@ private:
                                     "homemade-camera");
                        this->http_write(std::move(response));
                      });
+      return;
+    } else if (target == "/reload") {
+      boost::beast::http::response<boost::beast::http::string_body> res{
+          boost::beast::http::status::ok, http_request.version()};
+      res.set(boost::beast::http::field::content_type, "text/html");
+      res.keep_alive(false);
+      res.body() = "RELOADING...";
+      res.prepare_payload();
+      this->http_write(std::move(res));
+      net_reload();
       return;
     }
 

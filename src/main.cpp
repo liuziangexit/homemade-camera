@@ -16,7 +16,6 @@ int quit = 0;
 enum job_t { BAD_JOB = 99, CAPTURE = 0, NETWORK = 1, LOGGER = 2, END = 3 };
 const char *names[] = {"CAPTURE", "NETWORK", "LOGGER "};
 pid_t pids[END]{0};
-pid_t dead_children[END]{0};
 
 //现在的一些逻辑是基于unix domain sock绝不会出错这一前提之下的...
 //所有其他进程对ctl
@@ -25,6 +24,8 @@ int ctl_socks[END * 2]{0};
 int log_socks[END * 2]{0};
 // cap对net
 int cap_net[2];
+// net对ctl
+int net_ctl[2];
 
 job_t duty_by_pid(pid_t pid) {
   for (int i = 0; i < sizeof(pids) / sizeof(pid_t); i++) {
@@ -34,13 +35,7 @@ job_t duty_by_pid(pid_t pid) {
   return BAD_JOB;
 }
 
-void ctl_exit(int num) {
-  hcam::logger::info("ctl_exit due to ", num);
-  // unregister handler
-  signal(SIGINT, SIG_DFL);
-  signal(SIGTERM, SIG_DFL);
-  signal(SIGCHLD, SIG_DFL);
-  // kill children
+void terminate_children() {
   hcam::logger::debug("terminating child processes...");
   for (int i = 0; i < sizeof(pids) / sizeof(pid_t); i++) {
     if (pids[i]) {
@@ -76,6 +71,16 @@ void ctl_exit(int num) {
       }
     }
   }
+}
+
+void ctl_exit(int num) {
+  hcam::logger::info("ctl_exit due to ", num);
+  // unregister handler
+  signal(SIGINT, SIG_IGN);
+  signal(SIGTERM, SIG_IGN);
+  signal(SIGCHLD, SIG_DFL);
+  // kill children
+  terminate_children();
   // close ipc socks
   //这个其实在这里关不关都不重要了，因为fork的时候把fd
   // table也复制了一份，所以每个
@@ -92,7 +97,9 @@ void ctl_exit(int num) {
   close(cap_net[0]);
   close(cap_net[1]);*/
   // hcam::logger::info( getpid(), "(ctl) exit");
+
   quit = 2;
+  hcam::ipc::send(net_ctl[0], "EXIT");
   exit(num);
 }
 
@@ -124,10 +131,6 @@ void signal_handler(int signum) {
         }
         hcam::logger::warn("child ", names[d], " ", pids[d],
                            " exits unexpectedly, status was ", es);
-        if (dead_children[d]) {
-          // failed to respawned job, ignore it
-          continue;
-        }
         hcam::logger::warn("trying to respawn job ", names[d]);
         //为了避免拷贝此线程的logger context过去
         //先关掉logger，消掉logger context
@@ -141,11 +144,9 @@ void signal_handler(int signum) {
         }
         int pong = ping_child(d);
         if (pong) {
-          hcam::logger::warn("failed to respawn job ", names[d],
-                             ", keep running without it...");
-          dead_children[d] = 1;
-          /*ctl_exit(244);
-          abort();*/
+          hcam::logger::warn("failed to respawn job ", names[d]);
+          ctl_exit(244);
+          abort();
         } else {
           hcam::logger::warn("job ", names[d], " ", child, " respawned");
         }
@@ -168,7 +169,7 @@ void signal_handler(int signum) {
 //不要让child被信号中止，而是parent收到信号之后，通过ipc通知child退出
 void do_nothing_signal_handler(int signum) {}
 
-extern void net_proc(int ctl_fd, int log_fd, int cap_fd);
+extern void net_proc(int ctl_fd, int log_fd, int cap_fd, int net_ctl);
 extern void cap_proc(int ctl_fd, int log_fd, int net_fd);
 [[noreturn]] extern void logger_proc(int ctl_fd, int *client_fds,
                                      const char **client_names, int client_cnt);
@@ -182,7 +183,7 @@ void work(job_t duty) {
     cap_proc(ctl_socks[duty * 2], log_socks[duty * 2], cap_net[1]);
     break;
   case NETWORK:
-    net_proc(ctl_socks[duty * 2], log_socks[duty * 2], cap_net[0]);
+    net_proc(ctl_socks[duty * 2], log_socks[duty * 2], cap_net[0], net_ctl[0]);
     break;
   case LOGGER:
     int client_fds[END];
@@ -231,8 +232,29 @@ int ping_child(job_t j) {
   return 0;
 }
 
-// TODO 显示proc的名字，还要设置proc的名字
-void proc_name() {}
+void start_workers() {
+  for (int i = 0; i < END; i++) {
+    pid_t child = born_child((job_t)i);
+    assert(child != 0);
+    if (child == -1) {
+      hcam::logger::info("failed to create job ", names[i], ", quitting...");
+      ctl_exit(255);
+    }
+    pids[i] = child;
+  }
+}
+
+bool verify_workers() {
+  for (int i = 0; i < END; i++) {
+    int ret = ping_child((job_t)i);
+    if (ret) {
+      hcam::logger::fatal("failed to contact child ", names[i]);
+      return false;
+    }
+    hcam::logger::info("child ", names[i], " ", pids[i], " online");
+  }
+  return true;
+}
 
 int main(int argc, char **argv) {
   //准备ipc用的sock
@@ -254,17 +276,18 @@ int main(int argc, char **argv) {
       abort();
     }
   }
+  for (int i = 0; i < sizeof(net_ctl) / sizeof(int) / 2; i++) {
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, &net_ctl[i * 2])) {
+      perror("socketpair failed");
+      abort();
+    }
+  }
 
   //创建工作进程
-  for (int i = 0; i < END; i++) {
-    pid_t child = born_child((job_t)i);
-    assert(child != 0);
-    if (child == -1) {
-      hcam::logger::info("failed to create job ", names[i], ", quitting...");
-      ctl_exit(255);
-    }
-    pids[i] = child;
-  }
+  signal(SIGINT, SIG_IGN);
+  signal(SIGTERM, SIG_IGN);
+  signal(SIGCHLD, SIG_IGN);
+  start_workers();
 
   //开始我自己的logger
   //用了LOGGER的位置，因为他们自己不需要这个log sock
@@ -275,18 +298,49 @@ int main(int argc, char **argv) {
   signal(SIGTERM, signal_handler);
   signal(SIGCHLD, signal_handler);
   // 通过ipc验证刚创建的children是否还活着
-  for (int i = 0; i < END; i++) {
-    int ret = ping_child((job_t)i);
-    if (ret) {
-      hcam::logger::fatal("failed to contact child ", names[i]);
-      ctl_exit(233);
-    }
-    hcam::logger::info("child ", names[i], " ", pids[i], " online");
+  if (!verify_workers()) {
+    ctl_exit(233);
   }
 
   // FIXME 卧槽，这就是UB吗？
   // std::this_thread::sleep_for(std::chrono::hours::max());
-  while (quit != 2) {
+
+  /*while (quit != 2) {
     pause();
+  }*/
+
+  while (quit != 2) {
+    auto message = hcam::ipc::recv(net_ctl[1]);
+    if (message.first) {
+      std::cout << "WHAT???main  hcam::ipc::recv failed!!";
+      abort();
+    }
+    std::string text((char *)message.second.content, message.second.size);
+    if (text == "EXIT")
+      break;
+    if (text == "RELOAD CONFIG") {
+      hcam::logger::info("RELOAD CONFIG begin!!!");
+      signal(SIGINT, SIG_IGN);
+      signal(SIGTERM, SIG_IGN);
+      signal(SIGCHLD, SIG_DFL);
+      terminate_children();
+      std::cout << "start_workers\r\n";
+      //为了避免拷贝此线程的logger context过去
+      //先关掉logger，消掉logger context
+      hcam::logger::stop_logger();
+      start_workers();
+      hcam::logger::start_logger(log_socks[LOGGER * 2]);
+      std::cout << "start_workers ok\r\n";
+      signal(SIGINT, signal_handler);
+      signal(SIGTERM, signal_handler);
+      signal(SIGCHLD, signal_handler);
+      std::cout << "verify_workers\r\n";
+      if (!verify_workers()) {
+        std::cout << "verify_workers failed\r\n";
+        ctl_exit(254);
+      }
+      std::cout << "verify_workers ok\r\n";
+      hcam::logger::info("RELOAD CONFIG ok!!!");
+    }
   }
 }
