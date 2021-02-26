@@ -110,8 +110,8 @@ std::pair<bool, std::string> process_message(int level,
           ipc::child_exit(88);
         }
       } else if (text == "EXIT") {
-        std::cout << "IPC EXIT, quitting...\r\n";
-        ipc::child_exit(79);
+        std::cout << "LOGGER process quitting...\r\n";
+        exit(79);
       }
     } else {
       //处理client

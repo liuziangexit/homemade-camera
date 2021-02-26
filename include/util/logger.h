@@ -26,10 +26,19 @@ class logger {
     time_t time;
     std::string message;
   };
-  static std::atomic<bool> quit;
-  static std::mutex mut;
-  static std::condition_variable cv;
-  static std::queue<log> log_queue;
+
+public:
+  struct logger_ctx {
+    std::atomic<bool> quit = false;
+    std::mutex mut;
+    std::condition_variable cv;
+    std::queue<log> log_queue;
+    std::thread sender;
+  };
+
+private:
+  static logger_ctx *context;
+  alignas(logger_ctx) static unsigned char context_place[sizeof(logger_ctx)];
 
   template <typename... ARGS>
   static void logger_impl(uint32_t level, ARGS &&...args) {
@@ -39,9 +48,9 @@ class logger {
     std::ostringstream os;
     format(os, std::forward<ARGS>(args)...);
 
-    std::unique_lock<std::mutex> l(mut);
-    log_queue.push(log{level, tm, os.str()});
-    cv.notify_one();
+    std::unique_lock<std::mutex> l(context->mut);
+    context->log_queue.push(log{level, tm, os.str()});
+    context->cv.notify_one();
     // std::cout << os.str() << "\r\n";
   }
 
@@ -63,7 +72,13 @@ class logger {
 
 public:
   static void start_logger(int fd) {
-    std::thread([fd] {
+    if (context) {
+      std::cout << "start_logger failed: if(context)\r\n";
+      abort();
+    }
+    context = reinterpret_cast<logger_ctx *>(&context_place);
+    context = new (context) logger_ctx();
+    context->sender = std::thread([fd] {
       int sock_snd_buffer_len;
       socklen_t optlen = sizeof(sock_snd_buffer_len);
 
@@ -89,13 +104,14 @@ public:
       };
 
       while (true) {
-        std::unique_lock<std::mutex> l(mut);
-        cv.wait(l, [] { return !log_queue.empty() || quit; });
-        if (quit) {
+        std::unique_lock<std::mutex> l(context->mut);
+        context->cv.wait(
+            l, [] { return !context->log_queue.empty() || context->quit; });
+        if (context->quit) {
           return;
         }
-        log message = log_queue.front();
-        log_queue.pop();
+        log message = context->log_queue.front();
+        context->log_queue.pop();
         l.unlock();
 
         if (message.message.size() > sock_snd_buffer_len) {
@@ -139,12 +155,17 @@ public:
     ERROR:
       std::cout << "logger thread abort\r\n";
       abort();
-    }).detach();
+    });
   }
 
-  static inline void stop_logger() {
-    quit = true;
-    cv.notify_one();
+  static void stop_logger() {
+    context->quit = true;
+    context->cv.notify_one();
+    if (context->sender.joinable()) {
+      context->sender.join();
+    }
+    context->~logger_ctx();
+    context = nullptr;
   }
 
   template <typename... ARGS> static void debug(ARGS &&...args) {

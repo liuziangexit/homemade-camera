@@ -44,41 +44,53 @@ void ctl_exit(int num) {
   hcam::logger::debug("terminating child processes...");
   for (int i = 0; i < sizeof(pids) / sizeof(pid_t); i++) {
     if (pids[i]) {
-      hcam::logger::debug("killing ", names[i], " ", pids[i]);
+      hcam::logger::debug("sending EXIT to ", names[i], " ", pids[i]);
       if (hcam::ipc::send(ctl_socks[i * 2 + 1], "EXIT")) {
         hcam::logger::error("failed to kill child ", names[i], " ", pids[i]);
       }
       int status;
+      hcam::logger::debug("waiting ", names[i], " ", pids[i]);
       int ret = waitpid(pids[i], &status, 0);
       if (ret == -1) {
         if (errno == ECHILD) {
           hcam::logger::warn("child ", names[i], " ", pids[i], " already dead");
           continue;
         }
-        hcam::logger::fatal("waitpid failed");
+        /*hcam::logger::fatal("waitpid failed");*/
         perror("waitpid failed");
         abort();
       }
       if (WIFEXITED(status)) {
         const int es = WEXITSTATUS(status);
-        hcam::logger::debug("child ", names[i], " ", pids[i],
-                            " exit status was ", es);
+        std::cout << "child " << names[i] << " " << pids[i]
+                  << " exit status was " << es << "\r\n";
+      } else if (WIFSIGNALED(status)) {
+        const int es = WTERMSIG(status);
+        std::cout << "child " << names[i] << " " << pids[i]
+                  << " terminated by signal " << es << "\r\n";
       } else {
         //应该不会，如果这样了再看看怎么整
-        hcam::logger::fatal("unexpected waitpid return value");
+        std::cout << "unexpected waitpid return value"
+                  << "\r\n";
         abort();
       }
     }
   }
   // close ipc socks
-  for (int i = 0; i < sizeof(ctl_socks) / sizeof(int); i++) {
+  //这个其实在这里关不关都不重要了，因为fork的时候把fd
+  // table也复制了一份，所以每个
+  // fd其实都是有一个引用计数的，我们在这里关了，也不过是引用计数-1。因为child
+  // process没有close这些fd！
+  //而在我们这代码里，是不可能让childprocess去close的，所以干脆不管了，反正又不在某些独特的嵌入式系统上跑，
+  // 不closefd也不会泄漏资源什么的
+  /*for (int i = 0; i < sizeof(ctl_socks) / sizeof(int); i++) {
     close(ctl_socks[i]);
   }
   for (int i = 0; i < sizeof(log_socks) / sizeof(int); i++) {
     close(log_socks[i]);
   }
   close(cap_net[0]);
-  close(cap_net[1]);
+  close(cap_net[1]);*/
   // hcam::logger::info( getpid(), "(ctl) exit");
   quit = 2;
   exit(num);
@@ -110,7 +122,11 @@ void signal_handler(int signum) {
           continue;
         }
         hcam::logger::warn("trying to respawn job ", names[d]);
+        //为了避免拷贝此线程的logger context过去
+        //先关掉logger，消掉logger context
+        hcam::logger::stop_logger();
         pid_t child = born_child(d);
+        hcam::logger::start_logger(log_socks[LOGGER * 2]);
         if (child == -1) {
           hcam::logger::warn("failed to create job ", names[d],
                              ", quitting...");
@@ -232,10 +248,6 @@ int main(int argc, char **argv) {
     }
   }
 
-  //开始我自己的logger
-  //用了LOGGER的位置，因为他们自己不需要这个log sock
-  hcam::logger::start_logger(log_socks[LOGGER * 2]);
-
   //创建工作进程
   for (int i = 0; i < END; i++) {
     pid_t child = born_child((job_t)i);
@@ -246,6 +258,10 @@ int main(int argc, char **argv) {
     }
     pids[i] = child;
   }
+
+  //开始我自己的logger
+  //用了LOGGER的位置，因为他们自己不需要这个log sock
+  hcam::logger::start_logger(log_socks[LOGGER * 2]);
 
   //开始初始化control进程
   signal(SIGINT, signal_handler);

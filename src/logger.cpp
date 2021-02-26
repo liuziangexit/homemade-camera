@@ -2,8 +2,7 @@
 #include <mutex>
 
 namespace hcam {
-std::atomic<bool> logger::quit = false;
-std::mutex logger::mut;
-std::condition_variable logger::cv;
-std::queue<logger::log> logger::log_queue;
+logger::logger_ctx *logger::context = nullptr;
+alignas(logger::logger_ctx) unsigned char logger::context_place[sizeof(
+    logger::logger_ctx)];
 } // namespace hcam
