@@ -24,7 +24,7 @@ void handle_request(
     boost::beast::string_view doc_root,
     boost::beast::http::request<
         Body, boost::beast::http::basic_fields<Allocator>> &&req,
-    Send &&send) {
+    Send &&send, bool security_check = true) {
   // Returns a bad request response
   auto const bad_request = [&req](boost::beast::string_view why) {
     boost::beast::http::response<boost::beast::http::string_body> res{
@@ -64,9 +64,12 @@ void handle_request(
     return send(bad_request("Unknown HTTP-method"));
 
   // Request path must be absolute and not contain "..".
-  if (req.target().empty() || req.target()[0] != '/' ||
-      req.target().find("..") != boost::beast::string_view::npos)
-    return send(bad_request("Illegal request-target"));
+  if (security_check) {
+    if (req.target().empty() || req.target()[0] != '/' ||
+        req.target().find("..") != boost::beast::string_view::npos) {
+      return send(bad_request("Illegal request-target"));
+    }
+  }
 
   // Build the path to the requested file
   std::string path = path_cat(doc_root, req.target());

@@ -151,15 +151,14 @@ private:
                      });
       return;
     } else if (target == "/log") {
-      /* http_request.target(config::get().l);
-       handle_request(boost::beast::string_view(config::get().save_location),
-                      std::move(http_request), [this](auto &&response) {
-             response.set(boost::beast::http::field::server,
-                          "homemade-camera");
-             this->http_write(std::move(response));
-           });
-           return ;
-           */
+      http_request.target("/" + config::get().log_file);
+      handle_request(boost::beast::string_view("."), std::move(http_request),
+                     [this](auto &&response) {
+                       response.set(boost::beast::http::field::server,
+                                    "homemade-camera");
+                       this->http_write(std::move(response));
+                     });
+      return;
     }
 
     static const std::string video_prefix = "/video";
