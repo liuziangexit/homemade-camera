@@ -27,7 +27,7 @@ int log_socks[END * 2]{0};
 int cap_net[2];
 
 job_t duty_by_pid(pid_t pid) {
-  for (int i = 0; i < sizeof(pid) / sizeof(pid_t); i++) {
+  for (int i = 0; i < sizeof(pids) / sizeof(pid_t); i++) {
     if (pids[i] == pid)
       return (job_t)i;
   }
@@ -108,11 +108,18 @@ void signal_handler(int signum) {
     //目前不存在process group，所以就不管waitpid()<-1的情况
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
       //有个进程挂了！把它扶起来！在一个时间段内最多拉3次，如果还阿斗，那么就不扶了
+      int es, quited = 0;
       if (WIFEXITED(status)) {
-        const int es = WEXITSTATUS(status);
+        es = WEXITSTATUS(status);
+        quited = 1;
+      } else if (WIFSIGNALED(status)) {
+        es = WTERMSIG(status);
+        quited = 1;
+      }
+      if (quited) {
         job_t d = duty_by_pid(pid);
         if (d == BAD_JOB) {
-          hcam::logger::warn("duty_by_pid failed, quitting...");
+          hcam::logger::warn("duty_by_pid ", pid, " failed, quitting...");
           ctl_exit(251);
         }
         hcam::logger::warn("child ", names[d], " ", pids[d],
