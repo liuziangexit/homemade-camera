@@ -222,7 +222,7 @@ void capture::do_capture(const config &config) {
     if (!auto_adjust_socket_snd_buffer(ctx.captured_frame->length)) {
       return false;
     }
-    auto ret = ipc::send(cap_web_fd, 0);
+    auto ret = ipc::wait(cap_web_fd, 0);
     if (ret == 1) {
       auto ready_msg = ipc::recv(cap_web_fd);
       if (ready_msg.first == 0) {
