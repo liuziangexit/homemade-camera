@@ -9,18 +9,20 @@
 目前只实现了最基本的功能：网络直播、录像回看。但未来如果有空的话，也许我会加上对象识别和人脸识别的功能，这样如果有个形迹可疑的陌生人在你家门口徘徊，这个程序就可以发送一条通知到你的手机上！
 
 <h2>截图</h2>
+这是我自己的硬件，一个树莓派4B，一个淘宝上买的深圳产USB摄像头
+<img src="img/hardware.jpg"/>
+这是在电脑浏览器里看直播的效果（当然，这个直播画面是PS上去的）
+<img src="img/browser.jpg"/>
 <br>
-这是在电脑浏览器里看直播的效果
-<img src="img/browser.png"/>
+这是在手机上看直播的效果（当然，这个直播画面是PS上去的）
+<img src="img/live.jpg"/>
 <br>
 这是在手机桌面样子（是的，我们是有一个pwa程序）
-<img src="img/springboard.png"/>
+<img src="img/springboard.jpg"/>
 <br>
-这是在手机上看直播的效果
-<img src="img/live.png"/>
-<br>
+
 这是在手机上的启动屏幕（如果你观察的足够仔细，就能发现猪戴的帽子其实是一个摄像头）
-<img src="img/startup.png"/>
+<img src="img/startup.jpg"/>
 
 <h2>第三方库</h2>
 
