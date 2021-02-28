@@ -102,9 +102,14 @@ function fetchLog() {
         return;
     }
     mut = 1;
+    document.getElementById("fetch").removeAttribute("disabled");
+    document.getElementById("loading-div").style = "height:100%";
+    var prevMainStyle = document.getElementById("main").style;
+    document.getElementById("main").style = "display:none";
     httpAsync("/log", "GET", null, txt => {
-        document.getElementById("fetch").removeAttribute("disabled");
         displayLog(txt);
+        document.getElementById("loading-div").style = "display: none";
+        document.getElementById("main").style = prevMainStyle;
         mut = 0;
     });
 }

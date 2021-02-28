@@ -73,6 +73,7 @@ function draw(color, text, frame, nochange) {
 }
 
 function startLivestream() {
+    document.getElementById("loading-div").style = "display: none";
     if (!canvas.getContext) {
         alert("浏览器不完整支持canvas的功能，无法进行直播");
         return;

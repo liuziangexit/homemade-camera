@@ -3,6 +3,7 @@ function runSettingsUI() {
         document.getElementById("configtxt").value = txt;
         document.getElementById("upload").removeAttribute("disabled");
         document.getElementById("reboot").removeAttribute("disabled");
+        document.getElementById("loading-div").style = "display: none";
     });
 }
 

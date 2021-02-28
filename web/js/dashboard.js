@@ -56,7 +56,7 @@ function tabClick(tabName, label, url, callback, dtor) {
         } catch (e) {
             eCopy = e;
         }
-        document.getElementById("loading-div").style = "display: none";
+        //document.getElementById("loading-div").style = "display: none";
         loadingPanel = false;
         if (eCopy)
             throw eCopy;
