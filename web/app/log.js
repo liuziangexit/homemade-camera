@@ -97,19 +97,42 @@ function displayLog(log) {
     }
 }
 
+var log;
+
 function fetchLog() {
     if (mut != 0) {
         return;
     }
     mut = 1;
     document.getElementById("fetch").removeAttribute("disabled");
+    document.getElementById("downloadBtn").removeAttribute("disabled");
     document.getElementById("loading-div").style = "height:100%";
     var prevMainStyle = document.getElementById("main").style;
     document.getElementById("main").style = "display:none";
     httpAsync("/log", "GET", null, txt => {
+        log = txt;
         displayLog(txt);
         document.getElementById("loading-div").style = "display: none";
         document.getElementById("main").style = prevMainStyle;
         mut = 0;
     });
+}
+
+function downloadLogFile() {
+    if (log) {
+        var elementA = document.createElement('a');
+
+        //文件的名称为时间戳加文件名后缀
+        elementA.download = "log.txt";
+        elementA.style.display = 'none';
+
+        //生成一个blob二进制数据，内容为json数据
+        var blob = new Blob([log]);
+
+        //生成一个指向blob的URL地址，并赋值给a标签的href属性
+        elementA.href = URL.createObjectURL(blob);
+        document.body.appendChild(elementA);
+        elementA.click();
+        document.body.removeChild(elementA);
+    }
 }

@@ -37,6 +37,7 @@ function drawStatus(color, text) {
 var prevColor;
 var prevText;
 var prevFrame;
+var prevRawFrame;
 
 var lastFrameTime = 0;
 var twinkleTime = Date.now();
@@ -118,6 +119,7 @@ function startLivestream() {
                             frameCnt++;
                         }
 
+                        prevRawFrame = msg.data;
                         var frame = new Image();
                         frame.src = URL.createObjectURL(msg.data);
                         frame.onload = () => {
@@ -183,10 +185,25 @@ function getBase64Image(img) {
 
 function saveFrame() {
     if (prevFrame) {
-        var imgData = getBase64Image(prevFrame);
+        /*var imgData = getBase64Image(prevFrame);
         var imgControl = '<img src="' + imgData + '">';
         var w = window.open("", '_blank');
         w.document.write(imgControl);
-        w.document.close();
+        w.document.close();*/
+
+        var elementA = document.createElement('a');
+
+        //文件的名称为时间戳加文件名后缀
+        elementA.download = +new Date() + ".jpg";
+        elementA.style.display = 'none';
+
+        //生成一个blob二进制数据，内容为json数据
+        var blob = new Blob([prevRawFrame]);
+
+        //生成一个指向blob的URL地址，并赋值给a标签的href属性
+        elementA.href = URL.createObjectURL(blob);
+        document.body.appendChild(elementA);
+        elementA.click();
+        document.body.removeChild(elementA);
     }
 }
