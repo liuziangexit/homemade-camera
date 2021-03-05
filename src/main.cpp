@@ -129,8 +129,10 @@ void signal_handler(int signum) {
       if (quited) {
         job_t d = duty_by_pid(pid);
         if (d == BAD_JOB) {
-          hcam::logger::warn("duty_by_pid ", pid, " failed, quitting...");
-          ctl_exit(251);
+          //这个job重生失败了，不管他
+          break;
+          /*hcam::logger::warn("duty_by_pid ", pid, " failed, quitting...");
+          ctl_exit(251);*/
         }
         hcam::logger::warn("child ", names[d], " ", pids[d],
                            " exits unexpectedly, status was ", es);
@@ -148,12 +150,14 @@ void signal_handler(int signum) {
         int pong = ping_child(d);
         if (pong) {
           hcam::logger::warn("failed to respawn job ", names[d]);
-          ctl_exit(244);
-          abort();
+          hcam::logger::warn("running without job ", names[d]);
+          pids[d] = 0;
+          /*ctl_exit(244);
+          abort();*/
         } else {
           hcam::logger::warn("job ", names[d], " ", child, " respawned");
+          pids[d] = child;
         }
-        pids[d] = child;
       }
     }
     break;

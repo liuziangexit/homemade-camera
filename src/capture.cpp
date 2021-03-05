@@ -78,7 +78,12 @@ void capture::run(int ipc_fd) {
   write_thread = std::thread([this] { this->do_write(this->_config); });
 
   //处理ipc
-  while (true) {
+  while (state == RUNNING) {
+    if (0 == ipc::wait(ipc_fd, 1000)) {
+      //这里是为了每秒都检查state这个标志，如果其他线程都退出了，那么这个循环也该退出了
+      continue;
+    }
+
     auto msg = ipc::recv(ipc_fd);
     if (msg.first) {
       logger::error("ipc handler read failed, quitting...", msg.first);
